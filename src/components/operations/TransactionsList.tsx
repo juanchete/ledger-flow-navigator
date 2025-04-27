@@ -103,7 +103,9 @@ export const TransactionsList = ({ selectedType, searchQuery }: TransactionsList
                 </div>
                 
                 <div className="md:col-span-1 flex justify-end">
-                  <Button size="sm" variant="ghost">View</Button>
+                  <Button size="sm" variant="ghost" asChild>
+                    <Link to={`/operations/transaction/${transaction.id}`}>View</Link>
+                  </Button>
                 </div>
               </div>
             );

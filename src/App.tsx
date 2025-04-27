@@ -14,6 +14,7 @@ import Invoices from "./pages/Invoices";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import AccountDetail from "./pages/AccountDetail";
+import TransactionDetail from "./pages/TransactionDetail";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/clients" element={<Clients />} />
             <Route path="/clients/:clientId" element={<ClientDetail />} />
             <Route path="/operations" element={<Operations />} />
+            <Route path="/operations/transaction/:transactionId" element={<TransactionDetail />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/statistics" element={<Statistics />} />
             <Route path="/invoices" element={<Invoices />} />
