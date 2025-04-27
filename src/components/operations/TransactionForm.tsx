@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -44,11 +45,17 @@ export const TransactionForm = () => {
     setIsNewClientDialogOpen(false);
   };
 
+  // Ensure we have arrays even if the data is undefined
   const filteredBankAccounts = selectedBank 
-    ? mockBankAccounts.filter(account => account.bank === selectedBank)
+    ? (mockBankAccounts || []).filter(account => account.bank === selectedBank)
     : [];
 
   const availableClients = mockClients || [];
+
+  // Get unique banks for the bank selection dropdown
+  const availableBanks = Array.from(
+    new Set((mockBankAccounts || []).map(account => account.bank))
+  );
 
   return (
     <div className="grid gap-4 py-4">
@@ -215,13 +222,13 @@ export const TransactionForm = () => {
 
       <div className="grid gap-4">
         <div className="grid gap-2">
-          <Label>Bank Account</Label>
+          <Label>Bank</Label>
           <Select value={selectedBank} onValueChange={setSelectedBank}>
             <SelectTrigger>
               <SelectValue placeholder="Select bank" />
             </SelectTrigger>
             <SelectContent>
-              {Array.from(new Set((mockBankAccounts || []).map(account => account.bank))).map(bank => (
+              {availableBanks.map(bank => (
                 <SelectItem key={bank} value={bank}>{bank}</SelectItem>
               ))}
             </SelectContent>
