@@ -13,7 +13,9 @@ import {
   ArrowUp,
   ArrowDown,
   CircleAlert,
-  PieChart
+  PieChart,
+  DollarSign,
+  Coins
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
@@ -357,6 +359,44 @@ const Dashboard = () => {
                 <File className="h-8 w-8 text-finance-gray mb-2" />
                 <span className="text-sm font-medium">Reports</span>
               </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Disponible en USD</CardTitle>
+            <CardDescription className="text-2xl font-bold">{formatCurrency(75420.50)}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center">
+                <DollarSign size={16} className="mr-2 text-finance-blue" />
+                <span>Balance total en dólares</span>
+              </div>
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/balance/details">Ver detalles</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Disponible en VES</CardTitle>
+            <CardDescription className="text-2xl font-bold">Bs. 3,425,750.00</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center">
+                <Coins size={16} className="mr-2 text-finance-green" />
+                <span>Balance total en bolívares</span>
+              </div>
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/balance/details">Ver detalles</Link>
+              </Button>
             </div>
           </CardContent>
         </Card>
