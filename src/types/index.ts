@@ -1,3 +1,4 @@
+
 export interface Client {
   id: string;
   name: string;
@@ -53,7 +54,7 @@ export interface CalendarEvent {
   description: string;
   startDate: Date;
   endDate: Date;
-  category: 'legal' | 'banking' | 'home' | 'social' | 'charity' | 'other';
+  category: 'legal' | 'banking' | 'home' | 'social' | 'charity' | 'other' | 'meeting' | 'deadline' | 'reminder';
   clientId?: string;
   isReminder: boolean;
   completed: boolean;

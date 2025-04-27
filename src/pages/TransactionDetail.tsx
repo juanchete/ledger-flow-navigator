@@ -1,7 +1,7 @@
 
 import { useParams, Link } from "react-router-dom";
 import { format } from "date-fns";
-import { ArrowLeft, BanknoteDollarSign, Clock, Info, User, AlertTriangle } from "lucide-react";
+import { ArrowLeft, BadgeDollarSign, Clock, Info, User, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -82,7 +82,7 @@ const TransactionDetail = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <BanknoteDollarSign size={20} />
+              <BadgeDollarSign size={20} />
               Transaction Information
             </CardTitle>
           </CardHeader>

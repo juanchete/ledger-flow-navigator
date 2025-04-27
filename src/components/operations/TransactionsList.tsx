@@ -1,5 +1,6 @@
 
 import { format } from "date-fns";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { mockTransactions, mockClients } from "@/data/mockData";
