@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
+import { useState } from "react";
+import { BankAccountsModal } from "@/components/BankAccountsModal";
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -28,7 +30,20 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
+const mockUSDAccounts = [
+  { id: "1", bank: "Bank of America", accountNumber: "****1234", amount: 50000, currency: "USD" },
+  { id: "2", bank: "Chase", accountNumber: "****5678", amount: 25420.50, currency: "USD" },
+] as const;
+
+const mockVESAccounts = [
+  { id: "3", bank: "Banco Mercantil", accountNumber: "****9012", amount: 2425750.00, currency: "VES" },
+  { id: "4", bank: "Banesco", accountNumber: "****3456", amount: 1000000.00, currency: "VES" },
+] as const;
+
 const Dashboard = () => {
+  const [showUSDModal, setShowUSDModal] = useState(false);
+  const [showVESModal, setShowVESModal] = useState(false);
+
   const currentStats = mockFinancialStats[mockFinancialStats.length - 1];
   const previousStats = mockFinancialStats[mockFinancialStats.length - 2];
   
@@ -132,7 +147,9 @@ const Dashboard = () => {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Disponible en USD</CardTitle>
-            <CardDescription className="text-2xl font-bold">{formatCurrency(75420.50)}</CardDescription>
+            <CardDescription className="text-2xl font-bold">
+              {formatCurrency(mockUSDAccounts.reduce((sum, acc) => sum + acc.amount, 0))}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between text-sm">
@@ -140,8 +157,8 @@ const Dashboard = () => {
                 <DollarSign size={16} className="mr-2 text-finance-blue" />
                 <span>Balance total en dólares</span>
               </div>
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/balance/details">Ver detalles</Link>
+              <Button variant="outline" size="sm" onClick={() => setShowUSDModal(true)}>
+                Ver detalles
               </Button>
             </div>
           </CardContent>
@@ -150,7 +167,9 @@ const Dashboard = () => {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Disponible en VES</CardTitle>
-            <CardDescription className="text-2xl font-bold">Bs. 3,425,750.00</CardDescription>
+            <CardDescription className="text-2xl font-bold">
+              Bs. {new Intl.NumberFormat('es-VE').format(mockVESAccounts.reduce((sum, acc) => sum + acc.amount, 0))}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between text-sm">
@@ -158,8 +177,8 @@ const Dashboard = () => {
                 <Coins size={16} className="mr-2 text-finance-green" />
                 <span>Balance total en bolívares</span>
               </div>
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/balance/details">Ver detalles</Link>
+              <Button variant="outline" size="sm" onClick={() => setShowVESModal(true)}>
+                Ver detalles
               </Button>
             </div>
           </CardContent>
@@ -400,6 +419,20 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+      
+      <BankAccountsModal
+        isOpen={showUSDModal}
+        onClose={() => setShowUSDModal(false)}
+        currency="USD"
+        accounts={mockUSDAccounts}
+      />
+      
+      <BankAccountsModal
+        isOpen={showVESModal}
+        onClose={() => setShowVESModal(false)}
+        currency="VES"
+        accounts={mockVESAccounts}
+      />
     </div>
   );
 };
