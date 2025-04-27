@@ -53,10 +53,11 @@ export interface CalendarEvent {
   description: string;
   startDate: Date;
   endDate: Date;
-  category: 'meeting' | 'deadline' | 'reminder' | 'other';
+  category: 'legal' | 'banking' | 'home' | 'social' | 'charity' | 'other';
   clientId?: string;
   isReminder: boolean;
   completed: boolean;
+  reminderDays?: number;
   createdAt: Date;
   updatedAt: Date;
 }

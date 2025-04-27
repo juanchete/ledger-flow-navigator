@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { mockCalendarEvents, mockClients } from "@/data/mockData";
 import { CalendarEvent } from "@/types";
-import { format, isToday, isWithinInterval, addDays, parseISO } from "date-fns";
+import { format, isToday, addDays, parseISO } from "date-fns";
 import { AlertTriangle, Calendar as CalendarIcon, CalendarCheck, CalendarDays, PlusCircle } from "lucide-react";
 
 const Calendar = () => {
@@ -41,35 +40,60 @@ const Calendar = () => {
 
   const getCategoryColor = (category: string) => {
     switch(category) {
-      case 'meeting':
-        return 'bg-finance-blue text-white';
-      case 'deadline':
-        return 'bg-finance-red text-white';
-      case 'reminder':
-        return 'bg-finance-yellow text-finance-gray-dark';
+      case 'legal':
+        return 'bg-purple-600 text-white';
+      case 'banking':
+        return 'bg-blue-600 text-white';
+      case 'home':
+        return 'bg-green-600 text-white';
+      case 'social':
+        return 'bg-yellow-600 text-black';
+      case 'charity':
+        return 'bg-pink-600 text-white';
       default:
-        return 'bg-finance-gray text-white';
+        return 'bg-gray-600 text-white';
+    }
+  };
+
+  const getCategoryIcon = (category: string) => {
+    switch(category) {
+      case 'legal':
+        return '⚖️';
+      case 'banking':
+        return '🏦';
+      case 'home':
+        return '🏠';
+      case 'social':
+        return '👥';
+      case 'charity':
+        return '❤️';
+      default:
+        return '📅';
     }
   };
   
   const getDateClasses = (day: Date) => {
     const events = getEventsForDate(day);
-    let classes = "";
+    if (events.length === 0) return '';
     
-    if (events.length > 0) {
-      const hasHighPriorityEvent = events.some(e => e.category === 'deadline' || e.isReminder);
-      if (hasHighPriorityEvent) {
-        classes += "bg-finance-red-light/20";
-      } else {
-        classes += "bg-finance-blue-light/20";
-      }
+    let classes = 'relative';
+    const hasReminder = events.some(e => e.isReminder);
+    const categoryColors = {
+      legal: 'bg-purple-100',
+      banking: 'bg-blue-100',
+      home: 'bg-green-100',
+      social: 'bg-yellow-100',
+      charity: 'bg-pink-100'
+    };
+    
+    const mainEvent = events[0];
+    if (hasReminder) {
+      classes += ' ring-2 ring-red-400';
     }
     
+    classes += ` ${categoryColors[mainEvent.category as keyof typeof categoryColors] || 'bg-gray-100'}`;
+    
     return classes;
-  };
-  
-  const formatEventTime = (date: Date) => {
-    return format(new Date(date), 'h:mm a');
   };
   
   return (
@@ -99,71 +123,64 @@ const Calendar = () => {
               </div>
               
               <div className="grid gap-2">
+                <Label htmlFor="category">Category</Label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="legal">Legal</SelectItem>
+                    <SelectItem value="banking">Banking</SelectItem>
+                    <SelectItem value="home">Home</SelectItem>
+                    <SelectItem value="social">Social</SelectItem>
+                    <SelectItem value="charity">Charity</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="grid gap-2">
                 <Label htmlFor="description">Description</Label>
                 <Textarea id="description" placeholder="Enter event details..." />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="start-date">Start Date</Label>
-                  <Input id="start-date" type="date" defaultValue={format(new Date(), 'yyyy-MM-dd')} />
+                  <Label>Start Date & Time</Label>
+                  <div className="flex gap-2">
+                    <Input type="date" className="flex-1" defaultValue={format(date || new Date(), 'yyyy-MM-dd')} />
+                    <Input type="time" className="flex-1" defaultValue="09:00" />
+                  </div>
                 </div>
                 
                 <div className="grid gap-2">
-                  <Label htmlFor="start-time">Start Time</Label>
-                  <Input id="start-time" type="time" defaultValue="09:00" />
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="end-date">End Date</Label>
-                  <Input id="end-date" type="date" defaultValue={format(new Date(), 'yyyy-MM-dd')} />
-                </div>
-                
-                <div className="grid gap-2">
-                  <Label htmlFor="end-time">End Time</Label>
-                  <Input id="end-time" type="time" defaultValue="10:00" />
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Select>
-                    <SelectTrigger id="category">
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="meeting">Meeting</SelectItem>
-                      <SelectItem value="deadline">Deadline</SelectItem>
-                      <SelectItem value="reminder">Reminder</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="grid gap-2">
-                  <Label htmlFor="client">Client (Optional)</Label>
-                  <Select>
-                    <SelectTrigger id="client">
-                      <SelectValue placeholder="Select client" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No client</SelectItem>
-                      {mockClients.map(client => (
-                        <SelectItem key={client.id} value={client.id}>
-                          {client.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>End Date & Time</Label>
+                  <div className="flex gap-2">
+                    <Input type="date" className="flex-1" defaultValue={format(date || new Date(), 'yyyy-MM-dd')} />
+                    <Input type="time" className="flex-1" defaultValue="10:00" />
+                  </div>
                 </div>
               </div>
               
               <div className="flex items-center gap-2 space-y-0">
-                <Switch id="is-reminder" />
-                <Label htmlFor="is-reminder" className="font-normal">Set as reminder</Label>
+                <Switch id="reminder" />
+                <Label htmlFor="reminder">Set Reminder</Label>
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="reminderDays">Reminder Days Before</Label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select days" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">Same day</SelectItem>
+                    <SelectItem value="1">1 day before</SelectItem>
+                    <SelectItem value="3">3 days before</SelectItem>
+                    <SelectItem value="7">1 week before</SelectItem>
+                    <SelectItem value="14">2 weeks before</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             
@@ -195,21 +212,17 @@ const Calendar = () => {
                 selected={date}
                 onSelect={setDate}
                 className="rounded-md border"
-                modifiers={{
-                  today: (day) => isToday(day),
-                }}
-                modifiersClassNames={{
-                  today: "bg-primary text-primary-foreground font-bold",
-                }}
                 components={{
                   DayContent: (props) => (
-                    <div className={`relative w-full h-full ${getDateClasses(props.date)}`}>
-                      <div className={`absolute top-0 left-0 w-full h-full flex items-center justify-center ${isToday(props.date) ? 'text-primary-foreground' : ''}`}>
+                    <div className={`relative w-full h-full flex items-center justify-center ${getDateClasses(props.date)}`}>
+                      <span className={isToday(props.date) ? 'font-bold' : ''}>
                         {format(props.date, 'd')}
-                      </div>
+                      </span>
                       {getEventsForDate(props.date).length > 0 && (
-                        <div className="absolute bottom-1 left-0 w-full flex justify-center">
-                          <div className="h-1 w-1 rounded-full bg-primary"></div>
+                        <div className="absolute bottom-0 left-0 w-full flex justify-center gap-0.5 pb-1">
+                          {getEventsForDate(props.date).slice(0, 3).map((event, idx) => (
+                            <span key={idx} className={`h-1 w-1 rounded-full ${getCategoryColor(event.category)}`} />
+                          ))}
                         </div>
                       )}
                     </div>
@@ -227,38 +240,35 @@ const Calendar = () => {
               <CardContent>
                 {eventsForSelectedDate.length > 0 ? (
                   <div className="space-y-4">
-                    {eventsForSelectedDate.map((event) => {
-                      const client = event.clientId ? mockClients.find(c => c.id === event.clientId) : null;
-                      return (
-                        <div key={event.id} className="border-l-4 pl-4 py-2" style={{ borderLeftColor: event.category === 'meeting' ? '#1A73E8' : event.category === 'deadline' ? '#EA4335' : '#FBBC05' }}>
+                    {eventsForSelectedDate.map((event) => (
+                      <div key={event.id} className="flex items-start space-x-4 p-3 rounded-lg border">
+                        <div className="text-2xl">{getCategoryIcon(event.category)}</div>
+                        <div className="flex-1">
                           <div className="flex justify-between items-start">
                             <div>
                               <h4 className="font-medium">{event.title}</h4>
                               <p className="text-sm text-muted-foreground">
-                                {formatEventTime(new Date(event.startDate))} - {formatEventTime(new Date(event.endDate))}
+                                {format(new Date(event.startDate), 'h:mm a')} - {format(new Date(event.endDate), 'h:mm a')}
                               </p>
-                              {client && (
-                                <p className="text-sm mt-1">Client: {client.name}</p>
-                              )}
                               {event.description && (
                                 <p className="text-sm mt-2">{event.description}</p>
                               )}
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-col items-end gap-2">
                               <Badge className={getCategoryColor(event.category)}>
                                 {event.category}
                               </Badge>
                               {event.isReminder && (
-                                <Badge variant="outline" className="border-finance-red flex items-center gap-1">
-                                  <AlertTriangle size={12} className="text-finance-red" />
+                                <Badge variant="outline" className="border-red-500 text-red-500">
+                                  <AlertTriangle size={12} className="mr-1" />
                                   Reminder
                                 </Badge>
                               )}
                             </div>
                           </div>
                         </div>
-                      );
-                    })}
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="text-center py-8">
@@ -270,7 +280,6 @@ const Calendar = () => {
                         </Button>
                       </DialogTrigger>
                       <DialogContent>
-                        {/* Reuse the event creation dialog content */}
                         <DialogHeader>
                           <DialogTitle>Add New Event</DialogTitle>
                           <DialogDescription>
@@ -278,7 +287,73 @@ const Calendar = () => {
                           </DialogDescription>
                         </DialogHeader>
                         
-                        {/* Event form fields would go here (same as the other dialog) */}
+                        <div className="grid gap-4 py-4">
+                          <div className="grid gap-2">
+                            <Label htmlFor="title">Event Title</Label>
+                            <Input id="title" placeholder="Enter event title" />
+                          </div>
+                          
+                          <div className="grid gap-2">
+                            <Label htmlFor="category">Category</Label>
+                            <Select>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select category" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="legal">Legal</SelectItem>
+                                <SelectItem value="banking">Banking</SelectItem>
+                                <SelectItem value="home">Home</SelectItem>
+                                <SelectItem value="social">Social</SelectItem>
+                                <SelectItem value="charity">Charity</SelectItem>
+                                <SelectItem value="other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          
+                          <div className="grid gap-2">
+                            <Label htmlFor="description">Description</Label>
+                            <Textarea id="description" placeholder="Enter event details..." />
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                              <Label>Start Date & Time</Label>
+                              <div className="flex gap-2">
+                                <Input type="date" className="flex-1" defaultValue={format(date || new Date(), 'yyyy-MM-dd')} />
+                                <Input type="time" className="flex-1" defaultValue="09:00" />
+                              </div>
+                            </div>
+                            
+                            <div className="grid gap-2">
+                              <Label>End Date & Time</Label>
+                              <div className="flex gap-2">
+                                <Input type="date" className="flex-1" defaultValue={format(date || new Date(), 'yyyy-MM-dd')} />
+                                <Input type="time" className="flex-1" defaultValue="10:00" />
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 space-y-0">
+                            <Switch id="reminder" />
+                            <Label htmlFor="reminder">Set Reminder</Label>
+                          </div>
+                          
+                          <div className="grid gap-2">
+                            <Label htmlFor="reminderDays">Reminder Days Before</Label>
+                            <Select>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select days" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="0">Same day</SelectItem>
+                                <SelectItem value="1">1 day before</SelectItem>
+                                <SelectItem value="3">3 days before</SelectItem>
+                                <SelectItem value="7">1 week before</SelectItem>
+                                <SelectItem value="14">2 weeks before</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
                         
                         <DialogFooter>
                           <Button variant="outline">Cancel</Button>
@@ -311,7 +386,7 @@ const Calendar = () => {
                           <div>
                             <h4 className="font-medium">{event.title}</h4>
                             <p className="text-sm text-muted-foreground">
-                              {isToday ? 'Today' : format(new Date(event.startDate), 'EEE, MMM d')} • {formatEventTime(new Date(event.startDate))}
+                              {isToday ? 'Today' : format(new Date(event.startDate), 'EEE, MMM d')} • {format(new Date(event.startDate), 'h:mm a')}
                             </p>
                             {client && (
                               <p className="text-sm mt-1">Client: {client.name}</p>
