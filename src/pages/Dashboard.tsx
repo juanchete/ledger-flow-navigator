@@ -12,7 +12,8 @@ import {
   Wallet,
   ArrowUp,
   ArrowDown,
-  CircleAlert
+  CircleAlert,
+  PieChart
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";

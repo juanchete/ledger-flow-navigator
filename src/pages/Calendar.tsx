@@ -202,12 +202,12 @@ const Calendar = () => {
                   today: "bg-primary text-primary-foreground font-bold",
                 }}
                 components={{
-                  DayContent: ({ day, ...props }) => (
-                    <div className={`relative w-full h-full ${getDateClasses(day)}`}>
-                      <div className={`absolute top-0 left-0 w-full h-full flex items-center justify-center ${isToday(day) ? 'text-primary-foreground' : ''}`}>
-                        {format(day, 'd')}
+                  DayContent: (props) => (
+                    <div className={`relative w-full h-full ${getDateClasses(props.date)}`}>
+                      <div className={`absolute top-0 left-0 w-full h-full flex items-center justify-center ${isToday(props.date) ? 'text-primary-foreground' : ''}`}>
+                        {format(props.date, 'd')}
                       </div>
-                      {getEventsForDate(day).length > 0 && (
+                      {getEventsForDate(props.date).length > 0 && (
                         <div className="absolute bottom-1 left-0 w-full flex justify-center">
                           <div className="h-1 w-1 rounded-full bg-primary"></div>
                         </div>
