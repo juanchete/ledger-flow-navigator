@@ -1,0 +1,115 @@
+
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/components/ui/use-toast';
+
+export default function Auth() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        toast({
+          variant: "destructive",
+          title: "Error al iniciar sesión",
+          description: "Credenciales inválidas. Por favor, inténtalo de nuevo.",
+        });
+        return;
+      }
+
+      if (data.user) {
+        // Check if user is an admin
+        const { data: adminData, error: adminError } = await supabase
+          .from('admin_users')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+
+        if (adminError || !adminData) {
+          await supabase.auth.signOut();
+          toast({
+            variant: "destructive",
+            title: "Acceso denegado",
+            description: "No tienes permisos de administrador.",
+          });
+          return;
+        }
+
+        // Update last sign in
+        await supabase
+          .from('admin_users')
+          .update({ last_sign_in: new Date().toISOString() })
+          .eq('id', data.user.id);
+
+        navigate('/');
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Ocurrió un error al iniciar sesión.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="w-full max-w-md space-y-8 p-8 border rounded-lg shadow-lg bg-card">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold">Panel Administrativo</h2>
+          <p className="mt-2 text-muted-foreground">Inicia sesión para continuar</p>
+        </div>
+        
+        <form onSubmit={handleLogin} className="mt-8 space-y-6">
+          <div className="space-y-4">
+            <div>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email"
+                required
+                className="w-full"
+              />
+            </div>
+            <div>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Contraseña"
+                required
+                className="w-full"
+              />
+            </div>
+          </div>
+
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={loading}
+          >
+            {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
+}
