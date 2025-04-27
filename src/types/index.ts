@@ -1,10 +1,15 @@
-
 export interface Client {
   id: string;
   name: string;
   email: string;
   phone: string;
   category: 'individual' | 'company' | 'non-profit' | 'government';
+  clientType: 'direct' | 'indirect';
+  identificationDoc?: {
+    type: 'ID' | 'RIF';
+    number: string;
+    fileUrl?: string;
+  };
   active: boolean;
   address: string;
   contactPerson?: string;

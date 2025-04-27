@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,8 +11,9 @@ import { toast } from "sonner";
 import { mockClients } from "@/data/mockData";
 import { Client } from "@/types";
 import { Link } from "react-router-dom";
-import { Search, UserPlus, Filter, AlertTriangle } from "lucide-react";
+import { Search, UserPlus, Filter, AlertTriangle, FileText } from "lucide-react";
 import { format } from "date-fns";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const Clients = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -21,18 +21,15 @@ const Clients = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
   const filteredClients = mockClients.filter((client) => {
-    // Apply search query
     const matchesSearch = client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                        client.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
                        (client.contactPerson && client.contactPerson.toLowerCase().includes(searchQuery.toLowerCase()));
     
-    // Apply active/inactive filter
     const matchesActiveFilter = 
       activeFilter === "all" || 
       (activeFilter === "active" && client.active) || 
       (activeFilter === "inactive" && !client.active);
     
-    // Apply category filter
     const matchesCategory = categoryFilter === "all" || client.category === categoryFilter;
     
     return matchesSearch && matchesActiveFilter && matchesCategory;
@@ -61,7 +58,7 @@ const Clients = () => {
                 <span className="hidden sm:inline">New Client</span>
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-[525px]">
               <DialogHeader>
                 <DialogTitle>Add New Client</DialogTitle>
                 <DialogDescription>
@@ -109,6 +106,48 @@ const Clients = () => {
                   <div className="grid gap-2">
                     <Label htmlFor="contactPerson">Contact Person</Label>
                     <Input id="contactPerson" />
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label>Client Type</Label>
+                  <RadioGroup defaultValue="direct" className="flex gap-4">
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="direct" id="direct" />
+                      <Label htmlFor="direct">Direct</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="indirect" id="indirect" />
+                      <Label htmlFor="indirect">Indirect</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label>Identification Document</Label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Document type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ID">ID</SelectItem>
+                        <SelectItem value="RIF">RIF</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input placeholder="Document number" />
+                  </div>
+                  <div className="mt-2">
+                    <Label className="text-sm text-muted-foreground mb-2 block">Upload Document</Label>
+                    <div className="border-2 border-dashed rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center justify-center gap-2">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <Input type="file" className="max-w-[250px]" accept=".pdf,.jpg,.jpeg,.png" />
+                      </div>
+                      <p className="text-xs text-muted-foreground text-center mt-2">
+                        PDF, JPG or PNG up to 5MB
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
