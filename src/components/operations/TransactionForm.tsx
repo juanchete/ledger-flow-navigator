@@ -40,6 +40,8 @@ export const TransactionForm = () => {
     ? mockBankAccounts.filter(account => account.bank === selectedBank)
     : [];
 
+  const availableClients = mockClients || [];
+
   return (
     <div className="grid gap-4 py-4">
       <div className="grid gap-2">
@@ -95,7 +97,7 @@ export const TransactionForm = () => {
               className="justify-between"
             >
               {selectedClient
-                ? mockClients.find((client) => client.id === selectedClient)?.name
+                ? availableClients.find((client) => client.id === selectedClient)?.name || "Select client..."
                 : "Select client..."}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
@@ -105,7 +107,7 @@ export const TransactionForm = () => {
               <CommandInput placeholder="Search clients..." />
               <CommandEmpty>No client found.</CommandEmpty>
               <CommandGroup>
-                {mockClients.map((client) => (
+                {availableClients.map((client) => (
                   <CommandItem
                     key={client.id}
                     value={client.id}
@@ -137,7 +139,7 @@ export const TransactionForm = () => {
               <SelectValue placeholder="Select bank" />
             </SelectTrigger>
             <SelectContent>
-              {[...new Set(mockBankAccounts.map(account => account.bank))].map(bank => (
+              {Array.from(new Set((mockBankAccounts || []).map(account => account.bank))).map(bank => (
                 <SelectItem key={bank} value={bank}>{bank}</SelectItem>
               ))}
             </SelectContent>
