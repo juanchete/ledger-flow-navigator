@@ -1,22 +1,20 @@
-
 import { useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { mockTransactions, mockClients, mockFinancialStats, mockExpenseStats, mockInvoices, mockCalendarEvents } from "@/data/mockData";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Client, Transaction, Invoice, CalendarEvent } from "@/types";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { 
   Calendar, 
   File, 
-  PieChart, 
   Receipt, 
   Users,
   Wallet,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  CircleAlert
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Legend } from "recharts";
 import { format } from "date-fns";
 
 const formatCurrency = (amount: number) => {
@@ -57,6 +55,13 @@ const Dashboard = () => {
     debts: stat.debts
   }));
   
+  const receivables = mockInvoices
+    .filter(invoice => invoice.status !== 'paid')
+    .map(invoice => ({
+      ...invoice,
+      client: mockClients.find(c => c.id === invoice.clientId)
+    }));
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -72,7 +77,6 @@ const Dashboard = () => {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Financial Summary Cards */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Net Worth</CardTitle>
@@ -122,79 +126,110 @@ const Dashboard = () => {
         </Card>
       </div>
       
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Charts */}
-        <Card className="xl:col-span-2">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Financial Trends</CardTitle>
+            <CardTitle className="text-lg">Receivables</CardTitle>
+            <CardDescription>People who owe you money</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  data={chartData}
-                  margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                >
-                  <defs>
-                    <linearGradient id="colorNetWorth" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#1A73E8" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#1A73E8" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="colorReceivables" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#34A853" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#34A853" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="colorDebts" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#EA4335" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#EA4335" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                  <Area type="monotone" dataKey="netWorth" stroke="#1A73E8" fillOpacity={1} fill="url(#colorNetWorth)" />
-                  <Area type="monotone" dataKey="receivables" stroke="#34A853" fillOpacity={1} fill="url(#colorReceivables)" />
-                  <Area type="monotone" dataKey="debts" stroke="#EA4335" fillOpacity={1} fill="url(#colorDebts)" />
-                </AreaChart>
-              </ResponsiveContainer>
+            <div className="relative">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Client</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="w-[100px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {receivables.map((invoice) => (
+                    <TableRow key={invoice.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          {invoice.client?.alertStatus && (
+                            <CircleAlert 
+                              className={`h-4 w-4 ${
+                                invoice.client.alertStatus === 'red' 
+                                  ? 'text-destructive' 
+                                  : 'text-yellow-500'
+                              }`}
+                            />
+                          )}
+                          {invoice.client?.name}
+                        </div>
+                      </TableCell>
+                      <TableCell>{formatCurrency(invoice.amount)}</TableCell>
+                      <TableCell>{format(new Date(invoice.dueDate), 'MMM d, yyyy')}</TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={invoice.status === 'overdue' ? 'destructive' : 'secondary'}
+                        >
+                          {invoice.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link to={`/invoices/${invoice.id}`}>View</Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {receivables.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        No pending receivables
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Expense Breakdown</CardTitle>
+            <CardTitle className="text-lg">Your Debts</CardTitle>
+            <CardDescription>Money you owe to others</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <RechartsPieChart>
-                  <Pie 
-                    data={mockExpenseStats} 
-                    cx="50%" 
-                    cy="50%" 
-                    labelLine={false}
-                    outerRadius={80} 
-                    fill="#8884d8" 
-                    dataKey="amount"
-                    nameKey="category"
-                  >
-                    {mockExpenseStats.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                  <Legend />
-                </RechartsPieChart>
-              </ResponsiveContainer>
+            <div className="relative">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Category</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {mockTransactions
+                    .filter(t => t.type === 'expense' && t.status === 'pending')
+                    .map((transaction) => (
+                      <TableRow key={transaction.id}>
+                        <TableCell className="font-medium">{transaction.description}</TableCell>
+                        <TableCell>{formatCurrency(transaction.amount)}</TableCell>
+                        <TableCell>{transaction.category}</TableCell>
+                      </TableRow>
+                  ))}
+                  {mockTransactions.filter(t => t.type === 'expense' && t.status === 'pending').length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center text-muted-foreground">
+                        No pending debts
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </div>
           </CardContent>
         </Card>
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Quick Access Cards */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-lg">Alerts</CardTitle>
@@ -286,7 +321,6 @@ const Dashboard = () => {
       </div>
       
       <div className="grid grid-cols-1 gap-6">
-        {/* Quick Access Menu */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Quick Access</CardTitle>
