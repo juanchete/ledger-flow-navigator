@@ -1,26 +1,21 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { mockTransactions, mockClients } from "@/data/mockData";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { PlusCircle } from "lucide-react";
-import { Transaction } from "@/types";
+import { TransactionForm } from "@/components/operations/TransactionForm";
 
 const Operations = () => {
   const [selectedType, setSelectedType] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   
-  // Filter transactions based on type and search query
   const filteredTransactions = mockTransactions.filter((transaction) => {
     const matchesType = selectedType === "all" || transaction.type === selectedType;
     const matchesSearch = transaction.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -97,83 +92,7 @@ const Operations = () => {
               </DialogDescription>
             </DialogHeader>
             
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="transaction-type">Transaction Type</Label>
-                <Select>
-                  <SelectTrigger id="transaction-type">
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {transactionTypeOptions.map(option => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="grid gap-2">
-                <Label htmlFor="amount">Amount</Label>
-                <Input id="amount" type="number" step="0.01" min="0" placeholder="0.00" />
-              </div>
-              
-              <div className="grid gap-2">
-                <Label htmlFor="description">Description</Label>
-                <Input id="description" placeholder="Enter transaction description" />
-              </div>
-              
-              <div className="grid gap-2">
-                <Label htmlFor="client">Client (if applicable)</Label>
-                <Select>
-                  <SelectTrigger id="client">
-                    <SelectValue placeholder="Select client" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No client</SelectItem>
-                    {mockClients.map(client => (
-                      <SelectItem key={client.id} value={client.id}>
-                        {client.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="date">Date</Label>
-                  <Input id="date" type="date" defaultValue={format(new Date(), 'yyyy-MM-dd')} />
-                </div>
-                
-                <div className="grid gap-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Input id="category" placeholder="e.g. Office supplies" />
-                </div>
-              </div>
-              
-              <div className="grid gap-2">
-                <Label htmlFor="payment-method">Payment Method</Label>
-                <Select>
-                  <SelectTrigger id="payment-method">
-                    <SelectValue placeholder="Select method" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="credit_card">Credit Card</SelectItem>
-                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                    <SelectItem value="cheque">Cheque</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="grid gap-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea id="notes" placeholder="Additional notes..." />
-              </div>
-            </div>
+            <TransactionForm />
             
             <DialogFooter>
               <Button variant="outline">Cancel</Button>
