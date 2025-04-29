@@ -11,9 +11,11 @@ import {
   X,
   LucideIcon,
   LucideProps,
+  forwardRef
 } from "lucide-react";
+import { ForwardRefExoticComponent, RefAttributes } from "react";
 
-// Define the type for the icons object
+// Define the type for the icons object with proper typing
 type IconsType = {
   [key: string]: LucideIcon;
   home: LucideIcon;
@@ -28,6 +30,28 @@ type IconsType = {
   chevronDown: LucideIcon;
 };
 
+// Create a custom logo icon that matches the LucideIcon type
+const LogoIcon: LucideIcon = forwardRef((props: LucideProps, ref) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    ref={ref}
+    {...props}
+  >
+    <circle cx="12" cy="12" r="10" />
+    <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+    <line x1="9" y1="9" x2="9.01" y2="9" />
+    <line x1="15" y1="9" x2="15.01" y2="9" />
+  </svg>
+));
+
+LogoIcon.displayName = "LogoIcon";
+
 export const Icons: IconsType = {
   home: Home,
   users: Users,
@@ -36,23 +60,7 @@ export const Icons: IconsType = {
   pieChart: PieChart,
   settings: Settings,
   clock: Clock,
-  logo: (props: LucideProps) => (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <circle cx="12" cy="12" r="10" />
-      <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-      <line x1="9" y1="9" x2="9.01" y2="9" />
-      <line x1="15" y1="9" x2="15.01" y2="9" />
-    </svg>
-  ),
+  logo: LogoIcon,
   close: X,
   chevronDown: ChevronDown,
 };
