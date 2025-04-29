@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -219,7 +218,7 @@ const AllReceivables: React.FC = () => {
                     <TableCell>{formatDate(receivable.dueDate)}</TableCell>
                     <TableCell>
                       <Badge className={getStatusColor(receivable.status)}>
-                        {receivable.status}
+                        {receivable.status === 'pending' ? 'Pendiente' : receivable.status === 'paid' ? 'Pagado' : receivable.status === 'overdue' ? 'Vencido' : receivable.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">

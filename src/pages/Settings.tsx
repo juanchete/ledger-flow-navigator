@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,50 +32,50 @@ const Settings = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Configuración</h1>
       </div>
       
       <Tabs defaultValue="general" className="space-y-4">
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="invoices">Invoicing</TabsTrigger>
-          <TabsTrigger value="about">About</TabsTrigger>
+          <TabsTrigger value="notifications">Notificaciones</TabsTrigger>
+          <TabsTrigger value="invoices">Facturación</TabsTrigger>
+          <TabsTrigger value="about">Acerca de</TabsTrigger>
         </TabsList>
         
         <TabsContent value="general" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Business Information</CardTitle>
+              <CardTitle>Información del Negocio</CardTitle>
               <CardDescription>
-                Update your business information used in documents and invoices.
+                Actualiza la información de tu negocio utilizada en documentos y facturas.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="business-name">Business Name</Label>
+                  <Label htmlFor="business-name">Nombre del Negocio</Label>
                   <Input id="business-name" defaultValue="Your Business Name" />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="business-email">Email</Label>
+                  <Label htmlFor="business-email">Correo</Label>
                   <Input id="business-email" type="email" defaultValue="contact@yourbusiness.com" />
                 </div>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="business-phone">Phone</Label>
+                  <Label htmlFor="business-phone">Teléfono</Label>
                   <Input id="business-phone" defaultValue="+1 (555) 123-4567" />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="tax-id">Tax ID / VAT Number</Label>
+                  <Label htmlFor="tax-id">RIF / NIT</Label>
                   <Input id="tax-id" defaultValue="123456789" />
                 </div>
               </div>
               
               <div className="grid gap-2">
-                <Label htmlFor="business-address">Address</Label>
+                <Label htmlFor="business-address">Dirección</Label>
                 <Textarea 
                   id="business-address" 
                   defaultValue="123 Business Street, City, State, ZIP Code"
@@ -85,31 +84,31 @@ const Settings = () => {
               </div>
             </CardContent>
             <CardFooter className="flex justify-end">
-              <Button onClick={handleSaveGeneral}>Save Changes</Button>
+              <Button onClick={handleSaveGeneral}>Guardar Cambios</Button>
             </CardFooter>
           </Card>
           
           <Card>
             <CardHeader>
-              <CardTitle>Currency & Date Format</CardTitle>
+              <CardTitle>Moneda y Formato de Fecha</CardTitle>
               <CardDescription>
-                Configure your preferred currency and date display formats.
+                Configura tu moneda y formato de fecha preferidos.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="currency">Currency</Label>
+                  <Label htmlFor="currency">Moneda</Label>
                   <Input id="currency" defaultValue="USD" />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="date-format">Date Format</Label>
+                  <Label htmlFor="date-format">Formato de Fecha</Label>
                   <Input id="date-format" defaultValue="MM/DD/YYYY" />
                 </div>
               </div>
             </CardContent>
             <CardFooter className="flex justify-end">
-              <Button onClick={handleSaveGeneral}>Save Changes</Button>
+              <Button onClick={handleSaveGeneral}>Guardar Cambios</Button>
             </CardFooter>
           </Card>
         </TabsContent>
@@ -117,17 +116,17 @@ const Settings = () => {
         <TabsContent value="notifications" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Notification Preferences</CardTitle>
+              <CardTitle>Preferencias de Notificación</CardTitle>
               <CardDescription>
-                Configure how and when you receive notifications.
+                Configura cómo y cuándo recibes notificaciones.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="email-notifications">Email Notifications</Label>
+                  <Label htmlFor="email-notifications">Notificaciones por Correo</Label>
                   <div className="text-sm text-muted-foreground">
-                    Receive notifications via email
+                    Recibe notificaciones por correo electrónico
                   </div>
                 </div>
                 <Switch
@@ -139,9 +138,9 @@ const Settings = () => {
               
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="daily-summary">Daily Summary</Label>
+                  <Label htmlFor="daily-summary">Resumen Diario</Label>
                   <div className="text-sm text-muted-foreground">
-                    Receive a daily summary of your financial activities
+                    Recibe un resumen diario de tus actividades financieras
                   </div>
                 </div>
                 <Switch
@@ -153,9 +152,9 @@ const Settings = () => {
               
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="client-activity">Client Activity</Label>
+                  <Label htmlFor="client-activity">Actividad de Clientes</Label>
                   <div className="text-sm text-muted-foreground">
-                    Get notified about client transactions and updates
+                    Recibe notificaciones sobre transacciones y actualizaciones de clientes
                   </div>
                 </div>
                 <Switch
@@ -167,9 +166,9 @@ const Settings = () => {
               
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="overdue-invoices">Overdue Invoices</Label>
+                  <Label htmlFor="overdue-invoices">Facturas Vencidas</Label>
                   <div className="text-sm text-muted-foreground">
-                    Get notified when invoices become overdue
+                    Recibe notificaciones cuando una factura esté vencida
                   </div>
                 </div>
                 <Switch
@@ -180,7 +179,7 @@ const Settings = () => {
               </div>
             </CardContent>
             <CardFooter className="flex justify-end">
-              <Button onClick={handleSaveNotifications}>Save Changes</Button>
+              <Button onClick={handleSaveNotifications}>Guardar Cambios</Button>
             </CardFooter>
           </Card>
         </TabsContent>
@@ -188,41 +187,41 @@ const Settings = () => {
         <TabsContent value="invoices" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Invoice Configuration</CardTitle>
+              <CardTitle>Configuración de Facturación</CardTitle>
               <CardDescription>
-                Configure your invoicing settings and defaults.
+                Configura tus opciones y valores predeterminados de facturación.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="invoice-prefix">Invoice Number Prefix</Label>
+                  <Label htmlFor="invoice-prefix">Prefijo de Factura</Label>
                   <Input id="invoice-prefix" defaultValue="INV-" />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="next-invoice-number">Next Invoice Number</Label>
+                  <Label htmlFor="next-invoice-number">Próximo Número de Factura</Label>
                   <Input id="next-invoice-number" defaultValue="0001" />
                 </div>
               </div>
               
               <div className="grid gap-2">
-                <Label htmlFor="default-due-days">Default Payment Terms (days)</Label>
+                <Label htmlFor="default-due-days">Términos de Pago Predeterminados (días)</Label>
                 <Input id="default-due-days" type="number" defaultValue="30" />
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="default-tax-rate">Default Tax Rate (%)</Label>
+                  <Label htmlFor="default-tax-rate">Tasa de Impuesto Predeterminada (%)</Label>
                   <Input id="default-tax-rate" type="number" step="0.01" defaultValue="7.5" />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="default-tax-name">Default Tax Name</Label>
+                  <Label htmlFor="default-tax-name">Nombre de Impuesto Predeterminado</Label>
                   <Input id="default-tax-name" defaultValue="Sales Tax" />
                 </div>
               </div>
               
               <div className="grid gap-2">
-                <Label htmlFor="invoice-notes">Default Invoice Notes</Label>
+                <Label htmlFor="invoice-notes">Notas de Factura Predeterminadas</Label>
                 <Textarea 
                   id="invoice-notes" 
                   defaultValue="Thank you for your business!"
@@ -231,15 +230,15 @@ const Settings = () => {
               </div>
               
               <div className="grid gap-2 pt-4">
-                <Label className="mb-2">InvoiceHome Integration</Label>
+                <Label className="mb-2">Integración InvoiceHome</Label>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="bg-muted">Not Connected</Badge>
-                  <Button variant="outline" size="sm">Connect</Button>
+                  <Badge variant="outline" className="bg-muted">No Conectado</Badge>
+                  <Button variant="outline" size="sm">Conectar</Button>
                 </div>
               </div>
             </CardContent>
             <CardFooter className="flex justify-end">
-              <Button onClick={handleSaveInvoices}>Save Changes</Button>
+              <Button onClick={handleSaveInvoices}>Guardar Cambios</Button>
             </CardFooter>
           </Card>
         </TabsContent>
@@ -247,35 +246,35 @@ const Settings = () => {
         <TabsContent value="about" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>About FinTrackPro</CardTitle>
+              <CardTitle>Acerca de FinTrackPro</CardTitle>
               <CardDescription>
-                Information about your accounting system.
+                Información sobre tu sistema contable.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <h3 className="text-lg font-medium">Version</h3>
+                <h3 className="text-lg font-medium">Versión</h3>
                 <p className="text-sm text-muted-foreground">FinTrackPro v1.0.0 (MVP)</p>
               </div>
               
               <div>
-                <h3 className="text-lg font-medium">Technical Documentation</h3>
+                <h3 className="text-lg font-medium">Documentación Técnica</h3>
                 <p className="text-sm text-muted-foreground">
-                  This is the MVP version of the custom accounting system.
-                  For detailed documentation and user manuals, please visit the help section.
+                  Esta es la versión MVP del sistema contable personalizado.
+                  Para documentación detallada y manuales de usuario, por favor visita la sección de ayuda.
                 </p>
                 <div className="mt-2 flex gap-2">
-                  <Button variant="outline" size="sm">User Manual</Button>
-                  <Button variant="outline" size="sm">API Docs</Button>
+                  <Button variant="outline" size="sm">Manual de Usuario</Button>
+                  <Button variant="outline" size="sm">Docs API</Button>
                 </div>
               </div>
               
               <div>
-                <h3 className="text-lg font-medium">Support</h3>
+                <h3 className="text-lg font-medium">Soporte</h3>
                 <p className="text-sm text-muted-foreground mb-2">
-                  Need help? Contact our support team.
+                  ¿Necesitas ayuda? Contacta a nuestro equipo de soporte.
                 </p>
-                <Button variant="secondary" size="sm">Contact Support</Button>
+                <Button variant="secondary" size="sm">Contactar Soporte</Button>
               </div>
             </CardContent>
           </Card>

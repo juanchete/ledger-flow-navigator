@@ -1,4 +1,3 @@
-
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -18,12 +17,12 @@ const NotFound = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="text-center">
         <h1 className="text-6xl font-bold mb-4 text-finance-blue">404</h1>
-        <p className="text-2xl text-gray-600 mb-4">Oops! Page not found</p>
+        <p className="text-2xl text-gray-600 mb-4">¡Ups! Página no encontrada</p>
         <p className="text-gray-500 mb-8">
-          The page you are looking for might have been removed or doesn't exist.
+          La página que buscas pudo haber sido eliminada o no existe.
         </p>
         <Button asChild>
-          <Link to="/">Return to Dashboard</Link>
+          <Link to="/">Volver al Panel</Link>
         </Button>
       </div>
     </div>

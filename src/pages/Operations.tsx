@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,28 +19,28 @@ const Operations = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-3xl font-bold tracking-tight">Operations</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Operaciones</h1>
         
         <Dialog>
           <DialogTrigger asChild>
             <Button className="gap-2">
               <PlusCircle size={18} />
-              Add Transaction
+              Agregar Transacción
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Create New Transaction</DialogTitle>
+              <DialogTitle>Crear Nueva Transacción</DialogTitle>
               <DialogDescription>
-                Enter the details for your new transaction.
+                Ingresa los detalles para tu nueva transacción.
               </DialogDescription>
             </DialogHeader>
             
             <TransactionForm />
             
             <DialogFooter>
-              <Button variant="outline">Cancel</Button>
-              <Button onClick={handleAddTransaction}>Create Transaction</Button>
+              <Button variant="outline">Cancelar</Button>
+              <Button onClick={handleAddTransaction}>Crear Transacción</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -49,7 +48,7 @@ const Operations = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Transactions</CardTitle>
+          <CardTitle>Transacciones</CardTitle>
           <TransactionsFilter
             selectedType={selectedType}
             setSelectedType={setSelectedType}

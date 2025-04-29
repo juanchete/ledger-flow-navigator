@@ -77,7 +77,7 @@ const ClientDetail = () => {
         <Button variant="ghost" size="sm" asChild className="gap-1">
           <Link to="/clients">
             <ChevronLeft size={16} />
-            Back
+            Volver
           </Link>
         </Button>
         <h1 className="text-3xl font-bold tracking-tight">{client.name}</h1>
@@ -88,7 +88,7 @@ const ClientDetail = () => {
             'bg-finance-yellow text-finance-gray-dark'
           }>
             <AlertTriangle size={12} className="mr-1" />
-            {alertStatus}
+            {alertStatus === 'red' ? 'Roja' : alertStatus === 'yellow' ? 'Amarilla' : alertStatus}
           </Badge>
         )}
       </div>
@@ -97,42 +97,42 @@ const ClientDetail = () => {
         <div className="lg:col-span-1 space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Client Information</CardTitle>
+              <CardTitle>Información del Cliente</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-[100px_1fr] gap-1">
-                <span className="font-medium text-muted-foreground">Email:</span>
+                <span className="font-medium text-muted-foreground">Correo:</span>
                 <span>{client.email}</span>
               </div>
               
               <div className="grid grid-cols-[100px_1fr] gap-1">
-                <span className="font-medium text-muted-foreground">Phone:</span>
+                <span className="font-medium text-muted-foreground">Teléfono:</span>
                 <span>{client.phone}</span>
               </div>
               
               <div className="grid grid-cols-[100px_1fr] gap-1">
-                <span className="font-medium text-muted-foreground">Address:</span>
+                <span className="font-medium text-muted-foreground">Dirección:</span>
                 <span>{client.address}</span>
               </div>
               
               {client.contactPerson && (
                 <div className="grid grid-cols-[100px_1fr] gap-1">
-                  <span className="font-medium text-muted-foreground">Contact:</span>
+                  <span className="font-medium text-muted-foreground">Contacto:</span>
                   <span>{client.contactPerson}</span>
                 </div>
               )}
               
               <div className="grid grid-cols-[100px_1fr] gap-1">
-                <span className="font-medium text-muted-foreground">Added:</span>
+                <span className="font-medium text-muted-foreground">Agregado:</span>
                 <span>{format(new Date(client.createdAt), 'MMM d, yyyy')}</span>
               </div>
               
               <div className="pt-2 border-t flex flex-col gap-4">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="client-status" className="font-medium">Client Status</Label>
+                  <Label htmlFor="client-status" className="font-medium">Estado del Cliente</Label>
                   <div className="flex items-center gap-2">
                     <span className={`text-sm ${isActive ? 'text-finance-green' : 'text-muted-foreground'}`}>
-                      {isActive ? 'Active' : 'Inactive'}
+                      {isActive ? 'Activo' : 'Inactivo'}
                     </span>
                     <Switch 
                       id="client-status" 
@@ -143,22 +143,22 @@ const ClientDetail = () => {
                 </div>
                 
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="alert-status" className="font-medium">Alert Status</Label>
+                  <Label htmlFor="alert-status" className="font-medium">Estado de Alerta</Label>
                   <Select value={alertStatus} onValueChange={handleAlertChange}>
                     <SelectTrigger id="alert-status" className="w-40">
-                      <SelectValue placeholder="Set alert status" />
+                      <SelectValue placeholder="Seleccionar estado de alerta" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      <SelectItem value="yellow">Yellow</SelectItem>
-                      <SelectItem value="red">Red</SelectItem>
+                      <SelectItem value="none">Ninguna</SelectItem>
+                      <SelectItem value="yellow">Amarilla</SelectItem>
+                      <SelectItem value="red">Roja</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 
                 {alertStatus !== 'none' && (
                   <div>
-                    <Label htmlFor="alert-note" className="mb-2 block font-medium">Alert Note</Label>
+                    <Label htmlFor="alert-note" className="mb-2 block font-medium">Nota de Alerta</Label>
                     <Textarea 
                       id="alert-note" 
                       value={alertNote} 
@@ -174,15 +174,16 @@ const ClientDetail = () => {
           
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Documents</CardTitle>
+              <CardTitle>Documentos</CardTitle>
               <Dialog>
                 <DialogTrigger asChild>
-                  <Button size="sm" variant="outline">Upload</Button>
+                  <Button size="sm" variant="outline">Subir</Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Upload Document</DialogTitle>
+                    <DialogTitle>Subir Documento</DialogTitle>
                     <DialogDescription>
+                      Sube documentos relacionados con este cliente.
                       Upload documents related to this client.
                     </DialogDescription>
                   </DialogHeader>

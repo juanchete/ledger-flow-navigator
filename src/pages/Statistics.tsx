@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -75,28 +74,28 @@ const Statistics = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-3xl font-bold tracking-tight">Financial Statistics</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Estadísticas Financieras</h1>
         
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <FilterIcon size={16} className="text-muted-foreground" />
-            <Select value={dateRange} onValueChange={(value) => setDateRange(value as any)}>
+            <Select value={dateRange} onValueChange={(value) => setDateRange(value as '7d' | '30d' | '90d' | '1y' | 'all')}>
               <SelectTrigger className="w-32">
-                <SelectValue placeholder="Time Period" />
+                <SelectValue placeholder="Periodo de Tiempo" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="7d">Last 7 days</SelectItem>
-                <SelectItem value="30d">Last 30 days</SelectItem>
-                <SelectItem value="90d">Last 90 days</SelectItem>
-                <SelectItem value="1y">Last year</SelectItem>
-                <SelectItem value="all">All time</SelectItem>
+                <SelectItem value="7d">Últimos 7 días</SelectItem>
+                <SelectItem value="30d">Últimos 30 días</SelectItem>
+                <SelectItem value="90d">Últimos 90 días</SelectItem>
+                <SelectItem value="1y">Último año</SelectItem>
+                <SelectItem value="all">Todo el tiempo</SelectItem>
               </SelectContent>
             </Select>
           </div>
           
           <Button variant="outline" className="gap-2" onClick={handleExportData}>
             <Download size={16} />
-            Export
+            Exportar
           </Button>
         </div>
       </div>
@@ -105,7 +104,7 @@ const Statistics = () => {
         {/* Summary Cards */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Net Worth</CardTitle>
+            <CardTitle className="text-sm font-medium">Patrimonio Neto</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(filteredData[filteredData.length - 1].netWorth)}</div>
@@ -121,7 +120,7 @@ const Statistics = () => {
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(revenueData.reduce((sum, item) => sum + item.value, 0))}</div>
@@ -137,7 +136,7 @@ const Statistics = () => {
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
+            <CardTitle className="text-sm font-medium">Gastos Totales</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(expenseData.reduce((sum, item) => sum + item.value, 0))}</div>
@@ -156,7 +155,7 @@ const Statistics = () => {
         {/* Net Worth Trends */}
         <Card className="col-span-1 lg:col-span-2">
           <CardHeader>
-            <CardTitle>Net Worth Trends</CardTitle>
+            <CardTitle>Tendencias de Patrimonio Neto</CardTitle>
           </CardHeader>
           <CardContent className="h-80">
             <ResponsiveContainer width="100%" height="100%">
@@ -188,9 +187,9 @@ const Statistics = () => {
                 <CartesianGrid strokeDasharray="3 3" />
                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
                 <Legend />
-                <Area type="monotone" dataKey="netWorth" name="Net Worth" stroke="#1A73E8" fillOpacity={1} fill="url(#colorNetWorth)" />
-                <Area type="monotone" dataKey="receivables" name="Receivables" stroke="#34A853" fillOpacity={1} fill="url(#colorReceivables)" />
-                <Area type="monotone" dataKey="debts" name="Debts" stroke="#EA4335" fillOpacity={1} fill="url(#colorDebts)" />
+                <Area type="monotone" dataKey="netWorth" name="Patrimonio Neto" stroke="#1A73E8" fillOpacity={1} fill="url(#colorNetWorth)" />
+                <Area type="monotone" dataKey="receivables" name="Cuentas por Cobrar" stroke="#34A853" fillOpacity={1} fill="url(#colorReceivables)" />
+                <Area type="monotone" dataKey="debts" name="Deudas" stroke="#EA4335" fillOpacity={1} fill="url(#colorDebts)" />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
@@ -199,7 +198,7 @@ const Statistics = () => {
         {/* Revenue & Expenses */}
         <Card>
           <CardHeader>
-            <CardTitle>Income vs Expenses</CardTitle>
+            <CardTitle>Ingresos vs Gastos</CardTitle>
           </CardHeader>
           <CardContent className="h-80">
             <ResponsiveContainer width="100%" height="100%">
@@ -216,8 +215,8 @@ const Statistics = () => {
                 <YAxis />
                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
                 <Legend />
-                <Bar dataKey="income" name="Income" fill="#34A853" />
-                <Bar dataKey="expenses" name="Expenses" fill="#EA4335" />
+                <Bar dataKey="income" name="Ingresos" fill="#34A853" />
+                <Bar dataKey="expenses" name="Gastos" fill="#EA4335" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -226,7 +225,7 @@ const Statistics = () => {
         {/* Expense Breakdown */}
         <Card>
           <CardHeader>
-            <CardTitle>Expense Breakdown</CardTitle>
+            <CardTitle>Desglose de Gastos</CardTitle>
           </CardHeader>
           <CardContent className="h-80">
             <ResponsiveContainer width="100%" height="100%">

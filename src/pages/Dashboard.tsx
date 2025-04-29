@@ -1,4 +1,3 @@
-
 import { useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { mockTransactions, mockClients, mockFinancialStats, mockExpenseStats, mockCalendarEvents } from "@/data/mockData";
@@ -78,10 +77,10 @@ const Dashboard = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Panel</h1>
         <div className="hidden md:flex items-center gap-2">
           <Button asChild variant="outline" size="sm">
-            <Link to="/operations/transaction/new">New Transaction</Link>
+            <Link to="/operations/transaction/new">Nueva Transacción</Link>
           </Button>
           <Button asChild variant="outline" size="sm">
             <Link to="/historical-balance">
@@ -95,7 +94,7 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Net Worth</CardTitle>
+            <CardTitle className="text-sm font-medium">Patrimonio Neto</CardTitle>
             <CardDescription className="text-2xl font-bold">{formatCurrency(currentStats.netWorth)}</CardDescription>
           </CardHeader>
           <CardContent>
@@ -104,14 +103,14 @@ const Dashboard = () => {
                 {netWorthChange >= 0 ? <ArrowUp size={14} className="mr-1" /> : <ArrowDown size={14} className="mr-1" />}
                 {Math.abs(Number(netWorthPercentChange))}%
               </span>
-              <span className="text-muted-foreground ml-2">vs previous month</span>
+              <span className="text-muted-foreground ml-2">vs mes anterior</span>
             </div>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Receivables</CardTitle>
+            <CardTitle className="text-sm font-medium">Cuentas por Cobrar</CardTitle>
             <CardDescription className="text-2xl font-bold">{formatCurrency(currentStats.receivables)}</CardDescription>
           </CardHeader>
           <CardContent>
@@ -120,14 +119,14 @@ const Dashboard = () => {
                 {receivablesChange >= 0 ? <ArrowUp size={14} className="mr-1" /> : <ArrowDown size={14} className="mr-1" />}
                 {Math.abs(Number(receivablesPercentChange))}%
               </span>
-              <span className="text-muted-foreground ml-2">vs previous month</span>
+              <span className="text-muted-foreground ml-2">vs mes anterior</span>
             </div>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Debts</CardTitle>
+            <CardTitle className="text-sm font-medium">Deudas</CardTitle>
             <CardDescription className="text-2xl font-bold">{formatCurrency(currentStats.debts)}</CardDescription>
           </CardHeader>
           <CardContent>
@@ -136,7 +135,7 @@ const Dashboard = () => {
                 {debtsChange <= 0 ? <ArrowDown size={14} className="mr-1" /> : <ArrowUp size={14} className="mr-1" />}
                 {Math.abs(Number(debtsPercentChange))}%
               </span>
-              <span className="text-muted-foreground ml-2">vs previous month</span>
+              <span className="text-muted-foreground ml-2">vs mes anterior</span>
             </div>
           </CardContent>
         </Card>

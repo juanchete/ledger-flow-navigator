@@ -42,11 +42,6 @@ const sidebarItems = [
     label: "Statistics",
   },
   {
-    href: "/settings",
-    icon: "settings",
-    label: "Settings",
-  },
-  {
     href: "/historical-balance",
     icon: "clock",
     label: "Historical Balance",
@@ -102,13 +97,6 @@ export function AppSidebar() {
 
       <div className="p-4 border-t">
         <div className="space-y-1">
-          <Link 
-            to="/settings"
-            className="flex items-center space-x-2 p-2 rounded-md hover:bg-secondary text-muted-foreground w-full"
-          >
-            <Icons.settings className="h-4 w-4" />
-            <span>Settings</span>
-          </Link>
           <Button 
             variant="ghost" 
             className="flex items-center space-x-2 p-2 rounded-md hover:bg-secondary text-muted-foreground w-full justify-start"

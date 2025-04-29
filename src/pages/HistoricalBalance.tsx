@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -173,7 +172,7 @@ const HistoricalBalance = () => {
         </p>
       </div>
       
-      <Tabs value={view} onValueChange={(val) => setView(val as any)}>
+      <Tabs value={view} onValueChange={(val) => setView(val as "summary" | "accounts" | "transactions" | "debtReceivables")}>
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="summary">Resumen</TabsTrigger>
           <TabsTrigger value="accounts">Cuentas</TabsTrigger>

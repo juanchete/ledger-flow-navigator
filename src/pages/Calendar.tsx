@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,8 +15,20 @@ import { cn, formatDateEs } from "@/lib/utils";
 import { EventCard } from "@/components/calendar/EventCard";
 import { EventForm } from "@/components/calendar/EventForm";
 
+interface CalendarEvent {
+  id: string;
+  title: string;
+  description: string;
+  startDate: Date;
+  endDate: Date;
+  category: 'payment' | 'invoice' | 'meeting' | 'task';
+  completed: boolean;
+  amount: number;
+  currency: 'VES' | 'USD';
+}
+
 // Mock data for calendar events
-const mockCalendarEvents = [
+const mockCalendarEvents: CalendarEvent[] = [
   {
     id: "1",
     title: "Pago a Pepe",
@@ -27,6 +38,7 @@ const mockCalendarEvents = [
     category: "payment",
     completed: false,
     amount: 500,
+    currency: "USD"
   },
   {
     id: "2",
@@ -37,6 +49,7 @@ const mockCalendarEvents = [
     category: "invoice",
     completed: false,
     amount: 350,
+    currency: "VES"
   },
   {
     id: "3",
@@ -47,6 +60,7 @@ const mockCalendarEvents = [
     category: "payment",
     completed: true,
     amount: 750,
+    currency: "USD"
   },
   {
     id: "4",
@@ -57,6 +71,7 @@ const mockCalendarEvents = [
     category: "invoice",
     completed: false,
     amount: 1200,
+    currency: "VES"
   },
   {
     id: "5",
@@ -67,6 +82,7 @@ const mockCalendarEvents = [
     category: "meeting",
     completed: false,
     amount: 0,
+    currency: "USD"
   },
   {
     id: "6",
@@ -77,6 +93,7 @@ const mockCalendarEvents = [
     category: "payment",
     completed: false,
     amount: 250,
+    currency: "VES"
   },
   {
     id: "7",
@@ -87,6 +104,7 @@ const mockCalendarEvents = [
     category: "invoice",
     completed: false,
     amount: 850,
+    currency: "USD"
   },
   {
     id: "8",
@@ -97,6 +115,7 @@ const mockCalendarEvents = [
     category: "task",
     completed: false,
     amount: 0,
+    currency: "USD"
   }
 ];
 
@@ -112,7 +131,7 @@ const Calendar = () => {
     task: true
   });
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<any>(null);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [isEventDetailOpen, setIsEventDetailOpen] = useState(false);
   
   const getEventsForDate = (date: Date) => {
@@ -146,7 +165,7 @@ const Calendar = () => {
     setDate(newDate);
   };
 
-  const handleEventClick = (event: any) => {
+  const handleEventClick = (event: CalendarEvent) => {
     setSelectedEvent(event);
     setIsEventDetailOpen(true);
   };
@@ -426,7 +445,7 @@ const Calendar = () => {
                       <p className="text-sm mt-1">{event.description}</p>
                       {event.amount > 0 && (
                         <p className="text-sm font-medium mt-2">
-                          Monto: €{event.amount.toFixed(2)}
+                          Monto: {event.currency} {event.amount.toFixed(2)}
                         </p>
                       )}
                     </div>
@@ -498,7 +517,7 @@ const Calendar = () => {
                   <h4 className="font-medium mb-2">Detalles financieros</h4>
                   <div className="flex justify-between">
                     <span>Monto:</span>
-                    <span className="font-medium">€{selectedEvent.amount.toFixed(2)}</span>
+                    <span className="font-medium">{selectedEvent.currency} {selectedEvent.amount.toFixed(2)}</span>
                   </div>
                 </div>
               )}

@@ -48,104 +48,104 @@ const Clients = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-3xl font-bold tracking-tight">Client Management</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Gestión de Clientes</h1>
         
         <div className="flex items-center gap-2">
           <Dialog>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <UserPlus size={16} />
-                <span className="hidden sm:inline">New Client</span>
+                <span className="hidden sm:inline">Nuevo Cliente</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[525px]">
               <DialogHeader>
-                <DialogTitle>Add New Client</DialogTitle>
+                <DialogTitle>Agregar Nuevo Cliente</DialogTitle>
                 <DialogDescription>
-                  Fill out the form below to add a new client to your system.
+                  Completa el formulario para agregar un nuevo cliente a tu sistema.
                 </DialogDescription>
               </DialogHeader>
               
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="name">Client Name</Label>
+                  <Label htmlFor="name">Nombre del Cliente</Label>
                   <Input id="name" />
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">Correo</Label>
                     <Input id="email" type="email" />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="phone">Phone</Label>
+                    <Label htmlFor="phone">Teléfono</Label>
                     <Input id="phone" />
                   </div>
                 </div>
                 
                 <div className="grid gap-2">
-                  <Label htmlFor="address">Address</Label>
+                  <Label htmlFor="address">Dirección</Label>
                   <Input id="address" />
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="category">Category</Label>
+                    <Label htmlFor="category">Categoría</Label>
                     <Select>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
+                        <SelectValue placeholder="Seleccionar categoría" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="individual">Individual</SelectItem>
-                        <SelectItem value="company">Company</SelectItem>
-                        <SelectItem value="non-profit">Non-profit</SelectItem>
-                        <SelectItem value="government">Government</SelectItem>
+                        <SelectItem value="company">Empresa</SelectItem>
+                        <SelectItem value="non-profit">Sin Fines de Lucro</SelectItem>
+                        <SelectItem value="government">Gobierno</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="contactPerson">Contact Person</Label>
+                    <Label htmlFor="contactPerson">Persona de Contacto</Label>
                     <Input id="contactPerson" />
                   </div>
                 </div>
 
                 <div className="grid gap-2">
-                  <Label>Client Type</Label>
+                  <Label>Tipo de Cliente</Label>
                   <RadioGroup defaultValue="direct" className="flex gap-4">
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="direct" id="direct" />
-                      <Label htmlFor="direct">Direct</Label>
+                      <Label htmlFor="direct">Directo</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="indirect" id="indirect" />
-                      <Label htmlFor="indirect">Indirect</Label>
+                      <Label htmlFor="indirect">Indirecto</Label>
                     </div>
                   </RadioGroup>
                 </div>
 
                 <div className="grid gap-2">
-                  <Label>Identification Document</Label>
+                  <Label>Documento de Identificación</Label>
                   <div className="grid grid-cols-2 gap-4">
                     <Select>
                       <SelectTrigger>
-                        <SelectValue placeholder="Document type" />
+                        <SelectValue placeholder="Tipo de documento" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ID">ID</SelectItem>
+                        <SelectItem value="ID">Cédula</SelectItem>
                         <SelectItem value="RIF">RIF</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Input placeholder="Document number" />
+                    <Input placeholder="Número de documento" />
                   </div>
                   <div className="mt-2">
-                    <Label className="text-sm text-muted-foreground mb-2 block">Upload Document</Label>
+                    <Label className="text-sm text-muted-foreground mb-2 block">Subir Documento</Label>
                     <div className="border-2 border-dashed rounded-lg p-4 hover:bg-muted/50 transition-colors">
                       <div className="flex items-center justify-center gap-2">
                         <FileText className="h-4 w-4 text-muted-foreground" />
                         <Input type="file" className="max-w-[250px]" accept=".pdf,.jpg,.jpeg,.png" />
                       </div>
                       <p className="text-xs text-muted-foreground text-center mt-2">
-                        PDF, JPG or PNG up to 5MB
+                        PDF, JPG o PNG hasta 5MB
                       </p>
                     </div>
                   </div>
@@ -153,8 +153,8 @@ const Clients = () => {
               </div>
               
               <DialogFooter>
-                <Button variant="outline" onClick={() => {}}>Cancel</Button>
-                <Button onClick={handleCreateClient}>Create Client</Button>
+                <Button variant="outline" onClick={() => {}}>Cancelar</Button>
+                <Button onClick={handleCreateClient}>Crear Cliente</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -167,7 +167,7 @@ const Clients = () => {
             <div className="relative w-full sm:w-72">
               <Search size={18} className="absolute left-2 top-2.5 text-muted-foreground" />
               <Input
-                placeholder="Search clients..."
+                placeholder="Buscar clientes..."
                 className="pl-8"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -179,23 +179,23 @@ const Clients = () => {
                 <Filter size={16} className="text-muted-foreground" />
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                   <SelectTrigger className="w-40 h-9">
-                    <SelectValue placeholder="All Categories" />
+                    <SelectValue placeholder="Todas las Categorías" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
+                    <SelectItem value="all">Todas las Categorías</SelectItem>
                     <SelectItem value="individual">Individual</SelectItem>
-                    <SelectItem value="company">Company</SelectItem>
-                    <SelectItem value="non-profit">Non-profit</SelectItem>
-                    <SelectItem value="government">Government</SelectItem>
+                    <SelectItem value="company">Empresa</SelectItem>
+                    <SelectItem value="non-profit">Sin Fines de Lucro</SelectItem>
+                    <SelectItem value="government">Gobierno</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               
               <Tabs value={activeFilter} onValueChange={(v) => setActiveFilter(v as "all" | "active" | "inactive")}>
                 <TabsList>
-                  <TabsTrigger value="all">All</TabsTrigger>
-                  <TabsTrigger value="active">Active</TabsTrigger>
-                  <TabsTrigger value="inactive">Inactive</TabsTrigger>
+                  <TabsTrigger value="all">Todos</TabsTrigger>
+                  <TabsTrigger value="active">Activos</TabsTrigger>
+                  <TabsTrigger value="inactive">Inactivos</TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
@@ -204,11 +204,11 @@ const Clients = () => {
         <CardContent>
           <div className="rounded-md border">
             <div className="grid grid-cols-1 md:grid-cols-12 p-4 bg-muted/50 text-sm font-medium">
-              <div className="hidden md:block md:col-span-3">Name</div>
-              <div className="hidden md:block md:col-span-2">Category</div>
-              <div className="hidden md:block md:col-span-2">Status</div>
-              <div className="hidden md:block md:col-span-3">Contact</div>
-              <div className="hidden md:block md:col-span-2 text-right">Actions</div>
+              <div className="hidden md:block md:col-span-3">Nombre</div>
+              <div className="hidden md:block md:col-span-2">Categoría</div>
+              <div className="hidden md:block md:col-span-2">Estado</div>
+              <div className="hidden md:block md:col-span-3">Contacto</div>
+              <div className="hidden md:block md:col-span-2 text-right">Acciones</div>
             </div>
             
             <div className="divide-y">
@@ -218,7 +218,7 @@ const Clients = () => {
                     <div className="md:col-span-3 space-y-1">
                       <div className="font-medium">{client.name}</div>
                       <div className="text-sm text-muted-foreground md:hidden">
-                        {client.category} • {client.active ? 'Active' : 'Inactive'}
+                        {client.category} • {client.active ? 'Activo' : 'Inactivo'}
                       </div>
                     </div>
                     
@@ -228,7 +228,7 @@ const Clients = () => {
                     
                     <div className="md:col-span-2 flex items-center gap-2 mt-2 md:mt-0">
                       <Badge variant={client.active ? "default" : "outline"} className={client.active ? "bg-finance-green" : ""}>
-                        {client.active ? "Active" : "Inactive"}
+                        {client.active ? "Activo" : "Inactivo"}
                       </Badge>
                       
                       {client.alertStatus !== 'none' && (
@@ -246,14 +246,14 @@ const Clients = () => {
                     
                     <div className="md:col-span-2 flex justify-start md:justify-end mt-3 md:mt-0 gap-2">
                       <Button variant="outline" size="sm" asChild>
-                        <Link to={`/clients/${client.id}`}>View</Link>
+                        <Link to={`/clients/${client.id}`}>Ver</Link>
                       </Button>
                     </div>
                   </div>
                 ))
               ) : (
                 <div className="p-6 text-center text-muted-foreground">
-                  No clients found matching your search criteria
+                  No se encontraron clientes que coincidan con tu búsqueda
                 </div>
               )}
             </div>
