@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -17,6 +18,8 @@ import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import AccountDetail from "./pages/AccountDetail";
 import TransactionDetail from "./pages/TransactionDetail";
+import AllDebts from "./pages/AllDebts";
+import AllReceivables from "./pages/AllReceivables";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +46,8 @@ const App = () => (
               <Route path="/statistics" element={<Statistics />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/accounts/:accountId" element={<AccountDetail />} />
+              <Route path="/all-debts" element={<AllDebts />} />
+              <Route path="/all-receivables" element={<AllReceivables />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
