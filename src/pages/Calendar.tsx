@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,22 +10,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { mockCalendarEvents, mockClients } from "@/data/mockData";
-import { CalendarEvent } from "@/types";
-import { format, isToday, addDays, parseISO } from "date-fns";
-import { AlertTriangle, Calendar as CalendarIcon, CalendarCheck, CalendarDays, PlusCircle } from "lucide-react";
+import { format, isToday, addDays, parseISO, isSameDay } from "date-fns";
+import { AlertTriangle, Calendar as CalendarIcon, CalendarCheck, CalendarDays, PlusCircle, Check, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { EventCard } from "@/components/calendar/EventCard";
+import { EventForm } from "@/components/calendar/EventForm";
 
 const Calendar = () => {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [view, setView] = useState<'day' | 'month'>('month');
+  const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
   
   const getEventsForDate = (date: Date) => {
     return mockCalendarEvents.filter(event => {
       const eventDate = new Date(event.startDate);
-      return eventDate.getDate() === date.getDate() && 
-             eventDate.getMonth() === date.getMonth() && 
-             eventDate.getFullYear() === date.getFullYear();
+      return isSameDay(eventDate, date);
     });
   };
   
@@ -35,7 +38,12 @@ const Calendar = () => {
   const eventsForSelectedDate = date ? getEventsForDate(date) : [];
   
   const handleAddEvent = () => {
-    toast.success("Event created successfully! This is a mock action in the MVP.");
+    toast.success("Evento creado exitosamente!");
+    setIsCreateEventOpen(false);
+  };
+
+  const handleCompleteReminder = (eventId: string) => {
+    toast.success("Recordatorio marcado como completado");
   };
 
   const getCategoryColor = (category: string) => {
@@ -99,95 +107,21 @@ const Calendar = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-3xl font-bold tracking-tight">Calendar</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Calendario</h1>
         
-        <Dialog>
+        <Dialog open={isCreateEventOpen} onOpenChange={setIsCreateEventOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">
               <PlusCircle size={18} />
-              Add Event
+              Añadir Evento
             </Button>
           </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Event</DialogTitle>
-              <DialogDescription>
-                Create a new event or reminder in your calendar.
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="title">Event Title</Label>
-                <Input id="title" placeholder="Enter event title" />
-              </div>
-              
-              <div className="grid gap-2">
-                <Label htmlFor="category">Category</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="legal">Legal</SelectItem>
-                    <SelectItem value="banking">Banking</SelectItem>
-                    <SelectItem value="home">Home</SelectItem>
-                    <SelectItem value="social">Social</SelectItem>
-                    <SelectItem value="charity">Charity</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="grid gap-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea id="description" placeholder="Enter event details..." />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label>Start Date & Time</Label>
-                  <div className="flex gap-2">
-                    <Input type="date" className="flex-1" defaultValue={format(date || new Date(), 'yyyy-MM-dd')} />
-                    <Input type="time" className="flex-1" defaultValue="09:00" />
-                  </div>
-                </div>
-                
-                <div className="grid gap-2">
-                  <Label>End Date & Time</Label>
-                  <div className="flex gap-2">
-                    <Input type="date" className="flex-1" defaultValue={format(date || new Date(), 'yyyy-MM-dd')} />
-                    <Input type="time" className="flex-1" defaultValue="10:00" />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-2 space-y-0">
-                <Switch id="reminder" />
-                <Label htmlFor="reminder">Set Reminder</Label>
-              </div>
-              
-              <div className="grid gap-2">
-                <Label htmlFor="reminderDays">Reminder Days Before</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select days" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">Same day</SelectItem>
-                    <SelectItem value="1">1 day before</SelectItem>
-                    <SelectItem value="3">3 days before</SelectItem>
-                    <SelectItem value="7">1 week before</SelectItem>
-                    <SelectItem value="14">2 weeks before</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            <DialogFooter>
-              <Button variant="outline">Cancel</Button>
-              <Button onClick={handleAddEvent}>Create Event</Button>
-            </DialogFooter>
+          <DialogContent className="sm:max-w-[550px]">
+            <EventForm 
+              onSave={handleAddEvent}
+              onCancel={() => setIsCreateEventOpen(false)}
+              selectedDate={date}
+            />
           </DialogContent>
         </Dialog>
       </div>
@@ -197,14 +131,18 @@ const Calendar = () => {
           <Card className="w-full">
             <CardHeader className="flex flex-row justify-between items-center pb-2 w-full">
               <CardTitle>{format(date || new Date(), 'MMMM yyyy')}</CardTitle>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setView('month')} className={view === 'month' ? 'bg-muted' : ''}>
-                  <CalendarDays size={16} />
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setView('day')} className={view === 'day' ? 'bg-muted' : ''}>
-                  <CalendarCheck size={16} />
-                </Button>
-              </div>
+              <Tabs defaultValue="month" className="w-auto">
+                <TabsList>
+                  <TabsTrigger value="month" onClick={() => setView('month')}>
+                    <CalendarDays size={16} className="mr-2" />
+                    Mes
+                  </TabsTrigger>
+                  <TabsTrigger value="day" onClick={() => setView('day')}>
+                    <CalendarCheck size={16} className="mr-2" />
+                    Día
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
             </CardHeader>
             <CardContent className="p-0 w-full">
               <div className="w-full min-w-0">
@@ -212,17 +150,19 @@ const Calendar = () => {
                   mode="single"
                   selected={date}
                   onSelect={setDate}
-                  className="rounded-md border-0 w-full min-w-0"
+                  className="rounded-md border-0 w-full min-w-0 pointer-events-auto"
                   components={{
                     DayContent: (props) => (
                       <div className={`relative w-full h-full flex items-center justify-center ${getDateClasses(props.date)}`}>
-                        <span className={isToday(props.date) ? 'font-bold' : ''}>
+                        <span className={cn("w-10 h-10 flex items-center justify-center rounded-full", 
+                          isToday(props.date) ? "bg-primary text-primary-foreground font-medium" : ""
+                        )}>
                           {format(props.date, 'd')}
                         </span>
                         {getEventsForDate(props.date).length > 0 && (
                           <div className="absolute bottom-0 left-0 w-full flex justify-center gap-0.5 pb-1">
                             {getEventsForDate(props.date).slice(0, 3).map((event, idx) => (
-                              <span key={idx} className={`h-1 w-1 rounded-full ${getCategoryColor(event.category)}`} />
+                              <span key={idx} className={`h-1.5 w-1.5 rounded-full ${getCategoryColor(event.category)}`} />
                             ))}
                           </div>
                         )}
@@ -237,132 +177,35 @@ const Calendar = () => {
           {date && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Events for {format(date, 'MMMM d, yyyy')}</CardTitle>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <CalendarIcon size={18} />
+                  Eventos para {format(date, 'EEEE, d MMMM yyyy')}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 {eventsForSelectedDate.length > 0 ? (
                   <div className="space-y-4">
                     {eventsForSelectedDate.map((event) => (
-                      <div key={event.id} className="flex items-start space-x-4 p-3 rounded-lg border">
-                        <div className="text-2xl">{getCategoryIcon(event.category)}</div>
-                        <div className="flex-1">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h4 className="font-medium">{event.title}</h4>
-                              <p className="text-sm text-muted-foreground">
-                                {format(new Date(event.startDate), 'h:mm a')} - {format(new Date(event.endDate), 'h:mm a')}
-                              </p>
-                              {event.description && (
-                                <p className="text-sm mt-2">{event.description}</p>
-                              )}
-                            </div>
-                            <div className="flex flex-col items-end gap-2">
-                              <Badge className={getCategoryColor(event.category)}>
-                                {event.category}
-                              </Badge>
-                              {event.isReminder && (
-                                <Badge variant="outline" className="border-red-500 text-red-500">
-                                  <AlertTriangle size={12} className="mr-1" />
-                                  Reminder
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                      <EventCard 
+                        key={event.id} 
+                        event={event}
+                        getCategoryColor={getCategoryColor}
+                        getCategoryIcon={getCategoryIcon}
+                      />
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">No events scheduled for this day.</p>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" className="mt-4">
-                          Add Event
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Add New Event</DialogTitle>
-                          <DialogDescription>
-                            Create a new event or reminder in your calendar.
-                          </DialogDescription>
-                        </DialogHeader>
-                        
-                        <div className="grid gap-4 py-4">
-                          <div className="grid gap-2">
-                            <Label htmlFor="title">Event Title</Label>
-                            <Input id="title" placeholder="Enter event title" />
-                          </div>
-                          
-                          <div className="grid gap-2">
-                            <Label htmlFor="category">Category</Label>
-                            <Select>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select category" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="legal">Legal</SelectItem>
-                                <SelectItem value="banking">Banking</SelectItem>
-                                <SelectItem value="home">Home</SelectItem>
-                                <SelectItem value="social">Social</SelectItem>
-                                <SelectItem value="charity">Charity</SelectItem>
-                                <SelectItem value="other">Other</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          
-                          <div className="grid gap-2">
-                            <Label htmlFor="description">Description</Label>
-                            <Textarea id="description" placeholder="Enter event details..." />
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                              <Label>Start Date & Time</Label>
-                              <div className="flex gap-2">
-                                <Input type="date" className="flex-1" defaultValue={format(date || new Date(), 'yyyy-MM-dd')} />
-                                <Input type="time" className="flex-1" defaultValue="09:00" />
-                              </div>
-                            </div>
-                            
-                            <div className="grid gap-2">
-                              <Label>End Date & Time</Label>
-                              <div className="flex gap-2">
-                                <Input type="date" className="flex-1" defaultValue={format(date || new Date(), 'yyyy-MM-dd')} />
-                                <Input type="time" className="flex-1" defaultValue="10:00" />
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center gap-2 space-y-0">
-                            <Switch id="reminder" />
-                            <Label htmlFor="reminder">Set Reminder</Label>
-                          </div>
-                          
-                          <div className="grid gap-2">
-                            <Label htmlFor="reminderDays">Reminder Days Before</Label>
-                            <Select>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select days" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="0">Same day</SelectItem>
-                                <SelectItem value="1">1 day before</SelectItem>
-                                <SelectItem value="3">3 days before</SelectItem>
-                                <SelectItem value="7">1 week before</SelectItem>
-                                <SelectItem value="14">2 weeks before</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        
-                        <DialogFooter>
-                          <Button variant="outline">Cancel</Button>
-                          <Button onClick={handleAddEvent}>Create Event</Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
+                  <div className="text-center py-12 bg-slate-50 dark:bg-slate-900 rounded-xl">
+                    <CalendarIcon className="mx-auto h-12 w-12 text-muted-foreground/50 mb-3" />
+                    <p className="text-muted-foreground font-medium">No hay eventos programados para este día.</p>
+                    <Button 
+                      variant="outline" 
+                      className="mt-4"
+                      onClick={() => setIsCreateEventOpen(true)}
+                    >
+                      <PlusCircle size={16} className="mr-2" />
+                      Añadir Evento
+                    </Button>
                   </div>
                 )}
               </CardContent>
@@ -373,7 +216,10 @@ const Calendar = () => {
         <div className="space-y-6">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Upcoming Events</CardTitle>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <CalendarCheck size={18} />
+                Próximos Eventos
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {upcomingEvents.length > 0 ? (
@@ -383,15 +229,20 @@ const Calendar = () => {
                     const isToday = new Date(event.startDate).toDateString() === new Date().toDateString();
                     
                     return (
-                      <div key={event.id} className="border rounded-lg p-3">
+                      <div key={event.id} className="border rounded-lg p-3 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
                         <div className="flex justify-between items-start">
                           <div>
-                            <h4 className="font-medium">{event.title}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              {isToday ? 'Today' : format(new Date(event.startDate), 'EEE, MMM d')} • {format(new Date(event.startDate), 'h:mm a')}
+                            <div className="flex items-center gap-2">
+                              <span className="text-xl">{getCategoryIcon(event.category)}</span>
+                              <h4 className="font-medium">{event.title}</h4>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {isToday ? 'Hoy' : format(new Date(event.startDate), 'EEE, d MMM')} • {format(new Date(event.startDate), 'h:mm a')}
                             </p>
                             {client && (
-                              <p className="text-sm mt-1">Client: {client.name}</p>
+                              <Badge variant="outline" className="mt-1.5">
+                                Cliente: {client.name}
+                              </Badge>
                             )}
                           </div>
                           <Badge className={getCategoryColor(event.category)}>
@@ -406,22 +257,27 @@ const Calendar = () => {
                   })}
                   
                   {upcomingEvents.length > 5 && (
-                    <p className="text-center text-sm text-muted-foreground">
-                      + {upcomingEvents.length - 5} more events
+                    <p className="text-center text-sm text-muted-foreground py-2">
+                      + {upcomingEvents.length - 5} más eventos
                     </p>
                   )}
                 </div>
               ) : (
-                <p className="text-center py-8 text-muted-foreground">
-                  No upcoming events scheduled.
-                </p>
+                <div className="text-center py-8 bg-slate-50 dark:bg-slate-900 rounded-xl">
+                  <p className="text-muted-foreground">
+                    No hay próximos eventos programados.
+                  </p>
+                </div>
               )}
             </CardContent>
           </Card>
           
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Reminders</CardTitle>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <AlertTriangle size={18} />
+                Recordatorios
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {upcomingEvents.filter(e => e.isReminder).length > 0 ? (
@@ -429,21 +285,34 @@ const Calendar = () => {
                   {upcomingEvents
                     .filter(e => e.isReminder)
                     .map((event) => (
-                      <div key={event.id} className="flex items-center justify-between border rounded-lg p-3">
+                      <div key={event.id} className="flex items-start justify-between border rounded-lg p-3 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
                         <div>
-                          <h4 className="font-medium">{event.title}</h4>
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{getCategoryIcon(event.category)}</span>
+                            <h4 className="font-medium">{event.title}</h4>
+                          </div>
                           <p className="text-sm text-muted-foreground">
-                            {format(new Date(event.startDate), 'EEE, MMM d')}
+                            {format(new Date(event.startDate), 'EEE, d MMM')}
                           </p>
                         </div>
-                        <Button variant="outline" size="sm">Mark Complete</Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleCompleteReminder(event.id)}
+                          className="gap-1.5"
+                        >
+                          <Check size={14} />
+                          Completado
+                        </Button>
                       </div>
                     ))}
                 </div>
               ) : (
-                <p className="text-center py-8 text-muted-foreground">
-                  No pending reminders.
-                </p>
+                <div className="text-center py-8 bg-slate-50 dark:bg-slate-900 rounded-xl">
+                  <p className="text-muted-foreground">
+                    No hay recordatorios pendientes.
+                  </p>
+                </div>
               )}
             </CardContent>
           </Card>
