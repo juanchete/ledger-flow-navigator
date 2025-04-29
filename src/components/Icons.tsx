@@ -11,9 +11,8 @@ import {
   X,
   LucideIcon,
   LucideProps,
-  forwardRef
 } from "lucide-react";
-import { ForwardRefExoticComponent, RefAttributes } from "react";
+import { forwardRef } from "react";
 
 // Define the type for the icons object with proper typing
 type IconsType = {
@@ -31,7 +30,7 @@ type IconsType = {
 };
 
 // Create a custom logo icon that matches the LucideIcon type
-const LogoIcon: LucideIcon = forwardRef((props: LucideProps, ref) => (
+const LogoIcon = forwardRef<SVGSVGElement, LucideProps>((props, ref) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 24 24"

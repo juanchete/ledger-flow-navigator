@@ -100,30 +100,24 @@ export function AppSidebar() {
         </ul>
       </nav>
 
-      <div className="p-4">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex h-8 w-full items-center justify-between rounded-md">
-              <div className="flex items-center space-x-2">
-                <Avatar>
-                  <AvatarImage src={`https://avatar.vercel.sh/${user?.email}.png`} alt={user?.email || "Avatar"} />
-                  <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <span className="text-sm font-medium leading-none">{user?.email}</span>
-              </div>
-              <Icons.chevronDown className="h-4 w-4 opacity-50" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem>
-              <Link to="/settings" className="w-full block">
-                Settings
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => logout && logout()}>Log out</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+      <div className="p-4 border-t">
+        <div className="space-y-1">
+          <Link 
+            to="/settings"
+            className="flex items-center space-x-2 p-2 rounded-md hover:bg-secondary text-muted-foreground w-full"
+          >
+            <Icons.settings className="h-4 w-4" />
+            <span>Settings</span>
+          </Link>
+          <Button 
+            variant="ghost" 
+            className="flex items-center space-x-2 p-2 rounded-md hover:bg-secondary text-muted-foreground w-full justify-start"
+            onClick={() => logout && logout()}
+          >
+            <Icons.close className="h-4 w-4" />
+            <span>Logout</span>
+          </Button>
+        </div>
       </div>
     </aside>
   );
