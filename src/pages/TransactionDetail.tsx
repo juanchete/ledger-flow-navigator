@@ -1,4 +1,3 @@
-
 import { useParams, Link } from "react-router-dom";
 import { format } from "date-fns";
 import { ArrowLeft, BadgeDollarSign, Clock, Info, User, AlertTriangle } from "lucide-react";
@@ -192,17 +191,6 @@ const TransactionDetail = () => {
                 <Button variant="outline" size="sm" asChild>
                   <a href={transaction.receipt} target="_blank" rel="noopener noreferrer">
                     View Receipt
-                  </a>
-                </Button>
-              </div>
-            )}
-            
-            {transaction.invoice && (
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Invoice:</span>
-                <Button variant="outline" size="sm" asChild>
-                  <a href={transaction.invoice} target="_blank" rel="noopener noreferrer">
-                    View Invoice
                   </a>
                 </Button>
               </div>

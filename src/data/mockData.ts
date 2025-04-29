@@ -1,11 +1,10 @@
-import { 
-  Client, 
-  Transaction, 
-  CalendarEvent, 
-  Invoice, 
+import {
+  Client,
+  Transaction,
+  CalendarEvent,
   FinancialStat,
-  ExpenseStat
-} from '../types';
+  ExpenseStat,
+} from "../types";
 
 // Mock Clients
 export const mockClients: Client[] = [
@@ -26,12 +25,12 @@ export const mockClients: Client[] = [
         type: "PDF",
         url: "/documents/contract.pdf",
         uploadedAt: new Date("2024-01-15"),
-        size: 2500000
-      }
+        size: 2500000,
+      },
     ],
     createdAt: new Date("2023-12-01"),
     updatedAt: new Date("2024-01-15"),
-    alertStatus: "none"
+    alertStatus: "none",
   },
   {
     id: "2",
@@ -66,8 +65,8 @@ export const mockClients: Client[] = [
         type: "docx",
         url: "/documents/proposal.docx",
         uploadedAt: new Date("2023-02-05"),
-        size: 1850000
-      }
+        size: 1850000,
+      },
     ],
     createdAt: new Date("2022-12-20"),
     updatedAt: new Date("2023-03-05"),
@@ -102,7 +101,7 @@ export const mockClients: Client[] = [
     createdAt: new Date("2023-02-01"),
     updatedAt: new Date("2023-03-01"),
     alertStatus: "none",
-  }
+  },
 ];
 
 // Mock Transactions
@@ -197,7 +196,7 @@ export const mockTransactions: Transaction[] = [
     category: "software",
     createdAt: new Date("2023-03-05"),
     updatedAt: new Date("2023-03-05"),
-  }
+  },
 ];
 
 // Mock Calendar Events
@@ -264,90 +263,7 @@ export const mockCalendarEvents: CalendarEvent[] = [
     completed: false,
     createdAt: new Date("2023-03-15"),
     updatedAt: new Date("2023-03-15"),
-  }
-];
-
-// Mock Invoices
-export const mockInvoices: Invoice[] = [
-  {
-    id: "inv1",
-    clientId: "1",
-    amount: 5000,
-    status: "paid",
-    dueDate: new Date("2023-03-15"),
-    issueDate: new Date("2023-03-01"),
-    items: [
-      {
-        id: "item1",
-        description: "Consulting services - Q1",
-        quantity: 1,
-        unitPrice: 5000,
-        totalPrice: 5000,
-      }
-    ],
-    createdAt: new Date("2023-03-01"),
-    updatedAt: new Date("2023-03-16"),
-    pdfUrl: "/mock-documents/invoice-inv1.pdf",
   },
-  {
-    id: "inv2",
-    clientId: "2",
-    amount: 3500,
-    status: "overdue",
-    dueDate: new Date("2023-03-10"),
-    issueDate: new Date("2023-02-25"),
-    items: [
-      {
-        id: "item2",
-        description: "Website development",
-        quantity: 1,
-        unitPrice: 3500,
-        totalPrice: 3500,
-      }
-    ],
-    createdAt: new Date("2023-02-25"),
-    updatedAt: new Date("2023-02-25"),
-    pdfUrl: "/mock-documents/invoice-inv2.pdf",
-  },
-  {
-    id: "inv3",
-    clientId: "3",
-    amount: 1200,
-    status: "sent",
-    dueDate: new Date("2023-03-30"),
-    issueDate: new Date("2023-03-15"),
-    items: [
-      {
-        id: "item3",
-        description: "Grant writing assistance",
-        quantity: 4,
-        unitPrice: 300,
-        totalPrice: 1200,
-      }
-    ],
-    createdAt: new Date("2023-03-15"),
-    updatedAt: new Date("2023-03-15"),
-    pdfUrl: "/mock-documents/invoice-inv3.pdf",
-  },
-  {
-    id: "inv4",
-    clientId: "5",
-    amount: 800,
-    status: "draft",
-    dueDate: new Date("2023-04-15"),
-    issueDate: new Date("2023-03-16"),
-    items: [
-      {
-        id: "item4",
-        description: "Tax preparation - Personal",
-        quantity: 1,
-        unitPrice: 800,
-        totalPrice: 800,
-      }
-    ],
-    createdAt: new Date("2023-03-16"),
-    updatedAt: new Date("2023-03-16"),
-  }
 ];
 
 // Mock Financial Stats
@@ -372,29 +288,80 @@ export const mockFinancialStats: FinancialStat[] = [
     receivables: 4700,
     debts: 2000,
     expenses: 2089.99,
-  }
+  },
+  {
+    date: new Date("2023-03-31"),
+    netWorth: 52000,
+    receivables: 6500,
+    debts: 1800,
+    expenses: 2300,
+  },
+];
+
+// Mock Detailed Debts
+export const mockDetailedDebts = [
+  {
+    id: "d1",
+    creditor: "Office Supplies Co.",
+    amount: 800,
+    dueDate: new Date("2023-04-15"),
+    status: "pending",
+    category: "supplies",
+    notes: "Monthly office supplies order",
+  },
+  {
+    id: "d2",
+    creditor: "Tech Solutions Inc.",
+    amount: 1000,
+    dueDate: new Date("2023-04-20"),
+    status: "pending",
+    category: "software",
+    notes: "Annual software license renewal",
+  },
+];
+
+// Mock Detailed Receivables
+export const mockDetailedReceivables = [
+  {
+    id: "r1",
+    clientId: "1",
+    amount: 3500,
+    dueDate: new Date("2023-04-10"),
+    status: "pending",
+    description: "Q1 Consulting Services",
+    notes: "Payment expected by end of week",
+  },
+  {
+    id: "r2",
+    clientId: "2",
+    amount: 3000,
+    dueDate: new Date("2023-04-15"),
+    status: "pending",
+    description: "Website Development Project",
+    notes: "Final payment for completed project",
+  },
 ];
 
 // Mock Expense Stats
 export const mockExpenseStats: ExpenseStat[] = [
-  { 
-    category: "Rent", 
-    amount: 1200, 
-    percentage: 57.41, 
-    color: "#1A73E8" 
+  {
+    category: "Rent",
+    amount: 1200,
+    percentage: 57.41,
+    color: "#1A73E8",
   },
-  { 
-    category: "Software", 
-    amount: 89.99, 
-    percentage: 4.31, 
-    color: "#34A853" 
+  {
+    category: "Software",
+    amount: 89.99,
+    percentage: 4.31,
+    color: "#34A853",
   },
-  { 
-    category: "Supplies", 
-    amount: 800, 
-    percentage: 38.28, 
-    color: "#FBBC05" 
-  }
+  {
+    category: "Supplies",
+    amount: 800,
+    percentage: 38.28,
+    color: "#FBBC05",
+  },
 ];
 
 // Mock Bank Accounts
@@ -404,27 +371,27 @@ export const mockBankAccounts = [
     bank: "Bank of America",
     accountNumber: "****1234",
     amount: 50000,
-    currency: "USD"
+    currency: "USD",
   },
   {
     id: "2",
     bank: "Chase",
     accountNumber: "****5678",
-    amount: 25420.50,
-    currency: "USD"
+    amount: 25420.5,
+    currency: "USD",
   },
   {
     id: "3",
     bank: "Banco Mercantil",
     accountNumber: "****9012",
     amount: 2425750,
-    currency: "VES"
+    currency: "VES",
   },
   {
     id: "4",
     bank: "Banesco",
     accountNumber: "****3456",
     amount: 1000000,
-    currency: "VES"
-  }
+    currency: "VES",
+  },
 ] as const;

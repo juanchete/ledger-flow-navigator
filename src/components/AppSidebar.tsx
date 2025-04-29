@@ -2,10 +2,13 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarTrigger, 
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Calendar, File, PieChart, Receipt, Settings, Users, Wallet } from "lucide-react";
+import { Calendar, File, PieChart, Settings, Users, Wallet } from "lucide-react";
+import { useAuth } from "./AuthProvider";
+
 export function AppSidebar() {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const { logout } = useAuth();
   const menuItems = [{
     title: "Dashboard",
     icon: PieChart,
@@ -26,11 +29,8 @@ export function AppSidebar() {
     title: "Statistics",
     icon: File,
     path: "/statistics"
-  }, {
-    title: "Invoices",
-    icon: Receipt,
-    path: "/invoices"
   }];
+
   return <Sidebar>
       <SidebarHeader className="flex items-center justify-between p-4">
         <div className="flex items-center gap-2">
@@ -41,7 +41,6 @@ export function AppSidebar() {
           </div>
           {!collapsed && <h1 className="text-lg font-semibold">FinTrackPro</h1>}
         </div>
-        
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -60,11 +59,19 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-4">
-        <SidebarMenuButton asChild className="flex items-center">
+        <SidebarMenuButton asChild className="flex items-center mb-2">
           <Link to="/settings" className="flex items-center gap-3 w-full">
             <Settings size={18} />
             <span>Settings</span>
           </Link>
+        </SidebarMenuButton>
+        <SidebarMenuButton className="flex items-center w-full text-red-600" onClick={logout}>
+          <span className="flex items-center gap-3 w-full">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M18 15l3-3m0 0l-3-3m3 3H9" />
+            </svg>
+            <span>Cerrar sesión</span>
+          </span>
         </SidebarMenuButton>
       </SidebarFooter>
     </Sidebar>;

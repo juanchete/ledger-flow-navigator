@@ -192,10 +192,10 @@ const Calendar = () => {
         </Dialog>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader className="flex flex-row justify-between items-center pb-2">
+      <div className="grid grid-cols-1 lg:grid-cols-[2fr,1fr] gap-6">
+        <div className="flex flex-col gap-6 w-full">
+          <Card className="w-full">
+            <CardHeader className="flex flex-row justify-between items-center pb-2 w-full">
               <CardTitle>{format(date || new Date(), 'MMMM yyyy')}</CardTitle>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => setView('month')} className={view === 'month' ? 'bg-muted' : ''}>
@@ -206,29 +206,31 @@ const Calendar = () => {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
-              <CalendarComponent
-                mode="single"
-                selected={date}
-                onSelect={setDate}
-                className="rounded-md border"
-                components={{
-                  DayContent: (props) => (
-                    <div className={`relative w-full h-full flex items-center justify-center ${getDateClasses(props.date)}`}>
-                      <span className={isToday(props.date) ? 'font-bold' : ''}>
-                        {format(props.date, 'd')}
-                      </span>
-                      {getEventsForDate(props.date).length > 0 && (
-                        <div className="absolute bottom-0 left-0 w-full flex justify-center gap-0.5 pb-1">
-                          {getEventsForDate(props.date).slice(0, 3).map((event, idx) => (
-                            <span key={idx} className={`h-1 w-1 rounded-full ${getCategoryColor(event.category)}`} />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )
-                }}
-              />
+            <CardContent className="p-0 w-full">
+              <div className="w-full min-w-0">
+                <CalendarComponent
+                  mode="single"
+                  selected={date}
+                  onSelect={setDate}
+                  className="rounded-md border-0 w-full min-w-0"
+                  components={{
+                    DayContent: (props) => (
+                      <div className={`relative w-full h-full flex items-center justify-center ${getDateClasses(props.date)}`}>
+                        <span className={isToday(props.date) ? 'font-bold' : ''}>
+                          {format(props.date, 'd')}
+                        </span>
+                        {getEventsForDate(props.date).length > 0 && (
+                          <div className="absolute bottom-0 left-0 w-full flex justify-center gap-0.5 pb-1">
+                            {getEventsForDate(props.date).slice(0, 3).map((event, idx) => (
+                              <span key={idx} className={`h-1 w-1 rounded-full ${getCategoryColor(event.category)}`} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  }}
+                />
+              </div>
             </CardContent>
           </Card>
           

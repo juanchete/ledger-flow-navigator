@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,29 +32,6 @@ export default function Auth() {
       }
 
       if (data.user) {
-        // Check if user is an admin
-        const { data: adminData, error: adminError } = await supabase
-          .from('admin_users')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
-
-        if (adminError || !adminData) {
-          await supabase.auth.signOut();
-          toast({
-            variant: "destructive",
-            title: "Acceso denegado",
-            description: "No tienes permisos de administrador.",
-          });
-          return;
-        }
-
-        // Update last sign in
-        await supabase
-          .from('admin_users')
-          .update({ last_sign_in: new Date().toISOString() })
-          .eq('id', data.user.id);
-
         navigate('/');
       }
     } catch (error) {
@@ -73,8 +49,8 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="w-full max-w-md space-y-8 p-8 border rounded-lg shadow-lg bg-card">
         <div className="text-center">
-          <h2 className="text-2xl font-bold">Panel Administrativo</h2>
-          <p className="mt-2 text-muted-foreground">Inicia sesión para continuar</p>
+          <h2 className="text-2xl font-bold">Iniciar Sesión</h2>
+          <p className="mt-2 text-muted-foreground">Ingresa tus credenciales para continuar</p>
         </div>
         
         <form onSubmit={handleLogin} className="mt-8 space-y-6">

@@ -13,7 +13,6 @@ import ClientDetail from "./pages/ClientDetail";
 import Operations from "./pages/Operations";
 import Calendar from "./pages/Calendar";
 import Statistics from "./pages/Statistics";
-import Invoices from "./pages/Invoices";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import AccountDetail from "./pages/AccountDetail";
@@ -42,7 +41,6 @@ const App = () => (
               <Route path="/operations/transaction/:transactionId" element={<TransactionDetail />} />
               <Route path="/calendar" element={<Calendar />} />
               <Route path="/statistics" element={<Statistics />} />
-              <Route path="/invoices" element={<Invoices />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/accounts/:accountId" element={<AccountDetail />} />
             </Route>

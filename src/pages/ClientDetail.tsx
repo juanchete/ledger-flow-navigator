@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { 
@@ -18,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { mockClients, mockTransactions, mockInvoices } from "@/data/mockData";
+import { mockClients, mockTransactions } from "@/data/mockData";
 import { format } from "date-fns";
 import { AlertTriangle, ChevronLeft, FileText, Receipt } from "lucide-react";
 
@@ -27,7 +26,6 @@ const ClientDetail = () => {
   const client = mockClients.find(c => c.id === clientId);
   
   const clientTransactions = mockTransactions.filter(t => t.clientId === clientId);
-  const clientInvoices = mockInvoices.filter(i => i.clientId === clientId);
   
   const [isActive, setIsActive] = useState(client?.active || false);
   const [alertStatus, setAlertStatus] = useState<'none' | 'yellow' | 'red'>(client?.alertStatus || 'none');
@@ -251,13 +249,15 @@ const ClientDetail = () => {
               <CardTitle>Client Activity</CardTitle>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="transactions">
-                <TabsList className="grid grid-cols-2 w-[300px]">
+              <Tabs defaultValue="transactions" className="w-full">
+                <TabsList>
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
                   <TabsTrigger value="transactions">Transactions</TabsTrigger>
-                  <TabsTrigger value="invoices">Invoices</TabsTrigger>
                 </TabsList>
-                
-                <TabsContent value="transactions" className="mt-4">
+                <TabsContent value="overview">
+                  {/* ... existing overview content ... */}
+                </TabsContent>
+                <TabsContent value="transactions">
                   {clientTransactions.length > 0 ? (
                     <div className="rounded-md border">
                       <div className="grid grid-cols-12 p-3 bg-muted/50 text-sm font-medium">
@@ -308,68 +308,6 @@ const ClientDetail = () => {
                       <p className="text-muted-foreground">No transactions for this client.</p>
                       <Button variant="outline" className="mt-4" asChild>
                         <Link to="/operations/transaction/new">Add Transaction</Link>
-                      </Button>
-                    </div>
-                  )}
-                </TabsContent>
-                
-                <TabsContent value="invoices" className="mt-4">
-                  {clientInvoices.length > 0 ? (
-                    <div className="rounded-md border">
-                      <div className="grid grid-cols-12 p-3 bg-muted/50 text-sm font-medium">
-                        <div className="col-span-2">Invoice #</div>
-                        <div className="col-span-3">Issue Date</div>
-                        <div className="col-span-3">Due Date</div>
-                        <div className="col-span-2">Amount</div>
-                        <div className="col-span-1">Status</div>
-                        <div className="col-span-1">Action</div>
-                      </div>
-                      
-                      <div className="divide-y">
-                        {clientInvoices.map((invoice) => (
-                          <div key={invoice.id} className="grid grid-cols-12 p-3 items-center text-sm">
-                            <div className="col-span-2">
-                              <div className="flex items-center gap-1">
-                                <Receipt size={14} className="text-muted-foreground" />
-                                <span>{invoice.id.substring(3)}</span>
-                              </div>
-                            </div>
-                            
-                            <div className="col-span-3">
-                              {format(new Date(invoice.issueDate), 'MMM d, yyyy')}
-                            </div>
-                            
-                            <div className="col-span-3">
-                              {format(new Date(invoice.dueDate), 'MMM d, yyyy')}
-                            </div>
-                            
-                            <div className="col-span-2 font-medium">
-                              {formatCurrency(invoice.amount)}
-                            </div>
-                            
-                            <div className="col-span-1">
-                              <Badge variant="outline" className={
-                                invoice.status === 'paid' ? 'bg-finance-green text-white border-finance-green' :
-                                invoice.status === 'overdue' ? 'bg-finance-red text-white border-finance-red' :
-                                invoice.status === 'sent' ? 'bg-finance-blue-light text-white border-finance-blue-light' :
-                                'bg-muted'
-                              }>
-                                {invoice.status}
-                              </Badge>
-                            </div>
-                            
-                            <div className="col-span-1">
-                              <Button size="sm" variant="ghost">View</Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground">No invoices for this client.</p>
-                      <Button variant="outline" className="mt-4" asChild>
-                        <Link to="/invoices/new">Create Invoice</Link>
                       </Button>
                     </div>
                   )}
