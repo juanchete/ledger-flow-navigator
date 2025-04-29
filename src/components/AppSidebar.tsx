@@ -1,78 +1,127 @@
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarTrigger, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarGroup, SidebarGroupLabel, SidebarGroupContent } from "@/components/ui/sidebar";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Calendar, File, PieChart, Settings, Users, Wallet } from "lucide-react";
+import { Icons } from "@/components/Icons";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "./AuthProvider";
+import { useSidebar } from "@/components/ui/sidebar";
+
+const sidebarItems = [
+  {
+    href: "/",
+    icon: "home",
+    label: "Dashboard",
+  },
+  {
+    href: "/clients",
+    icon: "users",
+    label: "Clients",
+  },
+  {
+    href: "/operations",
+    icon: "file",
+    label: "Operations",
+  },
+  {
+    href: "/calendar",
+    icon: "calendar",
+    label: "Calendar",
+  },
+  {
+    href: "/statistics",
+    icon: "pieChart",
+    label: "Statistics",
+  },
+  {
+    href: "/settings",
+    icon: "settings",
+    label: "Settings",
+  },
+  {
+    href: "/historical-balance",
+    icon: "clock",
+    label: "Historical Balance",
+  },
+];
 
 export function AppSidebar() {
+  const { user, signOut } = useAuth();
+  const { isOpen, setIsOpen } = useSidebar();
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
-  const { logout } = useAuth();
-  const menuItems = [{
-    title: "Dashboard",
-    icon: PieChart,
-    path: "/"
-  }, {
-    title: "Clients",
-    icon: Users,
-    path: "/clients"
-  }, {
-    title: "Operations",
-    icon: Wallet,
-    path: "/operations"
-  }, {
-    title: "Calendar",
-    icon: Calendar,
-    path: "/calendar"
-  }, {
-    title: "Statistics",
-    icon: File,
-    path: "/statistics"
-  }];
 
-  return <Sidebar>
-      <SidebarHeader className="flex items-center justify-between p-4">
-        <div className="flex items-center gap-2">
-          <div className="bg-finance-blue rounded-md p-1">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-6 h-6">
-              <path d="M2 17L12 22L22 17M2 12L12 17L22 12M12 2L2 7L12 12L22 7L12 2Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </div>
-          {!collapsed && <h1 className="text-lg font-semibold">FinTrackPro</h1>}
-        </div>
-      </SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map(item => <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton asChild className={cn("flex items-center", location.pathname === item.path && "text-sidebar-primary-foreground bg-sidebar-primary")}>
-                    <Link to={item.path} className="flex items-center gap-3 w-full">
-                      <item.icon size={18} />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>)}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-      <SidebarFooter className="p-4">
-        <SidebarMenuButton asChild className="flex items-center mb-2">
-          <Link to="/settings" className="flex items-center gap-3 w-full">
-            <Settings size={18} />
-            <span>Settings</span>
-          </Link>
-        </SidebarMenuButton>
-        <SidebarMenuButton className="flex items-center w-full text-red-600" onClick={logout}>
-          <span className="flex items-center gap-3 w-full">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M18 15l3-3m0 0l-3-3m3 3H9" />
-            </svg>
-            <span>Cerrar sesión</span>
-          </span>
-        </SidebarMenuButton>
-      </SidebarFooter>
-    </Sidebar>;
+  return (
+    <aside
+      className={cn(
+        "bg-background border-r h-screen fixed top-0 left-0 w-64 flex flex-col z-50",
+        isOpen ? "translate-x-0" : "-translate-x-full",
+        "transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static"
+      )}
+    >
+      <div className="flex items-center justify-between p-4">
+        <Link to="/" className="flex items-center gap-2 font-bold">
+          <Icons.logo className="h-6 w-6" />
+          <span>Acme Co.</span>
+        </Link>
+        <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="lg:hidden">
+          <Icons.close className="h-6 w-6" />
+        </Button>
+      </div>
+
+      <nav className="flex-1 px-2 py-4">
+        <ul>
+          {sidebarItems.map((item) => {
+            const isActive = location.pathname === item.href;
+            return (
+              <li key={item.href}>
+                <Link
+                  to={item.href}
+                  className={cn(
+                    "flex items-center space-x-2 p-2 rounded-md hover:bg-secondary",
+                    isActive ? "font-medium" : "text-muted-foreground"
+                  )}
+                >
+                  <Icons.home className="h-4 w-4" />
+                  <span>{item.label}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+
+      <div className="p-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="flex h-8 w-full items-center justify-between rounded-md">
+              <div className="flex items-center space-x-2">
+                <Avatar>
+                  <AvatarImage src={`https://avatar.vercel.sh/${user?.email}.png`} alt={user?.name || "Avatar"} />
+                  <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <span className="text-sm font-medium leading-none">{user?.email}</span>
+              </div>
+              <Icons.chevronDown className="h-4 w-4 opacity-50" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem>
+              <Link to="/settings" className="w-full block">
+                Settings
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => signOut()}>Log out</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </aside>
+  );
 }

@@ -1,3 +1,4 @@
+
 import { useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { mockTransactions, mockClients, mockFinancialStats, mockExpenseStats, mockCalendarEvents } from "@/data/mockData";
@@ -15,7 +16,8 @@ import {
   PieChart,
   DollarSign,
   Coins,
-  Receipt
+  Receipt,
+  Clock
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
@@ -80,6 +82,12 @@ const Dashboard = () => {
         <div className="hidden md:flex items-center gap-2">
           <Button asChild variant="outline" size="sm">
             <Link to="/operations/transaction/new">New Transaction</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/historical-balance">
+              <Clock className="mr-2 h-4 w-4" />
+              Balance Histórico
+            </Link>
           </Button>
         </div>
       </div>
