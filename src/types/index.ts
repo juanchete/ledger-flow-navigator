@@ -56,9 +56,12 @@ export interface CalendarEvent {
   endDate: Date;
   category: 'legal' | 'banking' | 'home' | 'social' | 'charity' | 'other' | 'meeting' | 'deadline' | 'reminder';
   clientId?: string;
+  clientName?: string;
   isReminder: boolean;
   completed: boolean;
   reminderDays?: number;
+  location?: string;
+  locationUrl?: string;
   createdAt: Date;
   updatedAt: Date;
 }
