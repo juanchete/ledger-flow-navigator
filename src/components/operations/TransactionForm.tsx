@@ -17,6 +17,14 @@ import { toast } from "sonner";
 
 const EXCHANGE_RATE = 35.75; // Mock exchange rate USD to VES
 
+// Define interface for bank accounts to resolve the TypeScript error
+interface BankAccount {
+  id: string;
+  bank: string;
+  accountNumber: string;
+  currency: string;
+}
+
 export const TransactionForm = () => {
   const [isUSD, setIsUSD] = useState(true);
   const [amount, setAmount] = useState("");
@@ -25,6 +33,9 @@ export const TransactionForm = () => {
   const [selectedBank, setSelectedBank] = useState("");
   const [selectedAccount, setSelectedAccount] = useState("");
   const [isNewClientDialogOpen, setIsNewClientDialogOpen] = useState(false);
+
+  // Type assertion to inform TypeScript about the structure of mockBankAccounts
+  const bankAccounts = (mockBankAccounts || []) as BankAccount[];
 
   const handleAmountChange = (value: string) => {
     setAmount(value);
@@ -47,14 +58,14 @@ export const TransactionForm = () => {
 
   // Ensure we have arrays even if the data is undefined
   const filteredBankAccounts = selectedBank 
-    ? (mockBankAccounts || []).filter(account => account.bank === selectedBank)
+    ? bankAccounts.filter(account => account.bank === selectedBank)
     : [];
 
   const availableClients = mockClients || [];
 
   // Get unique banks for the bank selection dropdown
   const availableBanks = Array.from(
-    new Set((mockBankAccounts || []).map(account => account.bank))
+    new Set(bankAccounts.map(account => account.bank))
   );
 
   return (
