@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -53,8 +54,8 @@ const sidebarItems = [
 ];
 
 export function AppSidebar() {
-  const { user, signOut } = useAuth();
-  const { isOpen, setIsOpen } = useSidebar();
+  const { user, logout } = useAuth();
+  const { open: isOpen, setOpen: setIsOpen } = useSidebar();
   const location = useLocation();
 
   return (
@@ -79,6 +80,8 @@ export function AppSidebar() {
         <ul>
           {sidebarItems.map((item) => {
             const isActive = location.pathname === item.href;
+            const IconComponent = Icons[item.icon as keyof typeof Icons];
+            
             return (
               <li key={item.href}>
                 <Link
@@ -88,7 +91,7 @@ export function AppSidebar() {
                     isActive ? "font-medium" : "text-muted-foreground"
                   )}
                 >
-                  <Icons.home className="h-4 w-4" />
+                  <IconComponent className="h-4 w-4" />
                   <span>{item.label}</span>
                 </Link>
               </li>
@@ -103,7 +106,7 @@ export function AppSidebar() {
             <Button variant="ghost" className="flex h-8 w-full items-center justify-between rounded-md">
               <div className="flex items-center space-x-2">
                 <Avatar>
-                  <AvatarImage src={`https://avatar.vercel.sh/${user?.email}.png`} alt={user?.name || "Avatar"} />
+                  <AvatarImage src={`https://avatar.vercel.sh/${user?.email}.png`} alt={user?.email || "Avatar"} />
                   <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <span className="text-sm font-medium leading-none">{user?.email}</span>
@@ -118,7 +121,7 @@ export function AppSidebar() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => signOut()}>Log out</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => logout && logout()}>Log out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
