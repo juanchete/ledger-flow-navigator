@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDateEs } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface Debt {
@@ -62,6 +62,10 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
 
   const isDebt = (item: Debt | Receivable): item is Debt => {
     return 'creditor' in item;
+  };
+
+  const formatDate = (date: Date) => {
+    return formatDateEs(date, 'dd/MM/yyyy');
   };
 
   return (
