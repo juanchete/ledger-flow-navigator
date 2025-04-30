@@ -16,13 +16,16 @@ import {
   DollarSign,
   Coins,
   Receipt,
-  Clock
+  Clock,
+  PlusCircle
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { useState } from "react";
 import { BankAccountsModal } from "@/components/BankAccountsModal";
 import { DebtsAndReceivables } from "@/components/operations/DebtsAndReceivables";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { TransactionForm } from "@/components/operations/TransactionForm";
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -44,6 +47,7 @@ const mockVESAccounts = [
 
 const Dashboard = () => {
   const [openModal, setOpenModal] = useState<null | 'USD' | 'VES'>(null);
+  const [openTransactionModal, setOpenTransactionModal] = useState(false);
 
   const currentStats = mockFinancialStats[mockFinancialStats.length - 1];
   const previousStats = mockFinancialStats[mockFinancialStats.length - 2];
@@ -79,9 +83,27 @@ const Dashboard = () => {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Panel</h1>
         <div className="hidden md:flex items-center gap-2">
-          <Button asChild variant="outline" size="sm">
-            <Link to="/operations/transaction/new">Nueva Transacción</Link>
-          </Button>
+          <Dialog open={openTransactionModal} onOpenChange={setOpenTransactionModal}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <PlusCircle size={18} />
+                Nueva Transacción
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Crear Nueva Transacción</DialogTitle>
+                <DialogDescription>
+                  Ingresa los detalles para tu nueva transacción.
+                </DialogDescription>
+              </DialogHeader>
+              <TransactionForm />
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOpenTransactionModal(false)}>Cancelar</Button>
+                <Button onClick={() => setOpenTransactionModal(false)}>Crear Transacción</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <Button asChild variant="outline" size="sm">
             <Link to="/historical-balance">
               <Clock className="mr-2 h-4 w-4" />

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -56,12 +55,15 @@ export const TransactionForm = () => {
     setIsNewClientDialogOpen(false);
   };
 
-  // Ensure we have arrays even if the data is undefined
-  const filteredBankAccounts = selectedBank 
-    ? bankAccounts.filter(account => account.bank === selectedBank)
-    : [];
-
-  const availableClients = mockClients || [];
+  // Ensure we have arrays even if the data is undefined or not iterable
+  console.log('mockClients:', mockClients);
+  let availableClients: typeof mockClients = [];
+  try {
+    availableClients = Array.isArray(mockClients) ? mockClients : [];
+  } catch (e) {
+    availableClients = [];
+  }
+  console.log('availableClients:', availableClients);
 
   // Get unique banks for the bank selection dropdown
   const availableBanks = Array.from(
@@ -113,54 +115,24 @@ export const TransactionForm = () => {
       </div>
 
       <div className="grid gap-2">
-        <Label htmlFor="client">Client</Label>
+        <Label htmlFor="client">Cliente</Label>
         <div className="flex gap-2">
-          <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                aria-expanded={open}
-                className="justify-between flex-1"
-              >
-                {selectedClient
-                  ? availableClients.find((client) => client.id === selectedClient)?.name || "Select client..."
-                  : "Select client..."}
-                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-full p-0">
-              <Command>
-                <CommandInput placeholder="Search clients..." />
-                <CommandEmpty>
-                  <div className="py-2 text-sm text-center text-muted-foreground">
-                    No client found.
-                  </div>
-                </CommandEmpty>
-                <CommandGroup>
-                  {availableClients.map((client) => (
-                    <CommandItem
-                      key={client.id}
-                      value={client.id}
-                      onSelect={(currentValue) => {
-                        setSelectedClient(currentValue === selectedClient ? "" : currentValue);
-                        setOpen(false);
-                      }}
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          selectedClient === client.id ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                      {client.name}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </Command>
-            </PopoverContent>
-          </Popover>
-          
+          <Select value={selectedClient} onValueChange={setSelectedClient}>
+            <SelectTrigger id="client">
+              <SelectValue placeholder="Selecciona un cliente" />
+            </SelectTrigger>
+            <SelectContent>
+              {Array.isArray(mockClients) && mockClients.length > 0 ? (
+                mockClients.map((client) => (
+                  <SelectItem key={client.id} value={client.id}>
+                    {client.name}
+                  </SelectItem>
+                ))
+              ) : (
+                <SelectItem value="" disabled>No hay clientes disponibles</SelectItem>
+              )}
+            </SelectContent>
+          </Select>
           <Dialog open={isNewClientDialogOpen} onOpenChange={setIsNewClientDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="shrink-0">
@@ -169,62 +141,57 @@ export const TransactionForm = () => {
             </DialogTrigger>
             <DialogContent className="sm:max-w-[525px]">
               <DialogHeader>
-                <DialogTitle>Add New Client</DialogTitle>
+                <DialogTitle>Agregar nuevo cliente</DialogTitle>
                 <DialogDescription>
-                  Fill out the form below to add a new client to your system.
+                  Completa el formulario para agregar un nuevo cliente al sistema.
                 </DialogDescription>
               </DialogHeader>
-              
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="name">Client Name</Label>
+                  <Label htmlFor="name">Nombre del cliente</Label>
                   <Input id="name" />
                 </div>
-                
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="email">Email</Label>
                     <Input id="email" type="email" />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="phone">Phone</Label>
+                    <Label htmlFor="phone">Teléfono</Label>
                     <Input id="phone" />
                   </div>
                 </div>
-                
                 <div className="grid gap-2">
-                  <Label htmlFor="category">Category</Label>
+                  <Label htmlFor="category">Categoría</Label>
                   <Select>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue placeholder="Selecciona la categoría" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="individual">Individual</SelectItem>
-                      <SelectItem value="company">Company</SelectItem>
-                      <SelectItem value="non-profit">Non-profit</SelectItem>
-                      <SelectItem value="government">Government</SelectItem>
+                      <SelectItem value="company">Empresa</SelectItem>
+                      <SelectItem value="non-profit">ONG</SelectItem>
+                      <SelectItem value="government">Gobierno</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-
                 <div className="grid gap-2">
-                  <Label>Client Type</Label>
+                  <Label>Tipo de cliente</Label>
                   <RadioGroup defaultValue="direct" className="flex gap-4">
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="direct" id="direct" />
-                      <Label htmlFor="direct">Direct</Label>
+                      <Label htmlFor="direct">Directo</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="indirect" id="indirect" />
-                      <Label htmlFor="indirect">Indirect</Label>
+                      <Label htmlFor="indirect">Indirecto</Label>
                     </div>
                   </RadioGroup>
                 </div>
               </div>
-              
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsNewClientDialogOpen(false)}>Cancel</Button>
-                <Button onClick={handleCreateClient}>Create Client</Button>
+                <Button variant="outline" onClick={() => setIsNewClientDialogOpen(false)}>Cancelar</Button>
+                <Button onClick={handleCreateClient}>Crear cliente</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -254,7 +221,7 @@ export const TransactionForm = () => {
                 <SelectValue placeholder="Select account" />
               </SelectTrigger>
               <SelectContent>
-                {filteredBankAccounts.map(account => (
+                {bankAccounts.filter(account => account.bank === selectedBank).map(account => (
                   <SelectItem key={account.id} value={account.id}>
                     {account.accountNumber} ({account.currency})
                   </SelectItem>

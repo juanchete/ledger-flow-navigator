@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -19,32 +18,32 @@ const sidebarItems = [
   {
     href: "/",
     icon: "home",
-    label: "Dashboard",
+    label: "Inicio",
   },
   {
     href: "/clients",
     icon: "users",
-    label: "Clients",
+    label: "Clientes",
   },
   {
     href: "/operations",
     icon: "file",
-    label: "Operations",
+    label: "Operaciones",
   },
   {
     href: "/calendar",
     icon: "calendar",
-    label: "Calendar",
+    label: "Calendario",
   },
   {
     href: "/statistics",
     icon: "pieChart",
-    label: "Statistics",
+    label: "Estadísticas",
   },
   {
     href: "/historical-balance",
     icon: "clock",
-    label: "Historical Balance",
+    label: "Balance Histórico",
   },
 ];
 
@@ -64,7 +63,7 @@ export function AppSidebar() {
       <div className="flex items-center justify-between p-4">
         <Link to="/" className="flex items-center gap-2 font-bold">
           <Icons.logo className="h-6 w-6" />
-          <span>Acme Co.</span>
+          <span>Track & Go</span>
         </Link>
         <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="lg:hidden">
           <Icons.close className="h-6 w-6" />
@@ -103,7 +102,7 @@ export function AppSidebar() {
             onClick={() => logout && logout()}
           >
             <Icons.close className="h-4 w-4" />
-            <span>Logout</span>
+            <span>Cerrar sesión</span>
           </Button>
         </div>
       </div>
