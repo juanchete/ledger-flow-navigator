@@ -140,15 +140,16 @@ export const DebtsAndReceivables: React.FC = () => {
                               <ul className="mt-1 space-y-1">
                                 {pagos.map((t, idx) => {
                                   const cliente = t.clientId ? mockClients.find(c => c.id === t.clientId) : null;
+                                  const saldoDespues = Math.max(0, saldoAnterior - t.amount);
                                   const row = (
-                                    <li key={t.id} className="flex justify-between text-xs items-center gap-2">
-                                      <span>{formatDate(new Date(t.date))}</span>
-                                      <span>{cliente ? cliente.name : 'Cliente'}</span>
-                                      <span className="font-semibold">{formatCurrency(t.amount)}</span>
-                                      <span className="text-gray-500">Saldo antes: {formatCurrency(saldoAnterior)}</span>
+                                    <li key={t.id} className="text-xs items-center border-b last:border-b-0 py-1 grid grid-cols-4 gap-1">
+                                      <span className="col-span-1">{new Date(t.date).toLocaleDateString('es-ES')}</span>
+                                      <span className="col-span-1 truncate">{cliente ? cliente.name : 'Cliente'}</span>
+                                      <span className="col-span-1 font-semibold text-right">{formatCurrency(t.amount)}</span>
+                                      <span className="col-span-1 text-right text-gray-500">Antes: {formatCurrency(saldoAnterior)} <br/> Desp: {formatCurrency(saldoDespues)}</span>
                                     </li>
                                   );
-                                  saldoAnterior -= t.amount;
+                                  saldoAnterior = saldoDespues;
                                   return row;
                                 })}
                               </ul>
@@ -232,15 +233,16 @@ export const DebtsAndReceivables: React.FC = () => {
                               <ul className="mt-1 space-y-1">
                                 {pagos.map((t, idx) => {
                                   const cliente = t.clientId ? mockClients.find(c => c.id === t.clientId) : null;
+                                  const saldoDespues = Math.max(0, saldoAnterior - t.amount);
                                   const row = (
-                                    <li key={t.id} className="flex justify-between text-xs items-center gap-2">
-                                      <span>{formatDate(new Date(t.date))}</span>
-                                      <span>{cliente ? cliente.name : 'Cliente'}</span>
-                                      <span className="font-semibold">{formatCurrency(t.amount)}</span>
-                                      <span className="text-gray-500">Saldo antes: {formatCurrency(saldoAnterior)}</span>
+                                    <li key={t.id} className="text-xs items-center border-b last:border-b-0 py-1 grid grid-cols-4 gap-1">
+                                      <span className="col-span-1">{new Date(t.date).toLocaleDateString('es-ES')}</span>
+                                      <span className="col-span-1 truncate">{cliente ? cliente.name : 'Cliente'}</span>
+                                      <span className="col-span-1 font-semibold text-right">{formatCurrency(t.amount)}</span>
+                                      <span className="col-span-1 text-right text-gray-500">Antes: {formatCurrency(saldoAnterior)} <br/> Desp: {formatCurrency(saldoDespues)}</span>
                                     </li>
                                   );
-                                  saldoAnterior -= t.amount;
+                                  saldoAnterior = saldoDespues;
                                   return row;
                                 })}
                               </ul>

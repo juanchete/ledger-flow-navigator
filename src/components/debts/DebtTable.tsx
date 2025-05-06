@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -7,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from '@/lib/utils';
 import { UserPlus, Users, UserRound } from "lucide-react";
 import { Link } from "react-router-dom";
+import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
+import { mockTransactions, mockClients } from '@/data/mockData';
 
 interface Client {
   id: string;
@@ -53,73 +54,108 @@ export const DebtTable: React.FC<DebtTableProps> = ({
       <TableBody>
         {debts.length > 0 ? (
           debts.map((debt) => (
-            <TableRow key={debt.id}>
-              <TableCell className="font-medium">{debt.creditor}</TableCell>
-              <TableCell>{debt.category}</TableCell>
-              <TableCell>{formatCurrency(debt.amount)}</TableCell>
-              <TableCell>{formatDate(debt.dueDate)}</TableCell>
-              <TableCell>
-                <StatusBadge status={debt.status} />
-              </TableCell>
-              <TableCell>
-                {debt.payingClients && debt.payingClients.length > 0 ? (
-                  <div className="space-y-1">
-                    {debt.payingClients.some(client => client.clientType === 'indirect') && (
-                      <Badge variant="outline" className="mr-1 bg-yellow-50">
-                        <Users size={12} className="mr-1" />
-                        Indirecto
-                      </Badge>
-                    )}
-                    {debt.payingClients.some(client => client.clientType === 'direct') && (
-                      <Badge variant="outline" className="mr-1 bg-slate-50">
+            <HoverCard key={debt.id}>
+              <HoverCardTrigger asChild>
+                <TableRow>
+                  <TableCell className="font-medium">{debt.creditor}</TableCell>
+                  <TableCell>{debt.category}</TableCell>
+                  <TableCell>{formatCurrency(debt.amount)}</TableCell>
+                  <TableCell>{formatDate(debt.dueDate)}</TableCell>
+                  <TableCell>
+                    <StatusBadge status={debt.status} />
+                  </TableCell>
+                  <TableCell>
+                    {debt.payingClients && debt.payingClients.length > 0 ? (
+                      <div className="space-y-1">
+                        {debt.payingClients.some(client => client.clientType === 'indirect') && (
+                          <Badge variant="outline" className="mr-1 bg-yellow-50">
+                            <Users size={12} className="mr-1" />
+                            Indirecto
+                          </Badge>
+                        )}
+                        {debt.payingClients.some(client => client.clientType === 'direct') && (
+                          <Badge variant="outline" className="mr-1 bg-slate-50">
+                            <UserRound size={12} className="mr-1" />
+                            Directo
+                          </Badge>
+                        )}
+                        <div className="text-xs text-muted-foreground">
+                          {debt.payingClients.length} cliente(s)
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {debt.payingClients.slice(0, 2).map((client) => (
+                            <Link 
+                              key={client.id} 
+                              to={`/clients/${client.id}`} 
+                              className="text-xs text-primary hover:underline flex items-center gap-1"
+                            >
+                              {client.clientType === 'indirect' ? (
+                                <Users size={10} />
+                              ) : (
+                                <UserRound size={10} />
+                              )}
+                              {client.name}
+                            </Link>
+                          ))}
+                          {debt.payingClients.length > 2 && (
+                            <span className="text-xs text-muted-foreground">
+                              +{debt.payingClients.length - 2} más
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <Badge variant="outline" className="bg-slate-50">
                         <UserRound size={12} className="mr-1" />
                         Directo
                       </Badge>
                     )}
-                    <div className="text-xs text-muted-foreground">
-                      {debt.payingClients.length} cliente(s)
-                    </div>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {debt.payingClients.slice(0, 2).map((client) => (
-                        <Link 
-                          key={client.id} 
-                          to={`/clients/${client.id}`} 
-                          className="text-xs text-primary hover:underline flex items-center gap-1"
-                        >
-                          {client.clientType === 'indirect' ? (
-                            <Users size={10} />
-                          ) : (
-                            <UserRound size={10} />
-                          )}
-                          {client.name}
-                        </Link>
-                      ))}
-                      {debt.payingClients.length > 2 && (
-                        <span className="text-xs text-muted-foreground">
-                          +{debt.payingClients.length - 2} más
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <Badge variant="outline" className="bg-slate-50">
-                    <UserRound size={12} className="mr-1" />
-                    Directo
-                  </Badge>
-                )}
-              </TableCell>
-              <TableCell className="text-right">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  asChild
-                >
-                  <Link to={`/all-debts/${debt.id}`}>
-                    Ver Detalle
-                  </Link>
-                </Button>
-              </TableCell>
-            </TableRow>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      asChild
+                    >
+                      <Link to={`/all-debts/${debt.id}`}>
+                        Ver Detalle
+                      </Link>
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              </HoverCardTrigger>
+              <HoverCardContent className="w-80 p-4">
+                <span className="font-semibold text-xs text-gray-700">Historial de pagos:</span>
+                {(() => {
+                  const pagos = mockTransactions
+                    .filter(t => t.type === 'payment' && t.debtId === debt.id)
+                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                  let saldoAnterior = debt.amount;
+                  if (pagos.length > 0) {
+                    return (
+                      <ul className="mt-1 space-y-1">
+                        {pagos.map((t, idx) => {
+                          const cliente = t.clientId ? mockClients.find(c => c.id === t.clientId) : null;
+                          const saldoDespues = Math.max(0, saldoAnterior - t.amount);
+                          const row = (
+                            <li key={t.id} className="text-xs items-center border-b last:border-b-0 py-1 grid grid-cols-4 gap-1">
+                              <span className="col-span-1">{new Date(t.date).toLocaleDateString('es-ES')}</span>
+                              <span className="col-span-1 truncate">{cliente ? cliente.name : 'Cliente'}</span>
+                              <span className="col-span-1 font-semibold text-right">{formatCurrency(t.amount)}</span>
+                              <span className="col-span-1 text-right text-gray-500">Antes: {formatCurrency(saldoAnterior)} <br/> Desp: {formatCurrency(saldoDespues)}</span>
+                            </li>
+                          );
+                          saldoAnterior = saldoDespues;
+                          return row;
+                        })}
+                      </ul>
+                    );
+                  } else {
+                    return <div className="text-xs text-gray-500 mt-1">Sin pagos asociados</div>;
+                  }
+                })()}
+              </HoverCardContent>
+            </HoverCard>
           ))
         ) : (
           <TableRow>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,14 +11,33 @@ import { formatCurrency } from '@/lib/utils';
 import { StatusBadge } from "@/components/operations/common/StatusBadge";
 import { PaymentsList } from "@/components/operations/payments/PaymentsList";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Transaction, Client } from '@/types';
+
+// Define Debt locally if it's not in @/types
+interface Debt {
+  id: string;
+  creditor: string;
+  amount: number;
+  dueDate: Date;
+  status: string;
+  category: string;
+  notes: string;
+  clientId?: string;
+}
+
+// Ensure this interface is defined
+interface PaymentWithClientInfo extends Transaction {
+  clientName?: string;
+  clientType?: 'direct' | 'indirect';
+}
 
 const DebtDetail = () => {
-  const { debtId } = useParams();
-  const [debt, setDebt] = useState<any>(null);
-  const [payments, setPayments] = useState<any[]>([]);
+  const { debtId } = useParams<{ debtId: string }>();
+  const [debt, setDebt] = useState<Debt | null>(null);
+  const [payments, setPayments] = useState<PaymentWithClientInfo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [primaryClient, setPrimaryClient] = useState<any>(null);
-  const [payingClients, setPayingClients] = useState<any[]>([]);
+  const [primaryClient, setPrimaryClient] = useState<Client | null>(null);
+  const [payingClients, setPayingClients] = useState<Client[]>([]);
   
   useEffect(() => {
     // Simulamos la carga de datos
@@ -27,19 +45,20 @@ const DebtDetail = () => {
       const foundDebt = mockDetailedDebts.find(d => d.id === debtId);
       
       if (foundDebt) {
-        // Encontrar los pagos asociados a esta deuda
-        const debtPayments = mockTransactions
+        // Map payments and add client info
+        const debtPayments: PaymentWithClientInfo[] = mockTransactions
           .filter(t => t.type === 'payment' && t.debtId === foundDebt.id && t.status === 'completed')
           .map(payment => {
-            // Si el pago tiene un clientId, buscamos el cliente
             const client = payment.clientId ? mockClients.find(c => c.id === payment.clientId) : null;
-            
+            // No need for type assertion here, the returned object matches PaymentWithClientInfo
             return {
               ...payment,
               clientName: client?.name,
               clientType: client?.clientType
             };
           });
+        const totalPaid = debtPayments.reduce((sum, t) => sum + t.amount, 0);
+        const remainingAmount = Math.max(0, foundDebt.amount - totalPaid);
         
         // Encontrar el cliente primario (relacionado directamente con la deuda)
         const client = foundDebt.clientId ? mockClients.find(c => c.id === foundDebt.clientId) : null;
@@ -84,7 +103,7 @@ const DebtDetail = () => {
   // Calcular totales
   const totalAmount = debt.amount;
   const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0);
-  const remainingAmount = totalAmount - totalPaid;
+  const remainingAmount = Math.max(0, totalAmount - totalPaid);
   
   // Estado calculado
   const calculatedStatus = totalPaid >= totalAmount ? 'paid' : debt.status;

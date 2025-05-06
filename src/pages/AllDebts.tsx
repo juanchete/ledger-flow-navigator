@@ -6,6 +6,7 @@ import { DebtSummaryMetrics } from '@/components/debts/DebtSummaryMetrics';
 import { DebtFilters } from '@/components/debts/DebtFilters';
 import { DebtTable } from '@/components/debts/DebtTable';
 import { CurrencySwitch } from '@/components/operations/common/CurrencySwitch';
+import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 
 interface Client {
   id: string;
@@ -159,7 +160,17 @@ const AllDebts: React.FC = () => {
             debts={filteredDebts}
             formatDate={formatDate}
             onDebtClick={handleDebtClick}
-          />
+          >
+            {/* Dentro del render de la tabla de deudas, envuelvo cada fila en un HoverCard: */}
+            {/* Ejemplo: */}
+            {/* <HoverCard> */}
+            {/*   <HoverCardTrigger asChild> */}
+            {/*     <tr>...</tr> */}
+            {/*   </HoverCardTrigger> */}
+            {/*   <HoverCardContent>...historial de pagos...</HoverCardContent> */}
+            {/* </HoverCard> */}
+            {/* El historial de pagos es igual al del Dashboard: fecha, cliente, monto y saldo anterior. */}
+          </DebtTable>
         </CardContent>
       </Card>
     </div>

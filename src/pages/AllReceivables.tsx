@@ -7,11 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Search, Calendar, Filter } from 'lucide-react';
-import { mockDetailedReceivables, mockTransactions } from '@/data/mockData';
+import { mockDetailedReceivables, mockTransactions, mockClients } from '@/data/mockData';
 import { formatCurrency } from '@/lib/utils';
 import { DebtDetailsModal } from '@/components/operations/DebtDetailsModal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 
 interface Receivable {
   id: string;
@@ -223,28 +224,63 @@ const AllReceivables: React.FC = () => {
             <TableBody>
               {filteredReceivables.length > 0 ? (
                 filteredReceivables.map((receivable) => (
-                  <TableRow key={receivable.id}>
-                    <TableCell className="font-medium">{receivable.description}</TableCell>
-                    <TableCell>{receivable.clientId}</TableCell>
-                    <TableCell>{formatCurrency(receivable.amount)}</TableCell>
-                    <TableCell>{formatDate(receivable.dueDate)}</TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(receivable.status)}>
-                        {receivable.status === 'pending' ? 'Pendiente' : receivable.status === 'paid' ? 'Pagado' : receivable.status === 'overdue' ? 'Vencido' : receivable.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        asChild
-                      >
-                        <Link to={`/all-receivables/${receivable.id}`}>
-                          Ver Detalle
-                        </Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                  <HoverCard key={receivable.id}>
+                    <HoverCardTrigger asChild>
+                      <TableRow>
+                        <TableCell className="font-medium">{receivable.description}</TableCell>
+                        <TableCell>{receivable.clientId}</TableCell>
+                        <TableCell>{formatCurrency(receivable.amount)}</TableCell>
+                        <TableCell>{formatDate(receivable.dueDate)}</TableCell>
+                        <TableCell>
+                          <Badge className={getStatusColor(receivable.status)}>
+                            {receivable.status === 'pending' ? 'Pendiente' : receivable.status === 'paid' ? 'Pagado' : receivable.status === 'overdue' ? 'Vencido' : receivable.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            asChild
+                          >
+                            <Link to={`/all-receivables/${receivable.id}`}>
+                              Ver Detalle
+                            </Link>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-80 p-4">
+                      <span className="font-semibold text-xs text-gray-700">Historial de pagos:</span>
+                      {(() => {
+                        const pagos = mockTransactions
+                          .filter(t => t.type === 'payment' && t.receivableId === receivable.id)
+                          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                        let saldoAnterior = receivable.amount;
+                        if (pagos.length > 0) {
+                          return (
+                            <ul className="mt-1 space-y-1">
+                              {pagos.map((t, idx) => {
+                                const cliente = t.clientId ? mockClients.find(c => c.id === t.clientId) : null;
+                                const saldoDespues = Math.max(0, saldoAnterior - t.amount);
+                                const row = (
+                                  <li key={t.id} className="text-xs items-center border-b last:border-b-0 py-1 grid grid-cols-4 gap-1">
+                                    <span className="col-span-1">{new Date(t.date).toLocaleDateString('es-ES')}</span>
+                                    <span className="col-span-1 truncate">{cliente ? cliente.name : 'Cliente'}</span>
+                                    <span className="col-span-1 font-semibold text-right">{formatCurrency(t.amount)}</span>
+                                    <span className="col-span-1 text-right text-gray-500">Antes: {formatCurrency(saldoAnterior)} <br/> Desp: {formatCurrency(saldoDespues)}</span>
+                                  </li>
+                                );
+                                saldoAnterior = saldoDespues;
+                                return row;
+                              })}
+                            </ul>
+                          );
+                        } else {
+                          return <div className="text-xs text-gray-500 mt-1">Sin pagos asociados</div>;
+                        }
+                      })()}
+                    </HoverCardContent>
+                  </HoverCard>
                 ))
               ) : (
                 <TableRow>
