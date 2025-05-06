@@ -166,7 +166,7 @@ export const DebtsAndReceivables: React.FC = () => {
                         <span className="font-medium">{receivable.description}</span>
                       </div>
                       <div className="flex items-center gap-4">
-                        
+                        <span className="text-sm text-gray-500">{formatDate(receivable.dueDate)}</span>
                         <span className="font-semibold">{formatCurrency(receivable.amount)}</span>
                         <Tooltip>
                           <TooltipTrigger asChild>
