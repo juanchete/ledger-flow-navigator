@@ -3,7 +3,15 @@ import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/operations/common/StatusBadge";
+import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from '@/lib/utils';
+import { UserPlus } from "lucide-react";
+
+interface Client {
+  id: string;
+  name: string;
+  clientType: 'direct' | 'indirect';
+}
 
 interface Debt {
   id: string;
@@ -13,6 +21,8 @@ interface Debt {
   status: string;
   category: string;
   notes: string;
+  relatedClientId?: string;
+  payingClients?: Client[];
 }
 
 interface DebtTableProps {
@@ -35,6 +45,7 @@ export const DebtTable: React.FC<DebtTableProps> = ({
           <TableHead>Monto</TableHead>
           <TableHead>Fecha de Vencimiento</TableHead>
           <TableHead>Estado</TableHead>
+          <TableHead>Clientes</TableHead>
           <TableHead className="text-right">Acciones</TableHead>
         </TableRow>
       </TableHeader>
@@ -49,6 +60,21 @@ export const DebtTable: React.FC<DebtTableProps> = ({
               <TableCell>
                 <StatusBadge status={debt.status} />
               </TableCell>
+              <TableCell>
+                {debt.payingClients && debt.payingClients.length > 0 ? (
+                  <div className="flex items-center">
+                    <Badge variant="outline" className="mr-1 bg-yellow-50">
+                      <UserPlus size={12} className="mr-1" />
+                      Indirecto
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      ({debt.payingClients.length})
+                    </span>
+                  </div>
+                ) : (
+                  <Badge variant="outline" className="bg-slate-50">Directo</Badge>
+                )}
+              </TableCell>
               <TableCell className="text-right">
                 <Button 
                   variant="outline" 
@@ -62,7 +88,7 @@ export const DebtTable: React.FC<DebtTableProps> = ({
           ))
         ) : (
           <TableRow>
-            <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+            <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
               No se encontraron deudas con los filtros aplicados
             </TableCell>
           </TableRow>

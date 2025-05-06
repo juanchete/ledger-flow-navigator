@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { v4 as uuidv4 } from "uuid";
 import { DebtSummary } from './debt/DebtSummary';
 import { DebtMetadata } from './debt/DebtMetadata';
 import { PaymentsSection } from './payments/PaymentsSection';
@@ -35,6 +34,9 @@ interface Payment {
   amount: number;
   date: Date;
   method: string;
+  clientId?: string;
+  clientName?: string;
+  clientType?: 'direct' | 'indirect';
   notes?: string;
 }
 
@@ -70,16 +72,8 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
     onClose();
   };
 
-  const addPayment = () => {
-    const mockPayment: Payment = {
-      id: uuidv4(),
-      amount: 100,
-      date: new Date(),
-      method: 'credit_card',
-      notes: 'Pago de prueba'
-    };
-    
-    setPayments([...payments, mockPayment]);
+  const addPayment = (payment: Payment) => {
+    setPayments([...payments, payment]);
     setShowPaymentModal(false);
     toast.success("Pago registrado exitosamente");
   };

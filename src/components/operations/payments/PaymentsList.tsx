@@ -1,15 +1,19 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/utils";
 import { format } from "date-fns";
-import { Trash2 } from "lucide-react";
+import { Trash2, User } from "lucide-react";
 
 interface Payment {
   id: string;
   amount: number;
   date: Date;
   method: string;
+  clientId?: string;
+  clientName?: string;
+  clientType?: 'direct' | 'indirect';
   notes?: string;
 }
 
@@ -31,7 +35,7 @@ export const PaymentsList: React.FC<PaymentsListProps> = ({
   }
 
   return (
-    <div className="space-y-2 max-h-[200px] overflow-y-auto">
+    <div className="space-y-2 max-h-[250px] overflow-y-auto">
       {payments.map((payment) => (
         <div 
           key={payment.id} 
@@ -44,6 +48,7 @@ export const PaymentsList: React.FC<PaymentsListProps> = ({
                 {format(new Date(payment.date), 'dd/MM/yyyy')}
               </span>
             </div>
+            
             <div className="flex items-center justify-between mt-1">
               <span className="text-sm capitalize">{payment.method}</span>
               <Button 
@@ -55,6 +60,19 @@ export const PaymentsList: React.FC<PaymentsListProps> = ({
                 <Trash2 size={14} />
               </Button>
             </div>
+            
+            {payment.clientName && (
+              <div className="flex items-center gap-1 mt-2 text-xs">
+                <User size={12} className="text-muted-foreground" />
+                <span>{payment.clientName}</span>
+                {payment.clientType && (
+                  <Badge variant="outline" className="text-xs px-1 py-0 h-4 ml-1">
+                    {payment.clientType === 'indirect' ? 'Indirecto' : 'Directo'}
+                  </Badge>
+                )}
+              </div>
+            )}
+            
             {payment.notes && (
               <p className="text-xs text-muted-foreground mt-1">{payment.notes}</p>
             )}
