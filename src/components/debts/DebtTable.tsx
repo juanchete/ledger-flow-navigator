@@ -111,10 +111,12 @@ export const DebtTable: React.FC<DebtTableProps> = ({
               <TableCell className="text-right">
                 <Button 
                   variant="outline" 
-                  size="sm" 
-                  onClick={() => onDebtClick(debt)}
+                  size="sm"
+                  asChild
                 >
-                  Ver Detalle
+                  <Link to={`/all-debts/${debt.id}`}>
+                    Ver Detalle
+                  </Link>
                 </Button>
               </TableCell>
             </TableRow>

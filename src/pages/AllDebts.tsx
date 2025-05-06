@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { mockDetailedDebts, mockClients, mockTransactions } from '@/data/mockData';
-import { DebtDetailsModal } from '@/components/operations/DebtDetailsModal';
 import { PageHeader } from '@/components/common/PageHeader';
 import { DebtSummaryMetrics } from '@/components/debts/DebtSummaryMetrics';
 import { DebtFilters } from '@/components/debts/DebtFilters';
@@ -30,8 +29,6 @@ interface Debt {
 const AllDebts: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [dateRange, setDateRange] = useState<Date | undefined>(undefined);
   const [isUSD, setIsUSD] = useState(true);
   const [clientTypeFilter, setClientTypeFilter] = useState("all");
@@ -104,12 +101,8 @@ const AllDebts: React.FC = () => {
   };
 
   const handleDebtClick = (debt: Debt) => {
-    setSelectedDebt(debt);
-    setIsModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
+    // Esta función ya no abre un modal, pero la mantenemos para compatibilidad
+    console.log('Deuda seleccionada:', debt.id);
   };
 
   const clearFilters = () => {
@@ -169,15 +162,6 @@ const AllDebts: React.FC = () => {
           />
         </CardContent>
       </Card>
-
-      {selectedDebt && (
-        <DebtDetailsModal
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-          item={selectedDebt}
-          type="debt"
-        />
-      )}
     </div>
   );
 };

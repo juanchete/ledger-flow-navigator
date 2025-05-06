@@ -21,6 +21,8 @@ import TransactionDetail from "./pages/TransactionDetail";
 import AllDebts from "./pages/AllDebts";
 import AllReceivables from "./pages/AllReceivables";
 import HistoricalBalance from "./pages/HistoricalBalance";
+import DebtDetail from "./pages/DebtDetail";
+import ReceivableDetail from "./pages/ReceivableDetail";
 
 const queryClient = new QueryClient();
 
@@ -48,7 +50,9 @@ const App = () => (
               <Route path="/settings" element={<Settings />} />
               <Route path="/accounts/:accountId" element={<AccountDetail />} />
               <Route path="/all-debts" element={<AllDebts />} />
+              <Route path="/all-debts/:debtId" element={<DebtDetail />} />
               <Route path="/all-receivables" element={<AllReceivables />} />
+              <Route path="/all-receivables/:receivableId" element={<ReceivableDetail />} />
               <Route path="/historical-balance" element={<HistoricalBalance />} />
             </Route>
             <Route path="*" element={<NotFound />} />

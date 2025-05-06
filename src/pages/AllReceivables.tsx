@@ -237,9 +237,11 @@ const AllReceivables: React.FC = () => {
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        onClick={() => handleReceivableClick(receivable)}
+                        asChild
                       >
-                        Ver Detalle
+                        <Link to={`/all-receivables/${receivable.id}`}>
+                          Ver Detalle
+                        </Link>
                       </Button>
                     </TableCell>
                   </TableRow>
