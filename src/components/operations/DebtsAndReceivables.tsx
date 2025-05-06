@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +9,6 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Info } from 'lucide-react';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-
 interface Debt {
   id: string;
   creditor: string;
@@ -20,7 +18,6 @@ interface Debt {
   category: string;
   notes: string;
 }
-
 interface Receivable {
   id: string;
   clientId: string;
@@ -30,7 +27,6 @@ interface Receivable {
   description: string;
   notes: string;
 }
-
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'pending':
@@ -43,7 +39,6 @@ const getStatusColor = (status: string) => {
       return 'bg-gray-300 text-gray-800';
   }
 };
-
 const formatDate = (date: Date) => {
   return new Date(date).toLocaleDateString('es-ES', {
     day: '2-digit',
@@ -51,31 +46,25 @@ const formatDate = (date: Date) => {
     year: 'numeric'
   });
 };
-
 export const DebtsAndReceivables: React.FC = () => {
   const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
   const [selectedReceivable, setSelectedReceivable] = useState<Receivable | null>(null);
   const [modalType, setModalType] = useState<'debt' | 'receivable'>('debt');
   const [isModalOpen, setIsModalOpen] = useState(false);
-
   const handleDebtClick = (debt: Debt) => {
     setSelectedDebt(debt);
     setModalType('debt');
     setIsModalOpen(true);
   };
-
   const handleReceivableClick = (receivable: Receivable) => {
     setSelectedReceivable(receivable);
     setModalType('receivable');
     setIsModalOpen(true);
   };
-
   const handleCloseModal = () => {
     setIsModalOpen(false);
   };
-
-  return (
-    <div className="flex flex-col md:flex-row gap-6 w-full">
+  return <div className="flex flex-col md:flex-row gap-6 w-full">
       {/* Deudas */}
       <Card className="h-full w-full md:w-1/2">
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
@@ -96,8 +85,7 @@ export const DebtsAndReceivables: React.FC = () => {
         <CardContent>
           <div className="space-y-1">
             <TooltipProvider>
-              {mockDetailedDebts.map((debt: Debt) => (
-                <HoverCard key={debt.id}>
+              {mockDetailedDebts.map((debt: Debt) => <HoverCard key={debt.id}>
                   <HoverCardTrigger asChild>
                     <div className="flex items-center justify-between py-2 px-3 border-b hover:bg-gray-50 cursor-pointer transition-colors rounded-sm">
                       <div className="flex items-center gap-3">
@@ -105,16 +93,11 @@ export const DebtsAndReceivables: React.FC = () => {
                         <span className="font-medium">{debt.creditor}</span>
                       </div>
                       <div className="flex items-center gap-4">
-                        <span className="text-sm text-gray-500">{formatDate(debt.dueDate)}</span>
+                        
                         <span className="font-semibold">{formatCurrency(debt.amount)}</span>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-6 w-6" 
-                              onClick={() => handleDebtClick(debt)}
-                            >
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDebtClick(debt)}>
                               <Info className="h-4 w-4" />
                             </Button>
                           </TooltipTrigger>
@@ -142,17 +125,14 @@ export const DebtsAndReceivables: React.FC = () => {
                           <span className="text-gray-500">Fecha de vencimiento:</span>
                           <span>{formatDate(debt.dueDate)}</span>
                         </div>
-                        {debt.notes && (
-                          <div className="mt-2">
+                        {debt.notes && <div className="mt-2">
                             <span className="text-gray-500">Notas:</span>
                             <p className="text-xs mt-1 text-gray-600">{debt.notes}</p>
-                          </div>
-                        )}
+                          </div>}
                       </div>
                     </div>
                   </HoverCardContent>
-                </HoverCard>
-              ))}
+                </HoverCard>)}
             </TooltipProvider>
           </div>
         </CardContent>
@@ -178,8 +158,7 @@ export const DebtsAndReceivables: React.FC = () => {
         <CardContent>
           <div className="space-y-1">
             <TooltipProvider>
-              {mockDetailedReceivables.map((receivable: Receivable) => (
-                <HoverCard key={receivable.id}>
+              {mockDetailedReceivables.map((receivable: Receivable) => <HoverCard key={receivable.id}>
                   <HoverCardTrigger asChild>
                     <div className="flex items-center justify-between py-2 px-3 border-b hover:bg-gray-50 cursor-pointer transition-colors rounded-sm">
                       <div className="flex items-center gap-3">
@@ -191,12 +170,7 @@ export const DebtsAndReceivables: React.FC = () => {
                         <span className="font-semibold">{formatCurrency(receivable.amount)}</span>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-6 w-6" 
-                              onClick={() => handleReceivableClick(receivable)}
-                            >
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleReceivableClick(receivable)}>
                               <Info className="h-4 w-4" />
                             </Button>
                           </TooltipTrigger>
@@ -224,39 +198,21 @@ export const DebtsAndReceivables: React.FC = () => {
                           <span className="text-gray-500">Fecha de vencimiento:</span>
                           <span>{formatDate(receivable.dueDate)}</span>
                         </div>
-                        {receivable.notes && (
-                          <div className="mt-2">
+                        {receivable.notes && <div className="mt-2">
                             <span className="text-gray-500">Notas:</span>
                             <p className="text-xs mt-1 text-gray-600">{receivable.notes}</p>
-                          </div>
-                        )}
+                          </div>}
                       </div>
                     </div>
                   </HoverCardContent>
-                </HoverCard>
-              ))}
+                </HoverCard>)}
             </TooltipProvider>
           </div>
         </CardContent>
       </Card>
 
       {/* Modal for displaying debt/receivable details */}
-      {isModalOpen && selectedDebt && modalType === 'debt' && (
-        <DebtDetailsModal 
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-          item={selectedDebt}
-          type="debt"
-        />
-      )}
-      {isModalOpen && selectedReceivable && modalType === 'receivable' && (
-        <DebtDetailsModal 
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-          item={selectedReceivable}
-          type="receivable"
-        />
-      )}
-    </div>
-  );
+      {isModalOpen && selectedDebt && modalType === 'debt' && <DebtDetailsModal isOpen={isModalOpen} onClose={handleCloseModal} item={selectedDebt} type="debt" />}
+      {isModalOpen && selectedReceivable && modalType === 'receivable' && <DebtDetailsModal isOpen={isModalOpen} onClose={handleCloseModal} item={selectedReceivable} type="receivable" />}
+    </div>;
 };
