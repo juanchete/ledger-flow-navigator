@@ -7,7 +7,9 @@ import { mockDetailedDebts, mockDetailedReceivables } from '@/data/mockData';
 import { formatCurrency } from '@/lib/utils';
 import { DebtDetailsModal } from './DebtDetailsModal';
 import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Info } from 'lucide-react';
+import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Debt {
   id: string;
@@ -91,27 +93,68 @@ export const DebtsAndReceivables: React.FC = () => {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {mockDetailedDebts.map((debt: Debt) => (
-            <div 
-              key={debt.id} 
-              className="bg-white border border-gray-200 rounded-lg px-4 py-3 flex flex-col gap-1 shadow-sm hover:bg-gray-50 cursor-pointer transition-colors"
-              onClick={() => handleDebtClick(debt)}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="font-medium text-base">{debt.creditor}</span>
-                  <span className="block text-xs text-gray-500">{debt.category}</span>
-                </div>
-                <Badge className={`ml-2 h-6 px-2 text-xs font-semibold rounded ${getStatusColor(debt.status)}`}>{debt.status}</Badge>
-              </div>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-lg font-bold">{formatCurrency(debt.amount)}</span>
-                <span className="text-xs text-gray-500">Vence: {formatDate(debt.dueDate)}</span>
-              </div>
-              <span className="text-xs text-gray-600 mt-1">{debt.notes}</span>
-            </div>
-          ))}
+        <CardContent>
+          <div className="space-y-1">
+            <TooltipProvider>
+              {mockDetailedDebts.map((debt: Debt) => (
+                <HoverCard key={debt.id}>
+                  <HoverCardTrigger asChild>
+                    <div className="flex items-center justify-between py-2 px-3 border-b hover:bg-gray-50 cursor-pointer transition-colors rounded-sm">
+                      <div className="flex items-center gap-3">
+                        <Badge className={`${getStatusColor(debt.status)} h-2 w-2 p-1 rounded-full`} />
+                        <span className="font-medium">{debt.creditor}</span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-sm text-gray-500">{formatDate(debt.dueDate)}</span>
+                        <span className="font-semibold">{formatCurrency(debt.amount)}</span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-6 w-6" 
+                              onClick={() => handleDebtClick(debt)}
+                            >
+                              <Info className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Ver detalles completos</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </div>
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-80 p-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold">{debt.creditor}</h4>
+                        <Badge className={getStatusColor(debt.status)}>{debt.status}</Badge>
+                      </div>
+                      <div className="text-sm space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Categoría:</span>
+                          <span>{debt.category}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Monto:</span>
+                          <span className="font-semibold">{formatCurrency(debt.amount)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Fecha de vencimiento:</span>
+                          <span>{formatDate(debt.dueDate)}</span>
+                        </div>
+                        {debt.notes && (
+                          <div className="mt-2">
+                            <span className="text-gray-500">Notas:</span>
+                            <p className="text-xs mt-1 text-gray-600">{debt.notes}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
+              ))}
+            </TooltipProvider>
+          </div>
         </CardContent>
       </Card>
 
@@ -132,27 +175,68 @@ export const DebtsAndReceivables: React.FC = () => {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {mockDetailedReceivables.map((receivable: Receivable) => (
-            <div 
-              key={receivable.id} 
-              className="bg-white border border-gray-200 rounded-lg px-4 py-3 flex flex-col gap-1 shadow-sm hover:bg-gray-50 cursor-pointer transition-colors"
-              onClick={() => handleReceivableClick(receivable)}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="font-medium text-base">{receivable.description}</span>
-                  <span className="block text-xs text-gray-500">Cliente ID: {receivable.clientId}</span>
-                </div>
-                <Badge className={`ml-2 h-6 px-2 text-xs font-semibold rounded ${getStatusColor(receivable.status)}`}>{receivable.status}</Badge>
-              </div>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-lg font-bold">{formatCurrency(receivable.amount)}</span>
-                <span className="text-xs text-gray-500">Vence: {formatDate(receivable.dueDate)}</span>
-              </div>
-              <span className="text-xs text-gray-600 mt-1">{receivable.notes}</span>
-            </div>
-          ))}
+        <CardContent>
+          <div className="space-y-1">
+            <TooltipProvider>
+              {mockDetailedReceivables.map((receivable: Receivable) => (
+                <HoverCard key={receivable.id}>
+                  <HoverCardTrigger asChild>
+                    <div className="flex items-center justify-between py-2 px-3 border-b hover:bg-gray-50 cursor-pointer transition-colors rounded-sm">
+                      <div className="flex items-center gap-3">
+                        <Badge className={`${getStatusColor(receivable.status)} h-2 w-2 p-1 rounded-full`} />
+                        <span className="font-medium">{receivable.description}</span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-sm text-gray-500">{formatDate(receivable.dueDate)}</span>
+                        <span className="font-semibold">{formatCurrency(receivable.amount)}</span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-6 w-6" 
+                              onClick={() => handleReceivableClick(receivable)}
+                            >
+                              <Info className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Ver detalles completos</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </div>
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-80 p-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold">{receivable.description}</h4>
+                        <Badge className={getStatusColor(receivable.status)}>{receivable.status}</Badge>
+                      </div>
+                      <div className="text-sm space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Cliente ID:</span>
+                          <span>{receivable.clientId}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Monto:</span>
+                          <span className="font-semibold">{formatCurrency(receivable.amount)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Fecha de vencimiento:</span>
+                          <span>{formatDate(receivable.dueDate)}</span>
+                        </div>
+                        {receivable.notes && (
+                          <div className="mt-2">
+                            <span className="text-gray-500">Notas:</span>
+                            <p className="text-xs mt-1 text-gray-600">{receivable.notes}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
+              ))}
+            </TooltipProvider>
+          </div>
         </CardContent>
       </Card>
 
@@ -175,4 +259,4 @@ export const DebtsAndReceivables: React.FC = () => {
       )}
     </div>
   );
-}; 
+};
