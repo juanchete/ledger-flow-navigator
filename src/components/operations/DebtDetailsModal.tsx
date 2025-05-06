@@ -6,8 +6,15 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { formatCurrency, formatDateEs } from "@/lib/utils";
 import { toast } from "sonner";
+import { CalendarIcon, Plus, Trash2 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 interface Debt {
   id: string;
@@ -29,6 +36,14 @@ interface Receivable {
   notes: string;
 }
 
+interface Payment {
+  id: string;
+  amount: number;
+  date: Date;
+  method: string;
+  notes?: string;
+}
+
 interface DebtDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -44,6 +59,23 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
 }) => {
   const [status, setStatus] = useState(item.status);
   const [notes, setNotes] = useState(item.notes);
+  
+  // Estado para los pagos asociados (en una aplicación real, estos vendrían de la base de datos)
+  const [payments, setPayments] = useState<Payment[]>([]);
+  
+  // Estado para el formulario de nuevo pago
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [newPayment, setNewPayment] = useState<{
+    amount: string;
+    date: Date;
+    method: string;
+    notes: string;
+  }>({
+    amount: '',
+    date: new Date(),
+    method: 'efectivo',
+    notes: ''
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -55,7 +87,7 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
   };
 
   const handleSave = () => {
-    // In a real app, this would update the database
+    // En una app real, esto actualizaría la base de datos
     toast.success(`${type === 'debt' ? 'Deuda' : 'Cuenta por cobrar'} actualizada exitosamente`);
     onClose();
   };
@@ -68,9 +100,63 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
     return formatDateEs(date, 'dd/MM/yyyy');
   };
 
+  const addPayment = () => {
+    if (!newPayment.amount || parseFloat(newPayment.amount) <= 0) {
+      toast.error("Ingrese un monto válido");
+      return;
+    }
+
+    const payment: Payment = {
+      id: Math.random().toString(36).substr(2, 9), // ID temporal (en una app real sería generado por la base de datos)
+      amount: parseFloat(newPayment.amount),
+      date: newPayment.date,
+      method: newPayment.method,
+      notes: newPayment.notes
+    };
+
+    setPayments([...payments, payment]);
+    
+    // Resetear el formulario
+    setNewPayment({
+      amount: '',
+      date: new Date(),
+      method: 'efectivo',
+      notes: ''
+    });
+    
+    setShowPaymentForm(false);
+    
+    // En una app real, aquí se actualizaría también el estado de la deuda si está completamente pagada
+    toast.success("Pago registrado exitosamente");
+  };
+
+  const removePayment = (paymentId: string) => {
+    setPayments(payments.filter(p => p.id !== paymentId));
+    toast.success("Pago eliminado exitosamente");
+  };
+
+  // Calcular totales
+  const totalAmount = item.amount;
+  const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0);
+  const remainingAmount = totalAmount - totalPaid;
+
+  // Actualizar estado automáticamente basado en pagos
+  const updateStatusBasedOnPayments = () => {
+    if (totalPaid >= totalAmount) {
+      return 'paid';
+    } else if (status === 'overdue') {
+      return 'overdue';
+    } else {
+      return 'pending';
+    }
+  };
+
+  // Estado calculado
+  const calculatedStatus = updateStatusBasedOnPayments();
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">
             {type === 'debt' ? 'Detalle de Deuda' : 'Detalle de Cuenta por Cobrar'}
@@ -87,34 +173,46 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
                 {isDebt(item) ? `Categoría: ${item.category}` : `Cliente ID: ${item.clientId}`}
               </p>
             </div>
-            <Badge className={`${getStatusColor(item.status)} text-sm py-1 px-3`}>
-              {item.status}
+            <Badge className={`${getStatusColor(calculatedStatus)} text-sm py-1 px-3`}>
+              {calculatedStatus === 'pending' ? 'Pendiente' : 
+               calculatedStatus === 'paid' ? 'Pagado' : 
+               calculatedStatus === 'overdue' ? 'Vencido' : calculatedStatus}
             </Badge>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <Label>Monto Total</Label>
+              <p className="text-xl font-bold">{formatCurrency(totalAmount)}</p>
+            </div>
+            <div>
+              <Label>Pagado</Label>
+              <p className="text-xl font-semibold text-green-600">{formatCurrency(totalPaid)}</p>
+            </div>
+            <div>
+              <Label>Pendiente</Label>
+              <p className="text-xl font-semibold text-amber-600">{formatCurrency(remainingAmount)}</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Monto</Label>
-              <p className="text-xl font-bold">{formatCurrency(item.amount)}</p>
-            </div>
-            <div>
               <Label>Fecha de Vencimiento</Label>
               <p>{formatDate(item.dueDate)}</p>
             </div>
-          </div>
-
-          <div>
-            <Label htmlFor="status">Cambiar Estado</Label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Seleccionar estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pendiente</SelectItem>
-                <SelectItem value="paid">Pagado</SelectItem>
-                <SelectItem value="overdue">Vencido</SelectItem>
-              </SelectContent>
-            </Select>
+            <div>
+              <Label htmlFor="status">Estado</Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Seleccionar estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pendiente</SelectItem>
+                  <SelectItem value="paid">Pagado</SelectItem>
+                  <SelectItem value="overdue">Vencido</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div>
@@ -123,8 +221,140 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
               id="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              rows={3}
+              rows={2}
             />
+          </div>
+
+          {/* Sección de pagos asociados */}
+          <div className="pt-4 border-t">
+            <div className="flex items-center justify-between mb-4">
+              <Label className="text-lg font-medium">Pagos Asociados</Label>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowPaymentForm(!showPaymentForm)}
+                className="flex items-center gap-1"
+              >
+                <Plus size={16} />
+                Registrar Pago
+              </Button>
+            </div>
+
+            {showPaymentForm && (
+              <div className="bg-muted/50 p-4 rounded-lg mb-4 space-y-3">
+                <h4 className="font-semibold">Nuevo Pago</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="payment-amount">Monto</Label>
+                    <Input
+                      id="payment-amount"
+                      type="number"
+                      value={newPayment.amount}
+                      onChange={(e) => setNewPayment({...newPayment, amount: e.target.value})}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="payment-method">Método de Pago</Label>
+                    <Select 
+                      value={newPayment.method} 
+                      onValueChange={(value) => setNewPayment({...newPayment, method: value})}
+                    >
+                      <SelectTrigger id="payment-method">
+                        <SelectValue placeholder="Seleccionar método" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="efectivo">Efectivo</SelectItem>
+                        <SelectItem value="transferencia">Transferencia</SelectItem>
+                        <SelectItem value="tarjeta">Tarjeta</SelectItem>
+                        <SelectItem value="cheque">Cheque</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="payment-date">Fecha de Pago</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !newPayment.date && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {newPayment.date ? format(newPayment.date, "PPP", { locale: es }) : <span>Seleccionar fecha</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={newPayment.date}
+                        onSelect={(date) => date && setNewPayment({...newPayment, date})}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div>
+                  <Label htmlFor="payment-notes">Notas (opcional)</Label>
+                  <Textarea 
+                    id="payment-notes"
+                    value={newPayment.notes}
+                    onChange={(e) => setNewPayment({...newPayment, notes: e.target.value})}
+                    rows={2}
+                    placeholder="Detalles adicionales del pago..."
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" size="sm" onClick={() => setShowPaymentForm(false)}>
+                    Cancelar
+                  </Button>
+                  <Button size="sm" onClick={addPayment}>
+                    Guardar Pago
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {payments.length > 0 ? (
+              <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                {payments.map((payment) => (
+                  <div 
+                    key={payment.id} 
+                    className="flex items-center justify-between bg-background p-3 rounded-md border"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{formatCurrency(payment.amount)}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {format(new Date(payment.date), 'dd/MM/yyyy')}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-sm capitalize">{payment.method}</span>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-6 w-6 text-destructive" 
+                          onClick={() => removePayment(payment.id)}
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+                      {payment.notes && (
+                        <p className="text-xs text-muted-foreground mt-1">{payment.notes}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No hay pagos registrados. Haga clic en "Registrar Pago" para añadir uno.
+              </p>
+            )}
           </div>
         </div>
 
