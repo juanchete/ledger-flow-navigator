@@ -3,10 +3,10 @@ export interface Client {
   name: string;
   email: string;
   phone: string;
-  category: 'individual' | 'company' | 'non-profit' | 'government';
-  clientType: 'direct' | 'indirect';
+  category: "individual" | "company" | "non-profit" | "government";
+  clientType: "direct" | "indirect";
   identificationDoc?: {
-    type: 'ID' | 'RIF';
+    type: "ID" | "RIF";
     number: string;
     fileUrl?: string;
   };
@@ -16,7 +16,7 @@ export interface Client {
   documents: Document[];
   createdAt: Date;
   updatedAt: Date;
-  alertStatus?: 'none' | 'yellow' | 'red';
+  alertStatus?: "none" | "yellow" | "red";
   alertNote?: string;
   relatedToClientId?: string;
 }
@@ -32,12 +32,18 @@ export interface Document {
 
 export interface Transaction {
   id: string;
-  type: 'purchase' | 'sale' | 'banking' | 'balance-change' | 'expense';
+  type:
+    | "purchase"
+    | "sale"
+    | "banking"
+    | "balance-change"
+    | "expense"
+    | "payment";
   amount: number;
   description: string;
   date: Date;
   clientId?: string;
-  status: 'pending' | 'completed' | 'cancelled';
+  status: "pending" | "completed" | "cancelled";
   receipt?: string;
   invoice?: string;
   deliveryNote?: string;
@@ -46,6 +52,9 @@ export interface Transaction {
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
+  indirectForClientId?: string;
+  debtId?: string;
+  receivableId?: string;
 }
 
 export interface CalendarEvent {
@@ -54,7 +63,16 @@ export interface CalendarEvent {
   description: string;
   startDate: Date;
   endDate: Date;
-  category: 'legal' | 'banking' | 'home' | 'social' | 'charity' | 'other' | 'meeting' | 'deadline' | 'reminder';
+  category:
+    | "legal"
+    | "banking"
+    | "home"
+    | "social"
+    | "charity"
+    | "other"
+    | "meeting"
+    | "deadline"
+    | "reminder";
   clientId?: string;
   clientName?: string;
   isReminder: boolean;
@@ -70,7 +88,7 @@ export interface Invoice {
   id: string;
   clientId: string;
   amount: number;
-  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
+  status: "draft" | "sent" | "paid" | "overdue" | "cancelled";
   dueDate: Date;
   issueDate: Date;
   items: InvoiceItem[];

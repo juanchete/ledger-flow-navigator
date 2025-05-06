@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { mockClients } from "@/data/mockData";
+import { mockClients, mockDetailedDebts, mockDetailedReceivables, mockTransactions } from "@/data/mockData";
 import { Client } from "@/types";
 import { Link } from "react-router-dom";
 import { Search, UserPlus, Filter, AlertTriangle, FileText, UserRound, Users } from "lucide-react";
@@ -47,6 +46,38 @@ const Clients = () => {
 
   const handleCreateClient = () => {
     toast.success("Client created successfully! This is a mock action in the MVP.");
+  };
+
+  // Helper para obtener resumen de deudas y cuentas por cobrar de un cliente
+  const getClientFinancialSummary = (clientId: string) => {
+    // Deudas
+    const debts = mockDetailedDebts.filter(d => d.clientId === clientId);
+    const debtsWithPayments = debts.map(debt => {
+      const payments = mockTransactions.filter(t => t.type === 'payment' && t.debtId === debt.id && t.status === 'completed');
+      const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
+      const isPaid = totalPaid >= debt.amount;
+      return {
+        ...debt,
+        status: isPaid ? 'paid' : debt.status,
+        totalPaid
+      };
+    });
+    // Cuentas por cobrar
+    const receivables = mockDetailedReceivables.filter(r => r.clientId === clientId);
+    const receivablesWithPayments = receivables.map(rec => {
+      const payments = mockTransactions.filter(t => t.type === 'payment' && t.receivableId === rec.id && t.status === 'completed');
+      const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
+      const isPaid = totalPaid >= rec.amount;
+      return {
+        ...rec,
+        status: isPaid ? 'paid' : rec.status,
+        totalPaid
+      };
+    });
+    return {
+      debts: debtsWithPayments,
+      receivables: receivablesWithPayments
+    };
   };
 
   return (
@@ -231,66 +262,69 @@ const Clients = () => {
             
             <div className="divide-y">
               {filteredClients.length > 0 ? (
-                filteredClients.map((client) => (
-                  <div key={client.id} className="grid grid-cols-1 md:grid-cols-12 p-4 items-center">
-                    <div className="md:col-span-3 space-y-1">
-                      <div className="font-medium flex items-center gap-2">
-                        {client.name}
-                        {client.clientType === 'indirect' && (
-                          <Badge variant="outline" className="bg-yellow-50 text-xs">
-                            <Users size={12} className="mr-1" />
-                            Indirecto
-                          </Badge>
-                        )}
-                        {client.clientType === 'direct' && (
-                          <Badge variant="outline" className="bg-slate-50 text-xs">
-                            <UserRound size={12} className="mr-1" />
-                            Directo
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="text-sm text-muted-foreground md:hidden">
-                        {client.category} • {client.active ? 'Activo' : 'Inactivo'}
-                      </div>
-                    </div>
-                    
-                    <div className="hidden md:block md:col-span-2">
-                      <Badge variant="outline" className="capitalize">{client.category}</Badge>
-                    </div>
-                    
-                    <div className="md:col-span-2 flex items-center gap-2 mt-2 md:mt-0">
-                      <Badge variant={client.active ? "default" : "outline"} className={client.active ? "bg-finance-green" : ""}>
-                        {client.active ? "Activo" : "Inactivo"}
-                      </Badge>
-                      
-                      {client.alertStatus !== 'none' && (
-                        <Badge className={getAlertStatusColor(client.alertStatus)}>
-                          <AlertTriangle size={12} className="mr-1" />
-                          {client.alertStatus}
-                        </Badge>
-                      )}
-                    </div>
-                    
-                    <div className="md:col-span-3 mt-2 md:mt-0">
-                      <div className="text-sm">{client.email}</div>
-                      <div className="text-sm text-muted-foreground">{client.phone}</div>
-                      {client.clientType === 'indirect' && client.relatedToClientId && (
-                        <div className="text-xs mt-1 text-muted-foreground flex items-center">
-                          <span className="mr-1">Asociado a:</span>
-                          <Link to={`/clients/${client.relatedToClientId}`} className="text-primary hover:underline">
-                            {mockClients.find(c => c.id === client.relatedToClientId)?.name || 'Cliente'}
-                          </Link>
+                filteredClients.map((client) => {
+                  const summary = getClientFinancialSummary(client.id);
+                  return (
+                    <div key={client.id} className="grid grid-cols-1 md:grid-cols-12 p-4 items-center">
+                      <div className="md:col-span-3 space-y-1">
+                        <div className="font-medium flex items-center gap-2">
+                          {client.name}
+                          {client.clientType === 'indirect' && (
+                            <Badge variant="outline" className="bg-yellow-50 text-xs">
+                              <Users size={12} className="mr-1" />
+                              Indirecto
+                            </Badge>
+                          )}
+                          {client.clientType === 'direct' && (
+                            <Badge variant="outline" className="bg-slate-50 text-xs">
+                              <UserRound size={12} className="mr-1" />
+                              Directo
+                            </Badge>
+                          )}
                         </div>
-                      )}
+                        <div className="text-sm text-muted-foreground md:hidden">
+                          {client.category} • {client.active ? 'Activo' : 'Inactivo'}
+                        </div>
+                      </div>
+                      
+                      <div className="hidden md:block md:col-span-2">
+                        <Badge variant="outline" className="capitalize">{client.category}</Badge>
+                      </div>
+                      
+                      <div className="md:col-span-2 flex items-center gap-2 mt-2 md:mt-0">
+                        <Badge variant={client.active ? "default" : "outline"} className={client.active ? "bg-finance-green" : ""}>
+                          {client.active ? "Activo" : "Inactivo"}
+                        </Badge>
+                        
+                        {client.alertStatus !== 'none' && (
+                          <Badge className={getAlertStatusColor(client.alertStatus)}>
+                            <AlertTriangle size={12} className="mr-1" />
+                            {client.alertStatus}
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <div className="md:col-span-3 mt-2 md:mt-0">
+                        <div className="text-sm">{client.email}</div>
+                        <div className="text-sm text-muted-foreground">{client.phone}</div>
+                        {client.clientType === 'indirect' && client.relatedToClientId && (
+                          <div className="text-xs mt-1 text-muted-foreground flex items-center">
+                            <span className="mr-1">Asociado a:</span>
+                            <Link to={`/clients/${client.relatedToClientId}`} className="text-primary hover:underline">
+                              {mockClients.find(c => c.id === client.relatedToClientId)?.name || 'Cliente'}
+                            </Link>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="md:col-span-2 flex justify-start md:justify-end mt-3 md:mt-0 gap-2">
+                        <Button variant="outline" size="sm" asChild>
+                          <Link to={`/clients/${client.id}`}>Ver</Link>
+                        </Button>
+                      </div>
                     </div>
-                    
-                    <div className="md:col-span-2 flex justify-start md:justify-end mt-3 md:mt-0 gap-2">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link to={`/clients/${client.id}`}>Ver</Link>
-                      </Button>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="p-6 text-center text-muted-foreground">
                   No se encontraron clientes que coincidan con tu búsqueda

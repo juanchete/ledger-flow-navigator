@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Search, Calendar, Filter } from 'lucide-react';
-import { mockDetailedReceivables } from '@/data/mockData';
+import { mockDetailedReceivables, mockTransactions } from '@/data/mockData';
 import { formatCurrency } from '@/lib/utils';
 import { DebtDetailsModal } from '@/components/operations/DebtDetailsModal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -30,14 +30,26 @@ const AllReceivables: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [dateRange, setDateRange] = useState<Date | undefined>(undefined);
 
-  // Filter receivables based on search query, status filter, and date filter
-  const filteredReceivables = mockDetailedReceivables.filter((receivable) => {
+  // Calcular el estado real de cada cuenta por cobrar en base a los pagos asociados
+  const receivablesWithPayments = mockDetailedReceivables.map(receivable => {
+    const payments = mockTransactions.filter(t => t.type === 'payment' && t.receivableId === receivable.id && t.status === 'completed');
+    const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
+    const isPaid = totalPaid >= receivable.amount;
+    return {
+      ...receivable,
+      status: isPaid ? 'paid' : receivable.status,
+      totalPaid,
+      payments
+    };
+  });
+
+  // Usar receivablesWithPayments en vez de mockDetailedReceivables
+  const filteredReceivables = receivablesWithPayments.filter((receivable) => {
     const matchesSearch = receivable.description.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          receivable.clientId.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || receivable.status === statusFilter;
     const matchesDate = !dateRange || 
                        new Date(receivable.dueDate).toDateString() === new Date(dateRange).toDateString();
-    
     return matchesSearch && matchesStatus && matchesDate;
   });
 

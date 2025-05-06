@@ -21,6 +21,16 @@ const sidebarItems = [
     label: "Inicio",
   },
   {
+    href: "/all-receivables",
+    icon: "file",
+    label: "Cuentas por cobrar",
+  },
+  {
+    href: "/all-debts",
+    icon: "file",
+    label: "Deudas",
+  },
+  {
     href: "/clients",
     icon: "users",
     label: "Clientes",

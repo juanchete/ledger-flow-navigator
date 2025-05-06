@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { mockClients, mockTransactions } from "@/data/mockData";
+import { mockClients, mockTransactions, mockDetailedDebts, mockDetailedReceivables } from "@/data/mockData";
 import { format } from "date-fns";
 import { AlertTriangle, ChevronLeft, FileText, Receipt } from "lucide-react";
 
@@ -27,6 +27,58 @@ const ClientDetail = () => {
   
   const clientTransactions = mockTransactions.filter(t => t.clientId === clientId);
   
+  // Clientes indirectos asociados a este cliente
+  const indirectClients = mockClients.filter(
+    c => c.relatedToClientId === clientId
+  );
+
+  // Pagos indirectos hechos a favor de este cliente
+  const indirectPayments = mockTransactions.filter(
+    t => t.type === "payment" && t.indirectForClientId === clientId
+  );
+
+  // Todas las transacciones relevantes (directas + pagos indirectos)
+  const allTransactions = [
+    ...clientTransactions,
+    ...indirectPayments
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  // Helper para saber si una transacción es un pago indirecto
+  const isIndirectPayment = (transaction: typeof mockTransactions[number]) =>
+    transaction.type === "payment" && transaction.indirectForClientId === clientId;
+
+  // Sumar pagos indirectos para descontar de la deuda
+  const totalIndirectPayments = indirectPayments.reduce((sum, t) => sum + t.amount, 0);
+
+  // Deudas asociadas a este cliente, con pagos calculados
+  const clientDebts = mockDetailedDebts
+    .filter(d => d.clientId === clientId)
+    .map(debt => {
+      const payments = mockTransactions.filter(t => t.type === 'payment' && t.debtId === debt.id && t.status === 'completed');
+      const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
+      const isPaid = totalPaid >= debt.amount;
+      return {
+        ...debt,
+        status: isPaid ? 'paid' : debt.status,
+        totalPaid,
+        payments
+      };
+    });
+  // Cuentas por cobrar asociadas a este cliente, con pagos calculados
+  const clientReceivables = mockDetailedReceivables
+    .filter(r => r.clientId === clientId)
+    .map(rec => {
+      const payments = mockTransactions.filter(t => t.type === 'payment' && t.receivableId === rec.id && t.status === 'completed');
+      const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
+      const isPaid = totalPaid >= rec.amount;
+      return {
+        ...rec,
+        status: isPaid ? 'paid' : rec.status,
+        totalPaid,
+        payments
+      };
+    });
+
   const [isActive, setIsActive] = useState(client?.active || false);
   const [alertStatus, setAlertStatus] = useState<'none' | 'yellow' | 'red'>(client?.alertStatus || 'none');
   const [alertNote, setAlertNote] = useState(client?.alertNote || '');
@@ -169,6 +221,18 @@ const ClientDetail = () => {
                   </div>
                 )}
               </div>
+              {indirectClients.length > 0 && (
+                <div className="pt-2 border-t">
+                  <div className="font-medium text-muted-foreground mb-1">Clientes Indirectos Asociados:</div>
+                  <ul className="list-disc list-inside text-sm">
+                    {indirectClients.map(ic => (
+                      <li key={ic.id}>
+                        {ic.name} <span className="text-xs text-muted-foreground">({ic.email})</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </CardContent>
           </Card>
           
@@ -253,40 +317,41 @@ const ClientDetail = () => {
               <Tabs defaultValue="transactions" className="w-full">
                 <TabsList>
                   <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="transactions">Transactions</TabsTrigger>
+                  <TabsTrigger value="transactions">Transacciones</TabsTrigger>
+                  <TabsTrigger value="debts">Deudas</TabsTrigger>
+                  <TabsTrigger value="receivables">Cuentas por Cobrar</TabsTrigger>
                 </TabsList>
                 <TabsContent value="overview">
                   {/* ... existing overview content ... */}
                 </TabsContent>
                 <TabsContent value="transactions">
-                  {clientTransactions.length > 0 ? (
+                  {allTransactions.length > 0 ? (
                     <div className="rounded-md border">
                       <div className="grid grid-cols-12 p-3 bg-muted/50 text-sm font-medium">
-                        <div className="col-span-5">Description</div>
-                        <div className="col-span-2">Date</div>
-                        <div className="col-span-2">Amount</div>
-                        <div className="col-span-2">Status</div>
-                        <div className="col-span-1">Action</div>
+                        <div className="col-span-5">Descripción</div>
+                        <div className="col-span-2">Fecha</div>
+                        <div className="col-span-2">Monto</div>
+                        <div className="col-span-2">Estado</div>
+                        <div className="col-span-1">Acción</div>
                       </div>
-                      
                       <div className="divide-y">
-                        {clientTransactions.map((transaction) => (
+                        {allTransactions.map((transaction) => (
                           <div key={transaction.id} className="grid grid-cols-12 p-3 items-center text-sm">
                             <div className="col-span-5">
                               <span className="capitalize">{transaction.description}</span>
                               <span className="inline-block text-xs bg-muted rounded px-1 ml-2 capitalize">
                                 {transaction.type}
                               </span>
+                              {isIndirectPayment(transaction) && (
+                                <span className="ml-2 text-xs text-finance-blue">Pago indirecto por {mockClients.find(c => c.id === transaction.clientId)?.name}</span>
+                              )}
                             </div>
-                            
                             <div className="col-span-2">
                               {format(new Date(transaction.date), 'MMM d, yyyy')}
                             </div>
-                            
                             <div className="col-span-2 font-medium">
                               {formatCurrency(transaction.amount)}
                             </div>
-                            
                             <div className="col-span-2">
                               <Badge variant="outline" className={
                                 transaction.status === 'completed' ? 'bg-finance-green text-white border-finance-green' :
@@ -296,9 +361,8 @@ const ClientDetail = () => {
                                 {transaction.status}
                               </Badge>
                             </div>
-                            
                             <div className="col-span-1">
-                              <Button size="sm" variant="ghost">View</Button>
+                              <Button size="sm" variant="ghost">Ver</Button>
                             </div>
                           </div>
                         ))}
@@ -306,10 +370,82 @@ const ClientDetail = () => {
                     </div>
                   ) : (
                     <div className="text-center py-8">
-                      <p className="text-muted-foreground">No transactions for this client.</p>
+                      <p className="text-muted-foreground">No hay transacciones para este cliente.</p>
                       <Button variant="outline" className="mt-4" asChild>
-                        <Link to="/operations/transaction/new">Add Transaction</Link>
+                        <Link to="/operations/transaction/new">Agregar Transacción</Link>
                       </Button>
+                    </div>
+                  )}
+                </TabsContent>
+                <TabsContent value="debts">
+                  {clientDebts.length > 0 ? (
+                    <div className="rounded-md border">
+                      <div className="grid grid-cols-6 p-3 bg-muted/50 text-sm font-medium">
+                        <div className="col-span-2">Acreedor</div>
+                        <div className="col-span-1">Monto</div>
+                        <div className="col-span-1">Pagado</div>
+                        <div className="col-span-1">Vence</div>
+                        <div className="col-span-1">Estado</div>
+                      </div>
+                      <div className="divide-y">
+                        {clientDebts.map((debt) => (
+                          <div key={debt.id} className="grid grid-cols-6 p-3 items-center text-sm">
+                            <div className="col-span-2">{debt.creditor}</div>
+                            <div className="col-span-1 font-medium">{formatCurrency(debt.amount)}</div>
+                            <div className="col-span-1 font-medium">{formatCurrency(debt.totalPaid)}</div>
+                            <div className="col-span-1">{format(new Date(debt.dueDate), 'MMM d, yyyy')}</div>
+                            <div className="col-span-1">
+                              <Badge variant="outline" className={
+                                debt.status === 'pending' ? 'bg-finance-yellow text-finance-gray-dark border-finance-yellow' :
+                                debt.status === 'paid' ? 'bg-finance-green text-white border-finance-green' :
+                                'bg-muted'
+                              }>
+                                {debt.status === 'pending' ? 'Pendiente' : 'Pagada'}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">No hay deudas para este cliente.</p>
+                    </div>
+                  )}
+                </TabsContent>
+                <TabsContent value="receivables">
+                  {clientReceivables.length > 0 ? (
+                    <div className="rounded-md border">
+                      <div className="grid grid-cols-6 p-3 bg-muted/50 text-sm font-medium">
+                        <div className="col-span-2">Descripción</div>
+                        <div className="col-span-1">Monto</div>
+                        <div className="col-span-1">Pagado</div>
+                        <div className="col-span-1">Vence</div>
+                        <div className="col-span-1">Estado</div>
+                      </div>
+                      <div className="divide-y">
+                        {clientReceivables.map((rec) => (
+                          <div key={rec.id} className="grid grid-cols-6 p-3 items-center text-sm">
+                            <div className="col-span-2">{rec.description}</div>
+                            <div className="col-span-1 font-medium">{formatCurrency(rec.amount)}</div>
+                            <div className="col-span-1 font-medium">{formatCurrency(rec.totalPaid)}</div>
+                            <div className="col-span-1">{format(new Date(rec.dueDate), 'MMM d, yyyy')}</div>
+                            <div className="col-span-1">
+                              <Badge variant="outline" className={
+                                rec.status === 'pending' ? 'bg-finance-yellow text-finance-gray-dark border-finance-yellow' :
+                                rec.status === 'paid' ? 'bg-finance-green text-white border-finance-green' :
+                                'bg-muted'
+                              }>
+                                {rec.status === 'pending' ? 'Pendiente' : 'Pagada'}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">No hay cuentas por cobrar para este cliente.</p>
                     </div>
                   )}
                 </TabsContent>

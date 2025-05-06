@@ -1,9 +1,8 @@
-
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { mockTransactions, mockClients } from "@/data/mockData";
+import { mockTransactions, mockClients, mockDetailedDebts, mockDetailedReceivables } from "@/data/mockData";
 
 interface TransactionsListProps {
   selectedType: string;
@@ -86,6 +85,12 @@ export const TransactionsList = ({ selectedType, searchQuery }: TransactionsList
                     <div className="text-sm text-muted-foreground">
                       Client: {client.name}
                     </div>
+                  )}
+                  {transaction.type === 'payment' && transaction.debtId && (
+                    <span className="text-xs text-muted-foreground ml-2">Deuda: {mockDetailedDebts.find(d => d.id === transaction.debtId)?.creditor}</span>
+                  )}
+                  {transaction.type === 'payment' && transaction.receivableId && (
+                    <span className="text-xs text-muted-foreground ml-2">Cuenta por Cobrar: {mockDetailedReceivables.find(r => r.id === transaction.receivableId)?.description}</span>
                   )}
                 </div>
                 

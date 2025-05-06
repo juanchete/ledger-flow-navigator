@@ -75,15 +75,6 @@ export const TransactionForm = () => {
         availableBanks={availableBanks}
         bankAccounts={bankAccounts}
       />
-
-      <AdditionalFieldsSection 
-        description={description}
-        category={category}
-        notes={notes}
-        onDescriptionChange={setDescription}
-        onCategoryChange={setCategory}
-        onNotesChange={setNotes}
-      />
     </div>
   );
 };

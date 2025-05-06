@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { mockDetailedDebts, mockClients } from '@/data/mockData';
+import { mockDetailedDebts, mockClients, mockTransactions } from '@/data/mockData';
 import { DebtDetailsModal } from '@/components/operations/DebtDetailsModal';
 import { PageHeader } from '@/components/common/PageHeader';
 import { DebtSummaryMetrics } from '@/components/debts/DebtSummaryMetrics';
@@ -36,28 +36,27 @@ const AllDebts: React.FC = () => {
   const [isUSD, setIsUSD] = useState(true);
   const [clientTypeFilter, setClientTypeFilter] = useState("all");
 
-  // Enhanced mock data - in a real app, this would come from your database
-  const enhancedDebts = mockDetailedDebts.map(debt => {
-    // Randomly assign a primary client and potentially paying clients
-    const randomClientIndex = Math.floor(Math.random() * mockClients.length);
-    const primaryClient = mockClients[randomClientIndex];
-    
-    // For demonstration - some debts have indirect clients paying for them
-    const hasIndirectPayers = Math.random() > 0.7;
-    let payingClients: Client[] = [];
-    
-    if (hasIndirectPayers) {
-      // Add 1-2 indirect clients as payers
-      const indirectClients = mockClients.filter(c => 
-        c.clientType === 'indirect' && c.id !== primaryClient.id
-      ).slice(0, 2);
-      
-      payingClients = indirectClients;
-    }
-    
+  // Calcular el estado real de cada deuda en base a los pagos asociados
+  const debtsWithPayments = mockDetailedDebts.map(debt => {
+    const payments = mockTransactions.filter(t => t.type === 'payment' && t.debtId === debt.id && t.status === 'completed');
+    const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
+    const isPaid = totalPaid >= debt.amount;
     return {
       ...debt,
-      relatedClientId: primaryClient.id,
+      status: isPaid ? 'paid' : debt.status,
+      totalPaid,
+      payments
+    };
+  });
+
+  // Enhanced mock data - en vez de random, usamos la relación real
+  const enhancedDebts = debtsWithPayments.map(debt => {
+    const primaryClient = mockClients.find(c => c.id === debt.clientId);
+    // Clientes que han pagado esta deuda
+    const payingClients = debt.payments?.map(p => mockClients.find(c => c.id === p.clientId)).filter(Boolean) || [];
+    return {
+      ...debt,
+      relatedClientId: primaryClient?.id,
       payingClients: payingClients.length > 0 ? payingClients : undefined
     };
   });

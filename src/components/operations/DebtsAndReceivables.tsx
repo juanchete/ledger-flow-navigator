@@ -1,9 +1,8 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { mockDetailedDebts, mockDetailedReceivables } from '@/data/mockData';
+import { mockDetailedDebts, mockDetailedReceivables, mockTransactions, mockClients } from '@/data/mockData';
 import { formatCurrency } from '@/lib/utils';
 import { DebtDetailsModal } from './DebtDetailsModal';
 import { Link } from 'react-router-dom';
@@ -129,25 +128,35 @@ export const DebtsAndReceivables: React.FC = () => {
                         <h4 className="font-semibold">{debt.creditor}</h4>
                         <Badge className={getStatusColor(debt.status)}>{debt.status}</Badge>
                       </div>
-                      <div className="text-sm space-y-1">
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Categoría:</span>
-                          <span>{debt.category}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Monto:</span>
-                          <span className="font-semibold">{formatCurrency(debt.amount)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Fecha de vencimiento:</span>
-                          <span>{formatDate(debt.dueDate)}</span>
-                        </div>
-                        {debt.notes && (
-                          <div className="mt-2">
-                            <span className="text-gray-500">Notas:</span>
-                            <p className="text-xs mt-1 text-gray-600">{debt.notes}</p>
-                          </div>
-                        )}
+                      <div className="mt-3">
+                        <span className="font-semibold text-xs text-gray-700">Historial de pagos:</span>
+                        {(() => {
+                          const pagos = mockTransactions
+                            .filter(t => t.type === 'payment' && t.debtId === debt.id)
+                            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                          let saldoAnterior = debt.amount;
+                          if (pagos.length > 0) {
+                            return (
+                              <ul className="mt-1 space-y-1">
+                                {pagos.map((t, idx) => {
+                                  const cliente = t.clientId ? mockClients.find(c => c.id === t.clientId) : null;
+                                  const row = (
+                                    <li key={t.id} className="flex justify-between text-xs items-center gap-2">
+                                      <span>{formatDate(new Date(t.date))}</span>
+                                      <span>{cliente ? cliente.name : 'Cliente'}</span>
+                                      <span className="font-semibold">{formatCurrency(t.amount)}</span>
+                                      <span className="text-gray-500">Saldo antes: {formatCurrency(saldoAnterior)}</span>
+                                    </li>
+                                  );
+                                  saldoAnterior -= t.amount;
+                                  return row;
+                                })}
+                              </ul>
+                            );
+                          } else {
+                            return <div className="text-xs text-gray-500 mt-1">Sin pagos asociados</div>;
+                          }
+                        })()}
                       </div>
                     </div>
                   </HoverCardContent>
@@ -211,25 +220,35 @@ export const DebtsAndReceivables: React.FC = () => {
                         <h4 className="font-semibold">{receivable.description}</h4>
                         <Badge className={getStatusColor(receivable.status)}>{receivable.status}</Badge>
                       </div>
-                      <div className="text-sm space-y-1">
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Cliente ID:</span>
-                          <span>{receivable.clientId}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Monto:</span>
-                          <span className="font-semibold">{formatCurrency(receivable.amount)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Fecha de vencimiento:</span>
-                          <span>{formatDate(receivable.dueDate)}</span>
-                        </div>
-                        {receivable.notes && (
-                          <div className="mt-2">
-                            <span className="text-gray-500">Notas:</span>
-                            <p className="text-xs mt-1 text-gray-600">{receivable.notes}</p>
-                          </div>
-                        )}
+                      <div className="mt-3">
+                        <span className="font-semibold text-xs text-gray-700">Historial de pagos:</span>
+                        {(() => {
+                          const pagos = mockTransactions
+                            .filter(t => t.type === 'payment' && t.receivableId === receivable.id)
+                            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                          let saldoAnterior = receivable.amount;
+                          if (pagos.length > 0) {
+                            return (
+                              <ul className="mt-1 space-y-1">
+                                {pagos.map((t, idx) => {
+                                  const cliente = t.clientId ? mockClients.find(c => c.id === t.clientId) : null;
+                                  const row = (
+                                    <li key={t.id} className="flex justify-between text-xs items-center gap-2">
+                                      <span>{formatDate(new Date(t.date))}</span>
+                                      <span>{cliente ? cliente.name : 'Cliente'}</span>
+                                      <span className="font-semibold">{formatCurrency(t.amount)}</span>
+                                      <span className="text-gray-500">Saldo antes: {formatCurrency(saldoAnterior)}</span>
+                                    </li>
+                                  );
+                                  saldoAnterior -= t.amount;
+                                  return row;
+                                })}
+                              </ul>
+                            );
+                          } else {
+                            return <div className="text-xs text-gray-500 mt-1">Sin pagos asociados</div>;
+                          }
+                        })()}
                       </div>
                     </div>
                   </HoverCardContent>
