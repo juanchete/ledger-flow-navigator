@@ -1,11 +1,14 @@
 
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { v4 as uuidv4 } from "uuid";
 import { DebtSummary } from './debt/DebtSummary';
 import { DebtMetadata } from './debt/DebtMetadata';
 import { PaymentsSection } from './payments/PaymentsSection';
+import { PaymentFormModal } from './modals/PaymentFormModal';
+import { ConfirmationDialog } from './modals/ConfirmationDialog';
 
 interface Debt {
   id: string;
@@ -51,6 +54,11 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
   const [status, setStatus] = useState(item.status);
   const [notes, setNotes] = useState(item.notes);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [confirmationDialog, setConfirmationDialog] = useState({
+    isOpen: false,
+    paymentId: ''
+  });
 
   const isDebt = (item: Debt | Receivable): item is Debt => {
     return 'creditor' in item;
@@ -62,9 +70,34 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
     onClose();
   };
 
+  const addPayment = () => {
+    const mockPayment: Payment = {
+      id: uuidv4(),
+      amount: 100,
+      date: new Date(),
+      method: 'credit_card',
+      notes: 'Pago de prueba'
+    };
+    
+    setPayments([...payments, mockPayment]);
+    setShowPaymentModal(false);
+    toast.success("Pago registrado exitosamente");
+  };
+
   const removePayment = (paymentId: string) => {
+    setConfirmationDialog({
+      isOpen: false,
+      paymentId: ''
+    });
     setPayments(payments.filter(p => p.id !== paymentId));
     toast.success("Pago eliminado exitosamente");
+  };
+
+  const confirmRemovePayment = (paymentId: string) => {
+    setConfirmationDialog({
+      isOpen: true,
+      paymentId
+    });
   };
 
   // Calcular totales
@@ -93,46 +126,67 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
     `Cliente ID: ${item.clientId}`;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold">
-            {type === 'debt' ? 'Detalle de Deuda' : 'Detalle de Cuenta por Cobrar'}
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">
+              {type === 'debt' ? 'Detalle de Deuda' : 'Detalle de Cuenta por Cobrar'}
+            </DialogTitle>
+          </DialogHeader>
 
-        <div className="space-y-4 pt-4">
-          {/* Summary component with name, status, and amounts */}
-          <DebtSummary
-            name={summaryName}
-            subtext={summarySubtext}
-            status={calculatedStatus}
-            totalAmount={totalAmount}
-            totalPaid={totalPaid}
-            remainingAmount={remainingAmount}
-          />
+          <div className="space-y-4 pt-4">
+            {/* Summary component with name, status, and amounts */}
+            <DebtSummary
+              name={summaryName}
+              subtext={summarySubtext}
+              status={calculatedStatus}
+              totalAmount={totalAmount}
+              totalPaid={totalPaid}
+              remainingAmount={remainingAmount}
+            />
 
-          {/* Metadata component with due date, status selector, and notes */}
-          <DebtMetadata
-            dueDate={item.dueDate}
-            status={status}
-            notes={notes}
-            onStatusChange={setStatus}
-            onNotesChange={(e) => setNotes(e.target.value)}
-          />
+            {/* Metadata component with due date, status selector, and notes */}
+            <DebtMetadata
+              dueDate={item.dueDate}
+              status={status}
+              notes={notes}
+              onStatusChange={setStatus}
+              onNotesChange={(e) => setNotes(e.target.value)}
+            />
 
-          {/* Payments section component */}
-          <PaymentsSection
-            payments={payments}
-            onRemovePayment={removePayment}
-          />
-        </div>
+            {/* Payments section component */}
+            <PaymentsSection
+              payments={payments}
+              onRemovePayment={confirmRemovePayment}
+              onAddPayment={() => setShowPaymentModal(true)}
+            />
+          </div>
 
-        <DialogFooter className="mt-6">
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSave}>Guardar Cambios</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button onClick={handleSave}>Guardar Cambios</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Payment form modal */}
+      <PaymentFormModal 
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        onPaymentAdded={addPayment}
+      />
+      
+      {/* Confirmation dialog for payment removal */}
+      <ConfirmationDialog
+        isOpen={confirmationDialog.isOpen}
+        onClose={() => setConfirmationDialog({ isOpen: false, paymentId: '' })}
+        onConfirm={() => removePayment(confirmationDialog.paymentId)}
+        title="Eliminar Pago"
+        description="¿Está seguro que desea eliminar este pago? Esta acción no se puede deshacer."
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+      />
+    </>
   );
 };
