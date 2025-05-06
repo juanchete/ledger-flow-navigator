@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { TransactionForm } from './TransactionForm';
 
 interface Debt {
   id: string;
@@ -153,6 +153,7 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
 
   // Estado calculado
   const calculatedStatus = updateStatusBasedOnPayments();
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -229,94 +230,36 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
           <div className="pt-4 border-t">
             <div className="flex items-center justify-between mb-4">
               <Label className="text-lg font-medium">Pagos Asociados</Label>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setShowPaymentForm(!showPaymentForm)}
-                className="flex items-center gap-1"
-              >
-                <Plus size={16} />
-                Registrar Pago
-              </Button>
+              <Dialog open={showTransactionModal} onOpenChange={setShowTransactionModal}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="flex items-center gap-1"
+                  >
+                    <Plus size={16} />
+                    Registrar Pago
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Registrar Nuevo Pago</DialogTitle>
+                  </DialogHeader>
+                  <TransactionForm />
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowTransactionModal(false)}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={() => {
+                      toast.success("Pago registrado exitosamente");
+                      setShowTransactionModal(false);
+                    }}>
+                      Registrar Pago
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
-
-            {showPaymentForm && (
-              <div className="bg-muted/50 p-4 rounded-lg mb-4 space-y-3">
-                <h4 className="font-semibold">Nuevo Pago</h4>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="payment-amount">Monto</Label>
-                    <Input
-                      id="payment-amount"
-                      type="number"
-                      value={newPayment.amount}
-                      onChange={(e) => setNewPayment({...newPayment, amount: e.target.value})}
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="payment-method">Método de Pago</Label>
-                    <Select 
-                      value={newPayment.method} 
-                      onValueChange={(value) => setNewPayment({...newPayment, method: value})}
-                    >
-                      <SelectTrigger id="payment-method">
-                        <SelectValue placeholder="Seleccionar método" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="efectivo">Efectivo</SelectItem>
-                        <SelectItem value="transferencia">Transferencia</SelectItem>
-                        <SelectItem value="tarjeta">Tarjeta</SelectItem>
-                        <SelectItem value="cheque">Cheque</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="payment-date">Fecha de Pago</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant={"outline"}
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !newPayment.date && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {newPayment.date ? format(newPayment.date, "PPP", { locale: es }) : <span>Seleccionar fecha</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={newPayment.date}
-                        onSelect={(date) => date && setNewPayment({...newPayment, date})}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div>
-                  <Label htmlFor="payment-notes">Notas (opcional)</Label>
-                  <Textarea 
-                    id="payment-notes"
-                    value={newPayment.notes}
-                    onChange={(e) => setNewPayment({...newPayment, notes: e.target.value})}
-                    rows={2}
-                    placeholder="Detalles adicionales del pago..."
-                  />
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="outline" size="sm" onClick={() => setShowPaymentForm(false)}>
-                    Cancelar
-                  </Button>
-                  <Button size="sm" onClick={addPayment}>
-                    Guardar Pago
-                  </Button>
-                </div>
-              </div>
-            )}
 
             {payments.length > 0 ? (
               <div className="space-y-2 max-h-[200px] overflow-y-auto">
