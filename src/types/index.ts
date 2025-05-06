@@ -1,4 +1,3 @@
-
 export interface Client {
   id: string;
   name: string;
@@ -19,6 +18,7 @@ export interface Client {
   updatedAt: Date;
   alertStatus?: 'none' | 'yellow' | 'red';
   alertNote?: string;
+  relatedToClientId?: string;
 }
 
 export interface Document {
