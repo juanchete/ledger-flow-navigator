@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/utils";
 import { format } from "date-fns";
-import { Trash2, User } from "lucide-react";
+import { Trash2, User, Users } from "lucide-react";
 
 interface Payment {
   id: string;
@@ -63,10 +63,14 @@ export const PaymentsList: React.FC<PaymentsListProps> = ({
             
             {payment.clientName && (
               <div className="flex items-center gap-1 mt-2 text-xs">
-                <User size={12} className="text-muted-foreground" />
+                {payment.clientType === 'indirect' ? (
+                  <Users size={12} className="text-muted-foreground" />
+                ) : (
+                  <User size={12} className="text-muted-foreground" />
+                )}
                 <span>{payment.clientName}</span>
                 {payment.clientType && (
-                  <Badge variant="outline" className="text-xs px-1 py-0 h-4 ml-1">
+                  <Badge variant="outline" className={`text-xs px-1 py-0 h-4 ml-1 ${payment.clientType === 'indirect' ? 'bg-yellow-50' : 'bg-slate-50'}`}>
                     {payment.clientType === 'indirect' ? 'Indirecto' : 'Directo'}
                   </Badge>
                 )}

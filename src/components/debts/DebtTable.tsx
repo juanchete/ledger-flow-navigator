@@ -5,7 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { StatusBadge } from "@/components/operations/common/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from '@/lib/utils';
-import { UserPlus } from "lucide-react";
+import { UserPlus, Users, UserRound } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface Client {
   id: string;
@@ -62,17 +63,49 @@ export const DebtTable: React.FC<DebtTableProps> = ({
               </TableCell>
               <TableCell>
                 {debt.payingClients && debt.payingClients.length > 0 ? (
-                  <div className="flex items-center">
-                    <Badge variant="outline" className="mr-1 bg-yellow-50">
-                      <UserPlus size={12} className="mr-1" />
-                      Indirecto
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      ({debt.payingClients.length})
-                    </span>
+                  <div className="space-y-1">
+                    {debt.payingClients.some(client => client.clientType === 'indirect') && (
+                      <Badge variant="outline" className="mr-1 bg-yellow-50">
+                        <Users size={12} className="mr-1" />
+                        Indirecto
+                      </Badge>
+                    )}
+                    {debt.payingClients.some(client => client.clientType === 'direct') && (
+                      <Badge variant="outline" className="mr-1 bg-slate-50">
+                        <UserRound size={12} className="mr-1" />
+                        Directo
+                      </Badge>
+                    )}
+                    <div className="text-xs text-muted-foreground">
+                      {debt.payingClients.length} cliente(s)
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {debt.payingClients.slice(0, 2).map((client) => (
+                        <Link 
+                          key={client.id} 
+                          to={`/clients/${client.id}`} 
+                          className="text-xs text-primary hover:underline flex items-center gap-1"
+                        >
+                          {client.clientType === 'indirect' ? (
+                            <Users size={10} />
+                          ) : (
+                            <UserRound size={10} />
+                          )}
+                          {client.name}
+                        </Link>
+                      ))}
+                      {debt.payingClients.length > 2 && (
+                        <span className="text-xs text-muted-foreground">
+                          +{debt.payingClients.length - 2} más
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ) : (
-                  <Badge variant="outline" className="bg-slate-50">Directo</Badge>
+                  <Badge variant="outline" className="bg-slate-50">
+                    <UserRound size={12} className="mr-1" />
+                    Directo
+                  </Badge>
                 )}
               </TableCell>
               <TableCell className="text-right">

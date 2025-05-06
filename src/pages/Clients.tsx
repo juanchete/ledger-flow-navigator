@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import { toast } from "sonner";
 import { mockClients } from "@/data/mockData";
 import { Client } from "@/types";
 import { Link } from "react-router-dom";
-import { Search, UserPlus, Filter, AlertTriangle, FileText } from "lucide-react";
+import { Search, UserPlus, Filter, AlertTriangle, FileText, UserRound, Users } from "lucide-react";
 import { format } from "date-fns";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
@@ -19,6 +20,7 @@ const Clients = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<"all" | "active" | "inactive">("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [clientTypeFilter, setClientTypeFilter] = useState<"all" | "direct" | "indirect">("all");
 
   const filteredClients = mockClients.filter((client) => {
     const matchesSearch = client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -32,7 +34,9 @@ const Clients = () => {
     
     const matchesCategory = categoryFilter === "all" || client.category === categoryFilter;
     
-    return matchesSearch && matchesActiveFilter && matchesCategory;
+    const matchesClientType = clientTypeFilter === "all" || client.clientType === clientTypeFilter;
+    
+    return matchesSearch && matchesActiveFilter && matchesCategory && matchesClientType;
   });
 
   const getAlertStatusColor = (status?: 'none' | 'yellow' | 'red') => {
@@ -174,7 +178,7 @@ const Clients = () => {
               />
             </div>
             
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
               <div className="flex items-center gap-2">
                 <Filter size={16} className="text-muted-foreground" />
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
@@ -187,6 +191,20 @@ const Clients = () => {
                     <SelectItem value="company">Empresa</SelectItem>
                     <SelectItem value="non-profit">Sin Fines de Lucro</SelectItem>
                     <SelectItem value="government">Gobierno</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Users size={16} className="text-muted-foreground" />
+                <Select value={clientTypeFilter} onValueChange={(value) => setClientTypeFilter(value as "all" | "direct" | "indirect")}>
+                  <SelectTrigger className="w-40 h-9">
+                    <SelectValue placeholder="Tipo de Cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los Tipos</SelectItem>
+                    <SelectItem value="direct">Directo</SelectItem>
+                    <SelectItem value="indirect">Indirecto</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -216,7 +234,21 @@ const Clients = () => {
                 filteredClients.map((client) => (
                   <div key={client.id} className="grid grid-cols-1 md:grid-cols-12 p-4 items-center">
                     <div className="md:col-span-3 space-y-1">
-                      <div className="font-medium">{client.name}</div>
+                      <div className="font-medium flex items-center gap-2">
+                        {client.name}
+                        {client.clientType === 'indirect' && (
+                          <Badge variant="outline" className="bg-yellow-50 text-xs">
+                            <Users size={12} className="mr-1" />
+                            Indirecto
+                          </Badge>
+                        )}
+                        {client.clientType === 'direct' && (
+                          <Badge variant="outline" className="bg-slate-50 text-xs">
+                            <UserRound size={12} className="mr-1" />
+                            Directo
+                          </Badge>
+                        )}
+                      </div>
                       <div className="text-sm text-muted-foreground md:hidden">
                         {client.category} • {client.active ? 'Activo' : 'Inactivo'}
                       </div>
@@ -242,6 +274,14 @@ const Clients = () => {
                     <div className="md:col-span-3 mt-2 md:mt-0">
                       <div className="text-sm">{client.email}</div>
                       <div className="text-sm text-muted-foreground">{client.phone}</div>
+                      {client.clientType === 'indirect' && client.relatedToClientId && (
+                        <div className="text-xs mt-1 text-muted-foreground flex items-center">
+                          <span className="mr-1">Asociado a:</span>
+                          <Link to={`/clients/${client.relatedToClientId}`} className="text-primary hover:underline">
+                            {mockClients.find(c => c.id === client.relatedToClientId)?.name || 'Cliente'}
+                          </Link>
+                        </div>
+                      )}
                     </div>
                     
                     <div className="md:col-span-2 flex justify-start md:justify-end mt-3 md:mt-0 gap-2">

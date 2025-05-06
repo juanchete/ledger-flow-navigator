@@ -3,11 +3,12 @@ import React, { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus } from "lucide-react";
+import { UserPlus, UserRound, Users } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 
 interface ClientSelectionSectionProps {
   selectedClient: string;
@@ -21,6 +22,8 @@ export const ClientSelectionSection: React.FC<ClientSelectionSectionProps> = ({
   clients
 }) => {
   const [isNewClientDialogOpen, setIsNewClientDialogOpen] = useState(false);
+  const [clientType, setClientType] = useState<'direct' | 'indirect'>('direct');
+  const [relatedClientId, setRelatedClientId] = useState<string>('');
 
   const handleCreateClient = () => {
     toast.success("Client created successfully!");
@@ -38,8 +41,21 @@ export const ClientSelectionSection: React.FC<ClientSelectionSectionProps> = ({
           <SelectContent>
             {Array.isArray(clients) && clients.length > 0 ? (
               clients.map((client) => (
-                <SelectItem key={client.id} value={client.id}>
-                  {client.name}
+                <SelectItem key={client.id} value={client.id} className="flex items-center">
+                  <div className="flex items-center gap-2">
+                    {client.name}
+                    {client.clientType === 'indirect' ? (
+                      <Badge variant="outline" className="bg-yellow-50 text-xs ml-1">
+                        <Users size={10} className="mr-1" />
+                        Indirecto
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-slate-50 text-xs ml-1">
+                        <UserRound size={10} className="mr-1" />
+                        Directo
+                      </Badge>
+                    )}
+                  </div>
                 </SelectItem>
               ))
             ) : (
@@ -91,17 +107,52 @@ export const ClientSelectionSection: React.FC<ClientSelectionSectionProps> = ({
               </div>
               <div className="grid gap-2">
                 <Label>Tipo de cliente</Label>
-                <RadioGroup defaultValue="direct" className="flex gap-4">
+                <RadioGroup 
+                  value={clientType} 
+                  onValueChange={(value) => setClientType(value as 'direct' | 'indirect')} 
+                  className="flex gap-4"
+                >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="direct" id="direct" />
-                    <Label htmlFor="direct">Directo</Label>
+                    <Label htmlFor="direct" className="flex items-center gap-1">
+                      <UserRound size={14} />
+                      Directo
+                    </Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="indirect" id="indirect" />
-                    <Label htmlFor="indirect">Indirecto</Label>
+                    <Label htmlFor="indirect" className="flex items-center gap-1">
+                      <Users size={14} />
+                      Indirecto
+                    </Label>
                   </div>
                 </RadioGroup>
               </div>
+              
+              {clientType === 'indirect' && (
+                <div className="grid gap-2">
+                  <Label htmlFor="relatedClient">Cliente relacionado</Label>
+                  <Select value={relatedClientId} onValueChange={setRelatedClientId}>
+                    <SelectTrigger id="relatedClient">
+                      <SelectValue placeholder="Selecciona el cliente directo relacionado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.isArray(clients) && clients.filter(c => c.clientType === 'direct').length > 0 ? (
+                        clients.filter(c => c.clientType === 'direct').map((client) => (
+                          <SelectItem key={client.id} value={client.id}>
+                            {client.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="" disabled>No hay clientes directos disponibles</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Un cliente indirecto debe estar relacionado con un cliente directo
+                  </p>
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsNewClientDialogOpen(false)}>Cancelar</Button>
