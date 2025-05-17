@@ -1,31 +1,88 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { mockClients, mockDetailedDebts, mockDetailedReceivables, mockTransactions } from "@/data/mockData";
+import { mockDetailedDebts, mockDetailedReceivables, mockTransactions } from "@/data/mockData";
 import { Client } from "@/types";
 import { Link } from "react-router-dom";
-import { Search, UserPlus, Filter, AlertTriangle, FileText, UserRound, Users } from "lucide-react";
+import { Search, UserPlus, Filter, AlertTriangle, FileText, UserRound, Users, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { clientService } from "@/integrations/supabase/clientService";
+import ClientFormModal from "@/components/clients/ClientFormModal";
 
 const Clients = () => {
+  const [clients, setClients] = useState<Client[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<"all" | "active" | "inactive">("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [clientTypeFilter, setClientTypeFilter] = useState<"all" | "direct" | "indirect">("all");
-
-  const filteredClients = mockClients.filter((client) => {
-    const matchesSearch = client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                       client.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                       (client.contactPerson && client.contactPerson.toLowerCase().includes(searchQuery.toLowerCase()));
+  const [dialogOpen, setDialogOpen] = useState(false);
+  
+  // Cargar clientes al montar el componente
+  useEffect(() => {
+    loadClients();
+  }, []);
+  
+  // Función para cargar todos los clientes
+  const loadClients = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await clientService.getClients();
+      if (error) {
+        throw error;
+      }
+      
+      if (data) {
+        setClients(data);
+      }
+    } catch (error) {
+      console.error("Error loading clients:", error);
+      toast.error("Error al cargar los clientes");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Manejar búsqueda de clientes
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      loadClients();
+      return;
+    }
     
+    setIsLoading(true);
+    try {
+      const { data, error } = await clientService.searchClients(searchQuery);
+      if (error) {
+        throw error;
+      }
+      
+      if (data) {
+        setClients(data);
+      }
+    } catch (error) {
+      console.error("Error searching clients:", error);
+      toast.error("Error al buscar clientes");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Manejar la creación exitosa de un cliente
+  const handleClientCreated = (newClient: Client) => {
+    // Agregar el nuevo cliente a la lista
+    setClients([newClient, ...clients]);
+  };
+
+  const filteredClients = clients.filter((client) => {
     const matchesActiveFilter = 
       activeFilter === "all" || 
       (activeFilter === "active" && client.active) || 
@@ -35,7 +92,7 @@ const Clients = () => {
     
     const matchesClientType = clientTypeFilter === "all" || client.clientType === clientTypeFilter;
     
-    return matchesSearch && matchesActiveFilter && matchesCategory && matchesClientType;
+    return matchesActiveFilter && matchesCategory && matchesClientType;
   });
 
   const getAlertStatusColor = (status?: 'none' | 'yellow' | 'red') => {
@@ -44,11 +101,7 @@ const Clients = () => {
     return 'bg-muted text-muted-foreground';
   };
 
-  const handleCreateClient = () => {
-    toast.success("Client created successfully! This is a mock action in the MVP.");
-  };
-
-  // Helper para obtener resumen de deudas y cuentas por cobrar de un cliente
+  // Helper para obtener resumen de deudas y cuentas por cobrar de un cliente (usando mock data por ahora)
   const getClientFinancialSummary = (clientId: string) => {
     // Deudas
     const debts = mockDetailedDebts.filter(d => d.clientId === clientId);
@@ -86,112 +139,20 @@ const Clients = () => {
         <h1 className="text-3xl font-bold tracking-tight">Gestión de Clientes</h1>
         
         <div className="flex items-center gap-2">
-          <Dialog>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <UserPlus size={16} />
                 <span className="hidden sm:inline">Nuevo Cliente</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[525px]">
-              <DialogHeader>
-                <DialogTitle>Agregar Nuevo Cliente</DialogTitle>
-                <DialogDescription>
-                  Completa el formulario para agregar un nuevo cliente a tu sistema.
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">Nombre del Cliente</Label>
-                  <Input id="name" />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="email">Correo</Label>
-                    <Input id="email" type="email" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="phone">Teléfono</Label>
-                    <Input id="phone" />
-                  </div>
-                </div>
-                
-                <div className="grid gap-2">
-                  <Label htmlFor="address">Dirección</Label>
-                  <Input id="address" />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="category">Categoría</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar categoría" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="individual">Individual</SelectItem>
-                        <SelectItem value="company">Empresa</SelectItem>
-                        <SelectItem value="non-profit">Sin Fines de Lucro</SelectItem>
-                        <SelectItem value="government">Gobierno</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="contactPerson">Persona de Contacto</Label>
-                    <Input id="contactPerson" />
-                  </div>
-                </div>
-
-                <div className="grid gap-2">
-                  <Label>Tipo de Cliente</Label>
-                  <RadioGroup defaultValue="direct" className="flex gap-4">
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="direct" id="direct" />
-                      <Label htmlFor="direct">Directo</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="indirect" id="indirect" />
-                      <Label htmlFor="indirect">Indirecto</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                <div className="grid gap-2">
-                  <Label>Documento de Identificación</Label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Tipo de documento" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ID">Cédula</SelectItem>
-                        <SelectItem value="RIF">RIF</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input placeholder="Número de documento" />
-                  </div>
-                  <div className="mt-2">
-                    <Label className="text-sm text-muted-foreground mb-2 block">Subir Documento</Label>
-                    <div className="border-2 border-dashed rounded-lg p-4 hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center justify-center gap-2">
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                        <Input type="file" className="max-w-[250px]" accept=".pdf,.jpg,.jpeg,.png" />
-                      </div>
-                      <p className="text-xs text-muted-foreground text-center mt-2">
-                        PDF, JPG o PNG hasta 5MB
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <DialogFooter>
-                <Button variant="outline" onClick={() => {}}>Cancelar</Button>
-                <Button onClick={handleCreateClient}>Crear Cliente</Button>
-              </DialogFooter>
-            </DialogContent>
+            <ClientFormModal 
+              open={dialogOpen} 
+              onOpenChange={setDialogOpen} 
+              mode="create"
+              allClients={clients}
+              onSuccess={handleClientCreated}
+            />
           </Dialog>
         </div>
       </div>
@@ -206,6 +167,7 @@ const Clients = () => {
                 className="pl-8"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
               />
             </div>
             
@@ -251,18 +213,27 @@ const Clients = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
-            <div className="grid grid-cols-1 md:grid-cols-12 p-4 bg-muted/50 text-sm font-medium">
-              <div className="hidden md:block md:col-span-3">Nombre</div>
-              <div className="hidden md:block md:col-span-2">Categoría</div>
-              <div className="hidden md:block md:col-span-2">Estado</div>
-              <div className="hidden md:block md:col-span-3">Contacto</div>
-              <div className="hidden md:block md:col-span-2 text-right">Acciones</div>
+          {isLoading ? (
+            <div className="w-full py-20 flex justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-            
-            <div className="divide-y">
-              {filteredClients.length > 0 ? (
-                filteredClients.map((client) => {
+          ) : filteredClients.length === 0 ? (
+            <div className="text-center py-10">
+              <p className="text-lg text-muted-foreground">No se encontraron clientes</p>
+              <p className="text-sm text-muted-foreground">Prueba cambiando los filtros o crea un nuevo cliente</p>
+            </div>
+          ) : (
+            <div className="rounded-md border">
+              <div className="grid grid-cols-1 md:grid-cols-12 p-4 bg-muted/50 text-sm font-medium">
+                <div className="hidden md:block md:col-span-3">Nombre</div>
+                <div className="hidden md:block md:col-span-2">Categoría</div>
+                <div className="hidden md:block md:col-span-2">Estado</div>
+                <div className="hidden md:block md:col-span-3">Contacto</div>
+                <div className="hidden md:block md:col-span-2 text-right">Acciones</div>
+              </div>
+              
+              <div className="divide-y">
+                {filteredClients.map((client) => {
                   const summary = getClientFinancialSummary(client.id);
                   return (
                     <div key={client.id} className="grid grid-cols-1 md:grid-cols-12 p-4 items-center">
@@ -311,7 +282,7 @@ const Clients = () => {
                           <div className="text-xs mt-1 text-muted-foreground flex items-center">
                             <span className="mr-1">Asociado a:</span>
                             <Link to={`/clients/${client.relatedToClientId}`} className="text-primary hover:underline">
-                              {mockClients.find(c => c.id === client.relatedToClientId)?.name || 'Cliente'}
+                              {clients.find(c => c.id === client.relatedToClientId)?.name || 'Cliente'}
                             </Link>
                           </div>
                         )}
@@ -324,14 +295,10 @@ const Clients = () => {
                       </div>
                     </div>
                   );
-                })
-              ) : (
-                <div className="p-6 text-center text-muted-foreground">
-                  No se encontraron clientes que coincidan con tu búsqueda
-                </div>
-              )}
+                })}
+              </div>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>

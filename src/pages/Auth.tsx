@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { userService } from '@/integrations/supabase/userService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
@@ -32,6 +33,30 @@ export default function Auth() {
       }
 
       if (data.user) {
+        // Primero verificar si el usuario ya existe en la tabla 'users'
+        const { data: existingUser } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", data.user.id)
+          .single();
+        
+        if (!existingUser) {
+          // Si no existe, crear un nuevo perfil con rol predeterminado
+          await userService.upsertUserProfile(data.user.id, {
+            email: data.user.email || '',
+            role: 'user' // Rol predeterminado solo para usuarios nuevos
+          });
+        } else {
+          // Si ya existe, solo actualizar datos básicos sin cambiar el rol
+          await supabase
+            .from("users")
+            .update({
+              email: data.user.email || existingUser.email,
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", data.user.id);
+        }
+        
         navigate('/');
       }
     } catch (error) {

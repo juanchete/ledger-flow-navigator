@@ -8,8 +8,11 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { UserProfileManager } from "@/components/UserProfileManager";
+import { useAuth } from "@/components/AuthProvider";
 
 const Settings = () => {
+  const { isAdmin } = useAuth();
   const [notifications, setNotifications] = useState({
     email: true,
     daily: true,
@@ -40,6 +43,7 @@ const Settings = () => {
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="notifications">Notificaciones</TabsTrigger>
           <TabsTrigger value="invoices">Facturación</TabsTrigger>
+          <TabsTrigger value="users">Usuarios</TabsTrigger>
           <TabsTrigger value="about">Acerca de</TabsTrigger>
         </TabsList>
         
@@ -241,6 +245,10 @@ const Settings = () => {
               <Button onClick={handleSaveInvoices}>Guardar Cambios</Button>
             </CardFooter>
           </Card>
+        </TabsContent>
+        
+        <TabsContent value="users" className="space-y-4">
+          <UserProfileManager />
         </TabsContent>
         
         <TabsContent value="about" className="space-y-4">

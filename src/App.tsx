@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -47,7 +46,11 @@ const App = () => (
               <Route path="/operations/transaction/:transactionId" element={<TransactionDetail />} />
               <Route path="/calendar" element={<Calendar />} />
               <Route path="/statistics" element={<Statistics />} />
-              <Route path="/settings" element={<Settings />} />
+              <Route path="/settings" element={
+                <ProtectedRoute requireAdmin={true}>
+                  <Settings />
+                </ProtectedRoute>
+              } />
               <Route path="/accounts/:accountId" element={<AccountDetail />} />
               <Route path="/all-debts" element={<AllDebts />} />
               <Route path="/all-debts/:debtId" element={<DebtDetail />} />

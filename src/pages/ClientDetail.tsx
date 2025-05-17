@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { 
   Card, 
@@ -17,22 +17,93 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { mockClients, mockTransactions, mockDetailedDebts, mockDetailedReceivables } from "@/data/mockData";
+import { mockTransactions, mockDetailedDebts, mockDetailedReceivables } from "@/data/mockData";
 import { format } from "date-fns";
-import { AlertTriangle, ChevronLeft, FileText, Receipt } from "lucide-react";
+import { AlertTriangle, ChevronLeft, FileText, Receipt, Loader2 } from "lucide-react";
+import { clientService } from "@/integrations/supabase/clientService";
+import { Client } from "@/types";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import ClientFormModal from "@/components/clients/ClientFormModal";
 
 const ClientDetail = () => {
   const { clientId } = useParams<{ clientId: string }>();
-  const client = mockClients.find(c => c.id === clientId);
+  const [client, setClient] = useState<Client | null>(null);
+  const [relatedClient, setRelatedClient] = useState<Client | null>(null);
+  const [indirectClients, setIndirectClients] = useState<Client[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [allClients, setAllClients] = useState<Client[]>([]);
+  
+  // Estado para el formulario de edición
+  const [editClient, setEditClient] = useState<Client | null>(null);
+  
+  // Cargar los datos del cliente desde Supabase
+  useEffect(() => {
+    const loadClient = async () => {
+      if (!clientId) return;
+      
+      setIsLoading(true);
+      try {
+        const { data, error } = await clientService.getClientById(clientId);
+        
+        if (error) {
+          throw error;
+        }
+        
+        if (data) {
+          setClient(data);
+          setEditClient(data); // Inicializar estado de edición
+          
+          // Si es un cliente indirecto, cargar el cliente principal asociado
+          if (data.clientType === "indirect" && data.relatedToClientId) {
+            const { data: relatedData } = await clientService.getClientById(data.relatedToClientId);
+            if (relatedData) {
+              setRelatedClient(relatedData);
+            }
+          }
+          
+          // Buscar clientes indirectos asociados a este cliente
+          if (data.clientType === "direct") {
+            try {
+              const { data: clientsData } = await clientService.getClients();
+              if (clientsData) {
+                setAllClients(clientsData);
+                const indirectClientsData = clientsData.filter(
+                  c => c.relatedToClientId === clientId
+                );
+                setIndirectClients(indirectClientsData);
+              }
+            } catch (error) {
+              console.error("Error loading indirect clients:", error);
+            }
+          } else {
+            // Si es indirecto, cargar todos los clientes para el selector
+            try {
+              const { data: clientsData } = await clientService.getClients();
+              if (clientsData) {
+                setAllClients(clientsData);
+              }
+            } catch (error) {
+              console.error("Error loading clients:", error);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error loading client:", error);
+        toast.error("Error al cargar los datos del cliente");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadClient();
+  }, [clientId]);
   
   const clientTransactions = mockTransactions.filter(t => t.clientId === clientId);
   
-  // Clientes indirectos asociados a este cliente
-  const indirectClients = mockClients.filter(
-    c => c.relatedToClientId === clientId
-  );
-
-  // Pagos indirectos hechos a favor de este cliente
+  // Pagos indirectos hechos a favor de este cliente (se mantiene mock data por ahora)
   const indirectPayments = mockTransactions.filter(
     t => t.type === "payment" && t.indirectForClientId === clientId
   );
@@ -79,34 +150,114 @@ const ClientDetail = () => {
       };
     });
 
-  const [isActive, setIsActive] = useState(client?.active || false);
-  const [alertStatus, setAlertStatus] = useState<'none' | 'yellow' | 'red'>(client?.alertStatus || 'none');
-  const [alertNote, setAlertNote] = useState(client?.alertNote || '');
+  const [isActive, setIsActive] = useState(false);
+  const [alertStatus, setAlertStatus] = useState<'none' | 'yellow' | 'red'>('none');
+  const [alertNote, setAlertNote] = useState('');
+  
+  // Actualizar estados locales cuando se carga el cliente
+  useEffect(() => {
+    if (client) {
+      setIsActive(client.active);
+      setAlertStatus(client.alertStatus || 'none');
+      setAlertNote(client.alertNote || '');
+    }
+  }, [client]);
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh]">
+        <Loader2 className="h-12 w-12 animate-spin text-muted-foreground mb-4" />
+        <p className="text-muted-foreground">Cargando información del cliente...</p>
+      </div>
+    );
+  }
   
   if (!client) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
-        <h2 className="text-2xl font-bold mb-2">Client Not Found</h2>
-        <p className="text-muted-foreground mb-4">The client you are looking for does not exist.</p>
+        <h2 className="text-2xl font-bold mb-2">Cliente no encontrado</h2>
+        <p className="text-muted-foreground mb-4">El cliente que estás buscando no existe.</p>
         <Button asChild>
-          <Link to="/clients">Back to Clients</Link>
+          <Link to="/clients">Volver a Clientes</Link>
         </Button>
       </div>
     );
   }
 
-  const handleStatusChange = (checked: boolean) => {
+  const handleStatusChange = async (checked: boolean) => {
     setIsActive(checked);
-    toast.success(`Client status ${checked ? 'activated' : 'deactivated'}`);
+    setIsUpdating(true);
+    
+    try {
+      const { error } = await clientService.updateClient(client.id, {
+        active: checked
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      toast.success(`Estado del cliente ${checked ? 'activado' : 'desactivado'}`);
+    } catch (error) {
+      console.error("Error updating client status:", error);
+      toast.error("Error al actualizar el estado del cliente");
+      // Revertir el cambio en la UI si hay error
+      setIsActive(!checked);
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
-  const handleAlertChange = (value: string) => {
-    setAlertStatus(value as 'none' | 'yellow' | 'red');
-    toast.success(`Client alert status updated to ${value}`);
+  const handleAlertChange = async (value: string) => {
+    const newAlertStatus = value as 'none' | 'yellow' | 'red';
+    setAlertStatus(newAlertStatus);
+    setIsUpdating(true);
+    
+    try {
+      const { error } = await clientService.updateClient(client.id, {
+        alertStatus: newAlertStatus
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      toast.success(`Estado de alerta actualizado a ${value}`);
+    } catch (error) {
+      console.error("Error updating alert status:", error);
+      toast.error("Error al actualizar el estado de alerta");
+      // Revertir el cambio en la UI si hay error
+      setAlertStatus(client.alertStatus || 'none');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+  
+  const handleAlertNoteChange = async () => {
+    setIsUpdating(true);
+    
+    try {
+      const { error } = await clientService.updateClient(client.id, {
+        alertNote
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      toast.success("Nota de alerta actualizada");
+    } catch (error) {
+      console.error("Error updating alert note:", error);
+      toast.error("Error al actualizar la nota de alerta");
+      // Revertir el cambio en la UI si hay error
+      setAlertNote(client.alertNote || '');
+    } finally {
+      setIsUpdating(false);
+    }
   };
   
   const handleDocumentUpload = () => {
-    toast.success("Document would be uploaded in the full version");
+    toast.success("Esta funcionalidad estará disponible próximamente");
   };
 
   const formatCurrency = (amount: number) => {
@@ -123,6 +274,33 @@ const ClientDetail = () => {
     else return (bytes / 1048576).toFixed(1) + ' MB';
   };
   
+  // Manejar la actualización exitosa de un cliente
+  const handleClientUpdated = (updatedClient: Client) => {
+    // Actualizar el cliente en el estado
+    setClient(updatedClient);
+    
+    // Si era un cliente indirecto y ha cambiado el cliente principal, cargar el nuevo cliente principal
+    if (updatedClient.clientType === "indirect" && updatedClient.relatedToClientId && 
+        (!client || updatedClient.relatedToClientId !== client.relatedToClientId)) {
+      clientService.getClientById(updatedClient.relatedToClientId)
+        .then(({ data }) => {
+          if (data) {
+            setRelatedClient(data);
+          }
+        })
+        .catch(error => {
+          console.error("Error loading related client:", error);
+        });
+    }
+    
+    // Actualizar el estado local
+    setIsActive(updatedClient.active);
+    setAlertStatus(updatedClient.alertStatus || "none");
+    setAlertNote(updatedClient.alertNote || "");
+    
+    toast.success("Cliente actualizado con éxito");
+  };
+  
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center gap-2">
@@ -134,6 +312,9 @@ const ClientDetail = () => {
         </Button>
         <h1 className="text-3xl font-bold tracking-tight">{client.name}</h1>
         <Badge variant="outline" className="capitalize ml-2">{client.category}</Badge>
+        <Badge variant="outline" className={client.clientType === "indirect" ? "bg-yellow-50" : "bg-slate-50"}>
+          {client.clientType === "indirect" ? "Indirecto" : "Directo"}
+        </Badge>
         {alertStatus !== 'none' && (
           <Badge className={
             alertStatus === 'red' ? 'bg-finance-red text-white' : 
@@ -176,8 +357,17 @@ const ClientDetail = () => {
               
               <div className="grid grid-cols-[100px_1fr] gap-1">
                 <span className="font-medium text-muted-foreground">Agregado:</span>
-                <span>{format(new Date(client.createdAt), 'MMM d, yyyy')}</span>
+                <span>{format(client.createdAt, 'MMM d, yyyy')}</span>
               </div>
+              
+              {client.clientType === "indirect" && relatedClient && (
+                <div className="grid grid-cols-[100px_1fr] gap-1">
+                  <span className="font-medium text-muted-foreground">Asociado a:</span>
+                  <Link to={`/clients/${relatedClient.id}`} className="text-primary hover:underline">
+                    {relatedClient.name}
+                  </Link>
+                </div>
+              )}
               
               <div className="pt-2 border-t flex flex-col gap-4">
                 <div className="flex items-center justify-between">
@@ -190,13 +380,14 @@ const ClientDetail = () => {
                       id="client-status" 
                       checked={isActive} 
                       onCheckedChange={handleStatusChange}
+                      disabled={isUpdating}
                     />
                   </div>
                 </div>
                 
                 <div className="flex items-center justify-between">
                   <Label htmlFor="alert-status" className="font-medium">Estado de Alerta</Label>
-                  <Select value={alertStatus} onValueChange={handleAlertChange}>
+                  <Select value={alertStatus} onValueChange={handleAlertChange} disabled={isUpdating}>
                     <SelectTrigger id="alert-status" className="w-40">
                       <SelectValue placeholder="Seleccionar estado de alerta" />
                     </SelectTrigger>
@@ -215,8 +406,10 @@ const ClientDetail = () => {
                       id="alert-note" 
                       value={alertNote} 
                       onChange={(e) => setAlertNote(e.target.value)} 
-                      placeholder="Describe the alert reason..."
+                      onBlur={handleAlertNoteChange}
+                      placeholder="Describe la razón de la alerta..."
                       className="resize-none"
+                      disabled={isUpdating}
                     />
                   </div>
                 )}
@@ -227,7 +420,10 @@ const ClientDetail = () => {
                   <ul className="list-disc list-inside text-sm">
                     {indirectClients.map(ic => (
                       <li key={ic.id}>
-                        {ic.name} <span className="text-xs text-muted-foreground">({ic.email})</span>
+                        <Link to={`/clients/${ic.id}`} className="hover:underline">
+                          {ic.name}
+                        </Link> 
+                        <span className="text-xs text-muted-foreground">({ic.email})</span>
                       </li>
                     ))}
                   </ul>
@@ -248,43 +444,42 @@ const ClientDetail = () => {
                     <DialogTitle>Subir Documento</DialogTitle>
                     <DialogDescription>
                       Sube documentos relacionados con este cliente.
-                      Upload documents related to this client.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
                     <div className="grid gap-2">
-                      <Label htmlFor="doc-name">Document Name</Label>
+                      <Label htmlFor="doc-name">Nombre del Documento</Label>
                       <Input id="doc-name" />
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="doc-type">Document Type</Label>
+                      <Label htmlFor="doc-type">Tipo de Documento</Label>
                       <Select>
                         <SelectTrigger id="doc-type">
-                          <SelectValue placeholder="Select type" />
+                          <SelectValue placeholder="Seleccionar tipo" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="contract">Contract</SelectItem>
-                          <SelectItem value="invoice">Invoice</SelectItem>
-                          <SelectItem value="receipt">Receipt</SelectItem>
-                          <SelectItem value="id">Identification</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
+                          <SelectItem value="contract">Contrato</SelectItem>
+                          <SelectItem value="invoice">Factura</SelectItem>
+                          <SelectItem value="receipt">Recibo</SelectItem>
+                          <SelectItem value="id">Identificación</SelectItem>
+                          <SelectItem value="other">Otro</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="doc-file">File</Label>
+                      <Label htmlFor="doc-file">Archivo</Label>
                       <Input id="doc-file" type="file" />
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button variant="outline">Cancel</Button>
-                    <Button onClick={handleDocumentUpload}>Upload</Button>
+                    <Button variant="outline">Cancelar</Button>
+                    <Button onClick={handleDocumentUpload}>Subir</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
             </CardHeader>
             <CardContent>
-              {client.documents.length > 0 ? (
+              {client.documents && client.documents.length > 0 ? (
                 <div className="space-y-3">
                   {client.documents.map((doc) => (
                     <div key={doc.id} className="flex items-center justify-between border-b pb-2 last:border-0">
@@ -297,12 +492,12 @@ const ClientDetail = () => {
                           </p>
                         </div>
                       </div>
-                      <Button variant="ghost" size="sm">View</Button>
+                      <Button variant="ghost" size="sm">Ver</Button>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">No documents uploaded yet.</p>
+                <p className="text-sm text-muted-foreground">No se han subido documentos aún.</p>
               )}
             </CardContent>
           </Card>
@@ -311,12 +506,12 @@ const ClientDetail = () => {
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle>Client Activity</CardTitle>
+              <CardTitle>Actividad del Cliente</CardTitle>
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="transactions" className="w-full">
                 <TabsList>
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="overview">Resumen</TabsTrigger>
                   <TabsTrigger value="transactions">Transacciones</TabsTrigger>
                   <TabsTrigger value="debts">Deudas</TabsTrigger>
                   <TabsTrigger value="receivables">Cuentas por Cobrar</TabsTrigger>
@@ -343,7 +538,7 @@ const ClientDetail = () => {
                                 {transaction.type}
                               </span>
                               {isIndirectPayment(transaction) && (
-                                <span className="ml-2 text-xs text-finance-blue">Pago indirecto por {mockClients.find(c => c.id === transaction.clientId)?.name}</span>
+                                <span className="ml-2 text-xs text-finance-blue">Pago indirecto</span>
                               )}
                             </div>
                             <div className="col-span-2">
@@ -454,11 +649,21 @@ const ClientDetail = () => {
           </Card>
           
           <div className="flex justify-end gap-2">
-            <Button variant="outline" asChild>
-              <Link to={`/clients/edit/${clientId}`}>Edit Client</Link>
-            </Button>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">Editar Cliente</Button>
+              </DialogTrigger>
+              <ClientFormModal 
+                open={dialogOpen} 
+                onOpenChange={setDialogOpen} 
+                client={client} 
+                allClients={allClients}
+                mode="edit"
+                onSuccess={handleClientUpdated}
+              />
+            </Dialog>
             <Button variant="default" asChild>
-              <Link to={`/operations/transaction/new?clientId=${clientId}`}>Add Transaction</Link>
+              <Link to={`/operations/transaction/new?clientId=${clientId}`}>Agregar Transacción</Link>
             </Button>
           </div>
         </div>

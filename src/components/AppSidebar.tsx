@@ -55,6 +55,11 @@ const sidebarItems = [
     icon: "clock",
     label: "Balance Histórico",
   },
+  {
+    href: "/settings",
+    icon: "settings",
+    label: "Configuración",
+  },
 ];
 
 export function AppSidebar() {

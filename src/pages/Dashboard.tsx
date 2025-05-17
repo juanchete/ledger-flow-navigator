@@ -69,7 +69,6 @@ const Dashboard = () => {
     receivables: stat.receivables,
     debts: stat.debts
   }));
-  
 
   return (
     <div className="space-y-6 animate-fade-in">
