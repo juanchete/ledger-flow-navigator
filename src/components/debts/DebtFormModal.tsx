@@ -52,7 +52,7 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
     resolver: zodResolver(debtSchema),
     defaultValues: {
       creditor: debt?.creditor || "",
-      client_id: debt?.client_id || "",
+      client_id: debt?.client_id || undefined,
       amount: debt?.amount || 0,
       due_date: debt?.due_date ? new Date(debt.due_date) : new Date(),
       status: (debt?.status as "pending" | "overdue" | "paid") || "pending",
@@ -66,7 +66,7 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
     if (debt) {
       form.reset({
         creditor: debt.creditor || "",
-        client_id: debt.client_id || "",
+        client_id: debt.client_id || undefined,
         amount: debt.amount || 0,
         due_date: debt.due_date ? new Date(debt.due_date) : new Date(),
         status: (debt.status as "pending" | "overdue" | "paid") || "pending",
@@ -77,7 +77,7 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
     } else {
       form.reset({
         creditor: "",
-        client_id: "",
+        client_id: undefined,
         amount: 0,
         due_date: new Date(),
         status: "pending",
@@ -98,7 +98,7 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
           creditor: data.creditor,
           client_id: data.client_id,
           amount: data.amount,
-          due_date: data.due_date,
+          due_date: data.due_date.toISOString(),
           status: data.status,
           category: data.category,
           notes: data.notes,
@@ -113,7 +113,7 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
           creditor: data.creditor,
           client_id: data.client_id,
           amount: data.amount,
-          due_date: data.due_date,
+          due_date: data.due_date.toISOString(),
           status: data.status,
           category: data.category,
           notes: data.notes,
@@ -176,7 +176,7 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">Sin cliente</SelectItem>
+                      <SelectItem value="none">Sin cliente</SelectItem>
                       {clients.map((client) => (
                         <SelectItem key={client.id} value={client.id}>
                           {client.name}

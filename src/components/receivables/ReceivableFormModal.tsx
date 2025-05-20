@@ -94,7 +94,7 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
           client_id: data.client_id,
           amount: data.amount,
           description: data.description,
-          due_date: data.due_date,
+          due_date: data.due_date.toISOString(),
           status: data.status,
           notes: data.notes,
           currency: data.currency
@@ -108,7 +108,7 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
           client_id: data.client_id,
           amount: data.amount,
           description: data.description,
-          due_date: data.due_date,
+          due_date: data.due_date.toISOString(),
           status: data.status,
           notes: data.notes,
           currency: data.currency,
