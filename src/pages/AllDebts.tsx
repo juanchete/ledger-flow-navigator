@@ -1,86 +1,68 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// import { mockDetailedDebts, mockClients, mockTransactions } from '@/data/mockData'; // Remove mock data
 import { PageHeader } from '@/components/common/PageHeader';
 import { DebtSummaryMetrics } from '@/components/debts/DebtSummaryMetrics';
 import { DebtFilters } from '@/components/debts/DebtFilters';
-import { DebtTable } from '@/components/debts/DebtTable'; // Removed DebtTableRow import
-// import { CurrencySwitch } from '@/components/operations/common/CurrencySwitch'; // Temporarily remove
+import { DebtTable } from '@/components/debts/DebtTable';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Terminal, Loader2 } from 'lucide-react';
+import { Terminal, Loader2, Plus, Pencil } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { DebtFormModal } from '@/components/debts/DebtFormModal';
 
 import { useDebts } from '../contexts/DebtContext';
-import { useTransactions } from '../context/TransactionContext'; // Changed path
-// import { useClients } from '../contexts/ClientContext'; // Commented out due to missing file
+import { useTransactions } from '../context/TransactionContext';
+import { getClients } from '@/integrations/supabase/clientService';
 
 import type { Debt as SupabaseDebt } from '../integrations/supabase/debtService';
 import type { Transaction as SupabaseTransaction } from '../integrations/supabase/transactionService';
-import type { Client as SupabaseClient } from '../integrations/supabase/clientService'; // This is UserProfile
-
-// Define enriched types based on Supabase types
-// interface EnrichedDebtClient extends SupabaseClient { // Removed redundant interface
-//   // clientType is already in SupabaseClient if it's part of the table, otherwise define it
-//   // clientType: 'direct' | 'indirect'; // Example if not in SupabaseClient
-// }
+import type { Client as SupabaseClient } from '../integrations/supabase/clientService';
 
 interface EnrichedDebt extends SupabaseDebt {
   totalPaid: number;
-  calculatedStatus: string; // 'paid' or original status
-  payments: SupabaseTransaction[]; // Assuming payments are full transaction objects
-  primaryClient?: SupabaseClient; // The client directly associated via client_id
-  payingClients?: SupabaseClient[]; // Clients who made payments for this debt
-  // status will be calculated and potentially overridden
+  calculatedStatus: string;
+  payments: SupabaseTransaction[];
+  primaryClient?: SupabaseClient;
+  payingClients?: SupabaseClient[];
 }
 
-// interface Client { // Remove local Client interface
-//   id: string;
-//   name: string;
-//   clientType: 'direct' | 'indirect';
-//   // ... other client properties
-// }
-
-// interface Debt { // Remove local Debt interface
-//   id: string;
-//   creditor: string;
-//   amount: number;
-//   dueDate: Date; // Supabase dueDate is string
-//   status: string;
-//   category: string;
-//   notes: string;
-//   relatedClientId?: string; // Primary client responsible for the debt
-//   payingClients?: Client[]; // Clients who made payments for this debt
-// }
-
-// This will be the shape of data passed to DebtTable
-// It should align with what DebtTable and DebtTableRow expect or they need to be adapted
 export interface EnrichedDebtForTable extends SupabaseDebt {
   totalPaid: number;
   calculatedStatus: string; 
   payments: SupabaseTransaction[];
-  primaryClient?: SupabaseClient & { name?: string }; // Will be affected by ClientContext removal
-  payingClients?: (SupabaseClient & { name?: string })[]; // Will be affected by ClientContext removal
-  dueDate: Date; // Changed to non-optional Date for DebtTable compatibility
-  // SupabaseDebt already has: id, creditor, amount, due_date (string), status (original), category, notes, client_id, etc.
+  primaryClient?: SupabaseClient & { name?: string };
+  payingClients?: (SupabaseClient & { name?: string })[];
+  dueDate: Date;
 }
 
 const AllDebts: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateRange, setDateRange] = useState<Date | undefined>(undefined);
-  // const [isUSD, setIsUSD] = useState(true); // Temporarily removed
-  // const [clientTypeFilter, setClientTypeFilter] = useState("all"); // Temporarily removed or will be re-evaluated
+  const [isDebtModalOpen, setIsDebtModalOpen] = useState(false);
+  const [selectedDebt, setSelectedDebt] = useState<SupabaseDebt | undefined>(undefined);
+  const [clients, setClients] = useState<Array<{ id: string, name: string }>>([]);
+  const [loadingClients, setLoadingClients] = useState(false);
 
-  const { debts: allDebtsFromContext, isLoading: isLoadingDebts, error: errorDebts } = useDebts();
+  const { debts: allDebtsFromContext, isLoading: isLoadingDebts, error: errorDebts, fetchDebts } = useDebts();
   const { transactions: allTransactionsFromContext, isLoading: isLoadingTransactions, error: errorTransactions } = useTransactions();
-  // const { clients: allClientsFromContext, isLoading: isLoadingClients, error: errorClients } = useClients(); // Commented out
 
-  // const clientsMap = useMemo(() => { // Commented out as allClientsFromContext is unavailable
-  //   if (!allClientsFromContext) return new Map<string, SupabaseClient>();
-  //   return allClientsFromContext.reduce((acc, client) => {
-  //     acc.set(client.id, client);
-  //     return acc;
-  //   }, new Map<string, SupabaseClient>());
-  // }, [allClientsFromContext]);
+  useEffect(() => {
+    const loadClients = async () => {
+      setLoadingClients(true);
+      try {
+        const clientsData = await getClients();
+        setClients(clientsData.map(client => ({
+          id: client.id,
+          name: client.name
+        })));
+      } catch (error) {
+        console.error('Error loading clients:', error);
+      } finally {
+        setLoadingClients(false);
+      }
+    };
+    loadClients();
+  }, []);
 
   const enrichedDebts = useMemo<EnrichedDebtForTable[]>(() => {
     if (!allDebtsFromContext || !allTransactionsFromContext) return [];
@@ -92,32 +74,21 @@ const AllDebts: React.FC = () => {
       const totalPaid = paymentsForDebt.reduce((sum, t) => sum + t.amount, 0);
       const calculatedStatus = totalPaid >= debt.amount ? 'paid' : debt.status;
 
-      // const primaryClient = debt.client_id && clientsMap ? clientsMap.get(debt.client_id) : undefined; // Commented out
-      
-      // const payingClientIds = new Set<string>(); // Commented out
-      // paymentsForDebt.forEach(p => { // Commented out
-      //   if (p.client_id) payingClientIds.add(p.client_id); // Commented out
-      // }); // Commented out
-      // const payingClients = clientsMap ? Array.from(payingClientIds).map(id => clientsMap.get(id)).filter(Boolean) as SupabaseClient[] : undefined; // Commented out
-
       return {
         ...debt,
-        dueDate: new Date(debt.due_date || 0), // Ensure dueDate is always a Date object
+        dueDate: new Date(debt.due_date || 0),
         totalPaid,
         calculatedStatus,
         payments: paymentsForDebt,
-        payingClients: [], // Solución rápida para el error de tipo
-        // primaryClient, // Commented out
-        // payingClients: payingClients && payingClients.length > 0 ? payingClients : undefined, // Commented out
+        payingClients: [],
       };
     });
-  // }, [allDebtsFromContext, allTransactionsFromContext, clientsMap]); // clientsMap removed from dependencies
-  }, [allDebtsFromContext, allTransactionsFromContext]); // Dependencies updated
+  }, [allDebtsFromContext, allTransactionsFromContext]);
 
   const filteredDebts = useMemo(() => {
     return enrichedDebts.filter((debt) => {
-      const creditor = debt.creditor || ""; // Ensure creditor is a string
-      const category = debt.category || ""; // Ensure category is a string
+      const creditor = debt.creditor || "";
+      const category = debt.category || "";
       
       const matchesSearch = creditor.toLowerCase().includes(searchQuery.toLowerCase()) || 
                             category.toLowerCase().includes(searchQuery.toLowerCase());
@@ -127,16 +98,7 @@ const AllDebts: React.FC = () => {
       const matchesDate = !dateRange || 
                           (debt.due_date && new Date(debt.due_date).toDateString() === new Date(dateRange).toDateString());
       
-      // Client type filter - simplified based on presence of paying clients for "indirect"
-      // This part needs review based on how clientType is actually determined or if it's still needed
-      // const matchesClientType = clientTypeFilter === "all" || (
-      //   clientTypeFilter === "direct" ? 
-      //     !debt.payingClients || debt.payingClients.length === 0 : // Assuming "direct" means no OTHER paying clients
-      //     debt.payingClients && debt.payingClients.length > 0
-      // );
-      // For now, let's remove clientTypeFilter from filtering if it was removed from state
-      
-      return matchesSearch && matchesStatus && matchesDate; // && matchesClientType (if re-added)
+      return matchesSearch && matchesStatus && matchesDate;
     });
   }, [enrichedDebts, searchQuery, statusFilter, dateRange]);
 
@@ -174,10 +136,27 @@ const AllDebts: React.FC = () => {
     setSearchQuery("");
     setStatusFilter("all");
     setDateRange(undefined);
-    // setClientTypeFilter("all"); // If re-added
   };
 
-  // if (isLoadingDebts || isLoadingTransactions || isLoadingClients) { // isLoadingClients removed
+  const handleAddDebt = () => {
+    setSelectedDebt(undefined);
+    setIsDebtModalOpen(true);
+  };
+
+  const handleEditDebt = (debt: SupabaseDebt) => {
+    setSelectedDebt(debt);
+    setIsDebtModalOpen(true);
+  };
+
+  const handleDebtModalClose = () => {
+    setIsDebtModalOpen(false);
+    setSelectedDebt(undefined);
+  };
+
+  const handleDebtSuccess = () => {
+    fetchDebts();
+  };
+
   if (isLoadingDebts || isLoadingTransactions) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -186,18 +165,14 @@ const AllDebts: React.FC = () => {
     );
   }
 
-  // if (errorDebts || errorTransactions || errorClients) { // errorClients removed
   if (errorDebts || errorTransactions) {
-    // const error = errorDebts || errorTransactions || errorClients; // errorClients removed
-    const error = errorDebts || errorTransactions; // This should be Error | null
+    const error = errorDebts || errorTransactions;
     return (
       <div className="container mx-auto p-4">
         <Alert variant="destructive">
           <Terminal className="h-4 w-4" />
           <AlertTitle>Error al Cargar Datos</AlertTitle>
           <AlertDescription>
-            {/* Check if error object exists and has a message property, otherwise provide a generic message */}
-            {/* {(error && error.message) ? error.message : "Ocurrió un error desconocido. Por favor, inténtalo de nuevo."} */}
             {error instanceof Error ? error.message : (typeof error === 'string' ? error : "Ocurrió un error desconocido. Por favor, inténtalo de nuevo.")}
           </AlertDescription>
         </Alert>
@@ -205,7 +180,6 @@ const AllDebts: React.FC = () => {
     );
   }
   
-  // if (!allDebtsFromContext || !allTransactionsFromContext || !allClientsFromContext) { // allClientsFromContext removed
   if (!allDebtsFromContext || !allTransactionsFromContext) {
      // This case should ideally be covered by isLoading, but as a fallback:
     return (
@@ -219,7 +193,10 @@ const AllDebts: React.FC = () => {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <PageHeader title="Todas las Deudas" />
-        {/* <CurrencySwitch isUSD={isUSD} onCheckedChange={setIsUSD} /> */}
+        <Button onClick={handleAddDebt} className="flex items-center gap-2">
+          <Plus className="h-4 w-4" />
+          <span>Agregar Deuda</span>
+        </Button>
       </div>
       
       <DebtSummaryMetrics 
@@ -227,7 +204,6 @@ const AllDebts: React.FC = () => {
         pendingAmount={pendingAmount}
         overdueAmount={overdueAmount}
         paidAmount={paidAmount}
-        // currency={isUSD ? 'USD' : 'BS'} // Pass currency if DebtSummaryMetrics supports it
       />
       
       <Card>
@@ -242,34 +218,29 @@ const AllDebts: React.FC = () => {
               dateRange={dateRange}
               setDateRange={setDateRange}
               clearFilters={clearFilters}
-              formatDate={formatDate} // Pass the new formatDate
+              formatDate={formatDate}
             />
-            
-            {/* Temporarily remove client type filter UI until logic is clear
-            <div className="flex items-center space-x-4">
-              <select
-                className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
-                value={clientTypeFilter}
-                onChange={(e) => setClientTypeFilter(e.target.value)}
-              >
-                <option value="all">Todos los Clientes</option>
-                <option value="direct">Clientes Directos</option>
-                <option value="indirect">Clientes Indirectos</option>
-              </select>
-            </div>
-            */}
           </div>
         </CardHeader>
         <CardContent>
           <DebtTable 
-            debts={filteredDebts} // This will be EnrichedDebtForTable[]
-            formatDate={formatDate} // Pass the new formatDate
-            onDebtClick={handleDebtClick} // onDebtClick expects EnrichedDebtForTable
-            // HoverCard for payment history can be implemented within DebtTable
-            // using debt.payments from EnrichedDebtForTable
+            debts={filteredDebts}
+            formatDate={formatDate}
+            onDebtClick={handleDebtClick}
+            onEditDebt={handleEditDebt}
           />
         </CardContent>
       </Card>
+
+      {isDebtModalOpen && (
+        <DebtFormModal 
+          isOpen={isDebtModalOpen}
+          onClose={handleDebtModalClose}
+          debt={selectedDebt}
+          clients={clients}
+          onSuccess={handleDebtSuccess}
+        />
+      )}
     </div>
   );
 };

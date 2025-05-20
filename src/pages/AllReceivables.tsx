@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Search, Calendar, Filter } from 'lucide-react';
+import { ArrowLeft, Search, Calendar, Filter, Plus, Pencil, Loader2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { DebtDetailsModal } from '@/components/operations/DebtDetailsModal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -14,6 +15,8 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { getReceivables } from "@/integrations/supabase/receivableService";
 import { getTransactions } from "@/integrations/supabase/transactionService";
+import { getClients } from '@/integrations/supabase/clientService';
+import { ReceivableFormModal } from '@/components/receivables/ReceivableFormModal';
 
 interface Receivable {
   id: string;
@@ -39,19 +42,23 @@ const AllReceivables: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedReceivable, setSelectedReceivable] = useState<Receivable | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [dateRange, setDateRange] = useState<Date | undefined>(undefined);
   const [receivables, setReceivables] = useState<Receivable[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [clients, setClients] = useState<Array<{ id: string, name: string }>>([]);
   const [loading, setLoading] = useState(true);
+  const [editingReceivable, setEditingReceivable] = useState<any>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [receivablesData, transactionsData] = await Promise.all([
+        const [receivablesData, transactionsData, clientsData] = await Promise.all([
           getReceivables(),
-          getTransactions()
+          getTransactions(),
+          getClients()
         ]);
         setReceivables(
           receivablesData.map((r) => ({
@@ -73,6 +80,12 @@ const AllReceivables: React.FC = () => {
             amount: t.amount,
             date: t.date,
             status: t.status
+          }))
+        );
+        setClients(
+          clientsData.map((c) => ({
+            id: c.id,
+            name: c.name
           }))
         );
       } catch (err) {
@@ -146,17 +159,61 @@ const AllReceivables: React.FC = () => {
 
   const handleReceivableClick = (receivable: Receivable) => {
     setSelectedReceivable(receivable);
-    setIsModalOpen(true);
+    setIsDetailsModalOpen(true);
   };
 
   const handleCloseModal = () => {
-    setIsModalOpen(false);
+    setIsDetailsModalOpen(false);
   };
 
   const clearFilters = () => {
     setSearchQuery("");
     setStatusFilter("all");
     setDateRange(undefined);
+  };
+
+  const handleAddReceivable = () => {
+    setEditingReceivable(null);
+    setIsFormModalOpen(true);
+  };
+
+  const handleEditReceivable = (receivable: any) => {
+    // Convert from our local format to Supabase format
+    const supabaseFormat = {
+      id: receivable.id,
+      client_id: receivable.clientId,
+      amount: receivable.amount,
+      due_date: receivable.dueDate,
+      status: receivable.status,
+      description: receivable.description,
+      notes: receivable.notes
+    };
+    setEditingReceivable(supabaseFormat);
+    setIsFormModalOpen(true);
+  };
+
+  const handleFormClose = () => {
+    setIsFormModalOpen(false);
+    setEditingReceivable(null);
+  };
+
+  const handleFormSuccess = () => {
+    // Reload receivables after a successful form submission
+    getReceivables().then((data) => {
+      setReceivables(
+        data.map((r) => ({
+          id: r.id,
+          clientId: r.client_id,
+          amount: r.amount,
+          dueDate: new Date(r.due_date),
+          status: r.status || 'pending',
+          description: r.description || '',
+          notes: r.notes || ''
+        }))
+      );
+    }).catch((err) => {
+      console.error("Error al cargar datos de Supabase:", err);
+    });
   };
 
   return (
@@ -171,6 +228,10 @@ const AllReceivables: React.FC = () => {
           </Button>
           <h1 className="text-3xl font-bold tracking-tight">Todas las Cuentas por Cobrar</h1>
         </div>
+        <Button onClick={handleAddReceivable} className="flex items-center gap-2">
+          <Plus className="h-4 w-4" />
+          <span>Agregar Cuenta por Cobrar</span>
+        </Button>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -263,96 +324,121 @@ const AllReceivables: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Descripción</TableHead>
-                <TableHead>Cliente ID</TableHead>
-                <TableHead>Monto</TableHead>
-                <TableHead>Fecha de Vencimiento</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredReceivables.length > 0 ? (
-                filteredReceivables.map((receivable) => (
-                  <HoverCard key={receivable.id}>
-                    <HoverCardTrigger asChild>
-                      <TableRow>
-                        <TableCell className="font-medium">{receivable.description}</TableCell>
-                        <TableCell>{receivable.clientId}</TableCell>
-                        <TableCell>{formatCurrency(receivable.amount)}</TableCell>
-                        <TableCell>{formatDate(receivable.dueDate)}</TableCell>
-                        <TableCell>
-                          <Badge className={getStatusColor(receivable.status)}>
-                            {receivable.status === 'pending' ? 'Pendiente' : receivable.status === 'paid' ? 'Pagado' : receivable.status === 'overdue' ? 'Vencido' : receivable.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            asChild
-                          >
-                            <Link to={`/all-receivables/${receivable.id}`}>
-                              Ver Detalle
-                            </Link>
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    </HoverCardTrigger>
-                    <HoverCardContent className="w-80 p-4">
-                      <span className="font-semibold text-xs text-gray-700">Historial de pagos:</span>
-                      {(() => {
-                        const pagos = transactions
-                          .filter(t => t.type === 'payment' && t.receivableId === receivable.id)
-                          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-                        let saldoAnterior = receivable.amount;
-                        if (pagos.length > 0) {
-                          return (
-                            <ul className="mt-1 space-y-1">
-                              {pagos.map((t, idx) => {
-                                const row = (
-                                  <li key={t.id} className="text-xs items-center border-b last:border-b-0 py-1 grid grid-cols-4 gap-1">
-                                    <span className="col-span-1">{new Date(t.date).toLocaleDateString('es-ES')}</span>
-                                    <span className="col-span-1 truncate">{t.clientId ? t.clientId : 'Cliente'}</span>
-                                    <span className="col-span-1 font-semibold text-right">{formatCurrency(t.amount)}</span>
-                                    <span className="col-span-1 text-right text-gray-500">Antes: {formatCurrency(saldoAnterior)} <br/> Desp: {formatCurrency(Math.max(0, saldoAnterior - t.amount))}</span>
-                                  </li>
-                                );
-                                saldoAnterior = Math.max(0, saldoAnterior - t.amount);
-                                return row;
-                              })}
-                            </ul>
-                          );
-                        } else {
-                          return <div className="text-xs text-gray-500 mt-1">Sin pagos asociados</div>;
-                        }
-                      })()}
-                    </HoverCardContent>
-                  </HoverCard>
-                ))
-              ) : (
+          {loading ? (
+            <div className="flex items-center justify-center h-[200px]">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
-                    No se encontraron cuentas por cobrar con los filtros aplicados
-                  </TableCell>
+                  <TableHead>Descripción</TableHead>
+                  <TableHead>Cliente ID</TableHead>
+                  <TableHead>Monto</TableHead>
+                  <TableHead>Fecha de Vencimiento</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredReceivables.length > 0 ? (
+                  filteredReceivables.map((receivable) => (
+                    <HoverCard key={receivable.id}>
+                      <HoverCardTrigger asChild>
+                        <TableRow>
+                          <TableCell className="font-medium">{receivable.description}</TableCell>
+                          <TableCell>{receivable.clientId}</TableCell>
+                          <TableCell>{formatCurrency(receivable.amount)}</TableCell>
+                          <TableCell>{formatDate(receivable.dueDate)}</TableCell>
+                          <TableCell>
+                            <Badge className={getStatusColor(receivable.status)}>
+                              {receivable.status === 'pending' ? 'Pendiente' : receivable.status === 'paid' ? 'Pagado' : receivable.status === 'overdue' ? 'Vencido' : receivable.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right flex items-center justify-end gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                handleEditReceivable(receivable);
+                              }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              asChild
+                            >
+                              <Link to={`/all-receivables/${receivable.id}`}>
+                                Ver Detalle
+                              </Link>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 p-4">
+                        <span className="font-semibold text-xs text-gray-700">Historial de pagos:</span>
+                        {(() => {
+                          const pagos = transactions
+                            .filter(t => t.type === 'payment' && t.receivableId === receivable.id)
+                            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                          let saldoAnterior = receivable.amount;
+                          if (pagos.length > 0) {
+                            return (
+                              <ul className="mt-1 space-y-1">
+                                {pagos.map((t, idx) => {
+                                  const row = (
+                                    <li key={t.id} className="text-xs items-center border-b last:border-b-0 py-1 grid grid-cols-4 gap-1">
+                                      <span className="col-span-1">{new Date(t.date).toLocaleDateString('es-ES')}</span>
+                                      <span className="col-span-1 truncate">{t.clientId ? t.clientId : 'Cliente'}</span>
+                                      <span className="col-span-1 font-semibold text-right">{formatCurrency(t.amount)}</span>
+                                      <span className="col-span-1 text-right text-gray-500">Antes: {formatCurrency(saldoAnterior)} <br/> Desp: {formatCurrency(Math.max(0, saldoAnterior - t.amount))}</span>
+                                    </li>
+                                  );
+                                  saldoAnterior = Math.max(0, saldoAnterior - t.amount);
+                                  return row;
+                                })}
+                              </ul>
+                            );
+                          } else {
+                            return <div className="text-xs text-gray-500 mt-1">Sin pagos asociados</div>;
+                          }
+                        })()}
+                      </HoverCardContent>
+                    </HoverCard>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                      No se encontraron cuentas por cobrar con los filtros aplicados
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
       {selectedReceivable && (
         <DebtDetailsModal
-          isOpen={isModalOpen}
+          isOpen={isDetailsModalOpen}
           onClose={handleCloseModal}
           item={selectedReceivable}
           type="receivable"
         />
       )}
+
+      <ReceivableFormModal
+        isOpen={isFormModalOpen}
+        onClose={handleFormClose}
+        receivable={editingReceivable}
+        clients={clients}
+        onSuccess={handleFormSuccess}
+      />
     </div>
   );
 };
