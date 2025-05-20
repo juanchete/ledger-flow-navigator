@@ -1,28 +1,99 @@
-import { useParams, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ArrowLeft, BadgeDollarSign, Clock, Info, User, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { mockTransactions, mockClients, mockBankAccounts } from "@/data/mockData";
+import { useTransactions } from "@/context/TransactionContext";
+import { useClients } from "@/context/ClientContext";
+import { Transaction, Client } from "@/types";
 
 const TransactionDetail = () => {
   const { transactionId } = useParams();
-  const transaction = mockTransactions.find(t => t.id === transactionId);
+  const navigate = useNavigate();
+  const { fetchTransactionById } = useTransactions();
+  const { clients } = useClients();
+  const [transaction, setTransaction] = useState<Transaction | null>(null);
+  const [client, setClient] = useState<Client | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchTransaction = async () => {
+      setIsLoading(true);
+      try {
+        if (!transactionId) {
+          throw new Error("ID de transacción no proporcionado");
+        }
+        
+        const data = await fetchTransactionById(transactionId);
+        if (!data) {
+          throw new Error("Transacción no encontrada");
+        }
+        
+        // Mapeo de campos snake_case a camelCase y conversión de fechas
+        const mappedTransaction: Transaction = {
+          id: data.id,
+          type: data.type as Transaction["type"],
+          amount: data.amount,
+          description: data.description,
+          date: data.date ? new Date(data.date) : undefined,
+          clientId: data.client_id,
+          status: data.status as Transaction["status"],
+          receipt: data.receipt,
+          invoice: data.invoice,
+          deliveryNote: data.delivery_note,
+          paymentMethod: data.payment_method,
+          category: data.category,
+          notes: data.notes,
+          createdAt: data.created_at ? new Date(data.created_at) : undefined,
+          updatedAt: data.updated_at ? new Date(data.updated_at) : undefined,
+          indirectForClientId: data.indirect_for_client_id,
+          debtId: data.debt_id,
+          receivableId: data.receivable_id,
+        };
+        setTransaction(mappedTransaction);
+        
+        // Si la transacción tiene un clientId, buscar los datos del cliente
+        if (data.client_id) {
+          const clientData = clients.find(client => client.id === data.client_id);
+          if (clientData) {
+            setClient(clientData);
+          }
+        }
+        
+        setError(null);
+      } catch (err) {
+        console.error("Error al obtener la transacción:", err);
+        setError(err instanceof Error ? err.message : "Error desconocido");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTransaction();
+  }, []);
   
-  if (!transaction) {
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh]">
+        <h2 className="text-2xl font-bold mb-2">Cargando transacción...</h2>
+      </div>
+    );
+  }
+
+  if (error || !transaction) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
         <h2 className="text-2xl font-bold mb-2">Transacción No Encontrada</h2>
-        <p className="text-muted-foreground mb-4">La transacción que buscas no existe.</p>
+        <p className="text-muted-foreground mb-4">{error || "La transacción que buscas no existe."}</p>
         <Button asChild>
           <Link to="/operations">Volver a Operaciones</Link>
         </Button>
       </div>
     );
   }
-
-  const client = transaction.clientId ? mockClients.find(c => c.id === transaction.clientId) : null;
   
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -57,6 +128,8 @@ const TransactionDetail = () => {
         return 'bg-finance-yellow text-finance-gray-dark';
       case 'expense':
         return 'bg-finance-gray text-white';
+      case 'payment':
+        return 'bg-finance-purple text-white';
       default:
         return '';
     }
@@ -73,7 +146,7 @@ const TransactionDetail = () => {
         </Button>
         <h1 className="text-3xl font-bold tracking-tight">Detalle de Transacción</h1>
         <Badge className={getTypeColor(transaction.type)}>
-          {transaction.type === 'sale' ? 'Venta' : transaction.type === 'purchase' ? 'Compra' : transaction.type === 'banking' ? 'Bancario' : transaction.type === 'balance-change' ? 'Ajuste de Saldo' : transaction.type === 'expense' ? 'Gasto' : transaction.type}
+          {transaction.type === 'sale' ? 'Venta' : transaction.type === 'purchase' ? 'Compra' : transaction.type === 'banking' ? 'Bancario' : transaction.type === 'balance-change' ? 'Ajuste de Saldo' : transaction.type === 'expense' ? 'Gasto' : transaction.type === 'payment' ? 'Pago' : transaction.type}
         </Badge>
       </div>
 
@@ -82,7 +155,7 @@ const TransactionDetail = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BadgeDollarSign size={20} />
-              Transaction Information
+              Información de la Transacción
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -141,7 +214,7 @@ const TransactionDetail = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <User size={20} />
-                Client Information
+                Información del Cliente
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -181,7 +254,7 @@ const TransactionDetail = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Info size={20} />
-              Additional Information
+              Información Adicional
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -191,6 +264,17 @@ const TransactionDetail = () => {
                 <Button variant="outline" size="sm" asChild>
                   <a href={transaction.receipt} target="_blank" rel="noopener noreferrer">
                     Ver Recibo
+                  </a>
+                </Button>
+              </div>
+            )}
+            
+            {transaction.invoice && (
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Factura:</span>
+                <Button variant="outline" size="sm" asChild>
+                  <a href={transaction.invoice} target="_blank" rel="noopener noreferrer">
+                    Ver Factura
                   </a>
                 </Button>
               </div>

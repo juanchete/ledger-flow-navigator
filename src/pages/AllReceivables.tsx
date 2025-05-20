@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,12 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Search, Calendar, Filter } from 'lucide-react';
-import { mockDetailedReceivables, mockTransactions, mockClients } from '@/data/mockData';
 import { formatCurrency } from '@/lib/utils';
 import { DebtDetailsModal } from '@/components/operations/DebtDetailsModal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
+import { getReceivables } from "@/integrations/supabase/receivableService";
+import { getTransactions } from "@/integrations/supabase/transactionService";
 
 interface Receivable {
   id: string;
@@ -24,16 +25,68 @@ interface Receivable {
   notes: string;
 }
 
+interface Transaction {
+  id: string;
+  type: string;
+  receivableId?: string;
+  clientId?: string;
+  amount: number;
+  date: string | Date;
+  status: string;
+}
+
 const AllReceivables: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedReceivable, setSelectedReceivable] = useState<Receivable | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [dateRange, setDateRange] = useState<Date | undefined>(undefined);
+  const [receivables, setReceivables] = useState<Receivable[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [receivablesData, transactionsData] = await Promise.all([
+          getReceivables(),
+          getTransactions()
+        ]);
+        setReceivables(
+          receivablesData.map((r) => ({
+            id: r.id,
+            clientId: r.client_id,
+            amount: r.amount,
+            dueDate: new Date(r.due_date),
+            status: r.status || 'pending',
+            description: r.description || '',
+            notes: r.notes || ''
+          }))
+        );
+        setTransactions(
+          transactionsData.map((t) => ({
+            id: t.id,
+            type: t.type,
+            receivableId: t.receivable_id,
+            clientId: t.client_id,
+            amount: t.amount,
+            date: t.date,
+            status: t.status
+          }))
+        );
+      } catch (err) {
+        console.error("Error al cargar datos de Supabase:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   // Calcular el estado real de cada cuenta por cobrar en base a los pagos asociados
-  const receivablesWithPayments = mockDetailedReceivables.map(receivable => {
-    const payments = mockTransactions.filter(t => t.type === 'payment' && t.receivableId === receivable.id && t.status === 'completed');
+  const receivablesWithPayments = receivables.map(receivable => {
+    const payments = transactions.filter(t => t.type === 'payment' && t.receivableId === receivable.id && t.status === 'completed');
     const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
     const isPaid = totalPaid >= receivable.amount;
     return {
@@ -44,7 +97,7 @@ const AllReceivables: React.FC = () => {
     };
   });
 
-  // Usar receivablesWithPayments en vez de mockDetailedReceivables
+  // Usar receivablesWithPayments en vez de receivables
   const filteredReceivables = receivablesWithPayments.filter((receivable) => {
     const matchesSearch = receivable.description.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          receivable.clientId.toLowerCase().includes(searchQuery.toLowerCase());
@@ -252,7 +305,7 @@ const AllReceivables: React.FC = () => {
                     <HoverCardContent className="w-80 p-4">
                       <span className="font-semibold text-xs text-gray-700">Historial de pagos:</span>
                       {(() => {
-                        const pagos = mockTransactions
+                        const pagos = transactions
                           .filter(t => t.type === 'payment' && t.receivableId === receivable.id)
                           .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
                         let saldoAnterior = receivable.amount;
@@ -260,17 +313,15 @@ const AllReceivables: React.FC = () => {
                           return (
                             <ul className="mt-1 space-y-1">
                               {pagos.map((t, idx) => {
-                                const cliente = t.clientId ? mockClients.find(c => c.id === t.clientId) : null;
-                                const saldoDespues = Math.max(0, saldoAnterior - t.amount);
                                 const row = (
                                   <li key={t.id} className="text-xs items-center border-b last:border-b-0 py-1 grid grid-cols-4 gap-1">
                                     <span className="col-span-1">{new Date(t.date).toLocaleDateString('es-ES')}</span>
-                                    <span className="col-span-1 truncate">{cliente ? cliente.name : 'Cliente'}</span>
+                                    <span className="col-span-1 truncate">{t.clientId ? t.clientId : 'Cliente'}</span>
                                     <span className="col-span-1 font-semibold text-right">{formatCurrency(t.amount)}</span>
-                                    <span className="col-span-1 text-right text-gray-500">Antes: {formatCurrency(saldoAnterior)} <br/> Desp: {formatCurrency(saldoDespues)}</span>
+                                    <span className="col-span-1 text-right text-gray-500">Antes: {formatCurrency(saldoAnterior)} <br/> Desp: {formatCurrency(Math.max(0, saldoAnterior - t.amount))}</span>
                                   </li>
                                 );
-                                saldoAnterior = saldoDespues;
+                                saldoAnterior = Math.max(0, saldoAnterior - t.amount);
                                 return row;
                               })}
                             </ul>

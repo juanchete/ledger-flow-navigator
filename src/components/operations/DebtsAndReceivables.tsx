@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { mockDetailedDebts, mockDetailedReceivables, mockTransactions, mockClients } from '@/data/mockData';
 import { formatCurrency } from '@/lib/utils';
 import { DebtDetailsModal } from './DebtDetailsModal';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Info } from 'lucide-react';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { getReceivables } from "@/integrations/supabase/receivableService";
+import { getTransactions } from "@/integrations/supabase/transactionService";
+import { getDebts } from "@/integrations/supabase/debtService";
+import type { Tables } from "@/integrations/supabase/types";
 
 interface Debt {
   id: string;
@@ -28,6 +31,16 @@ interface Receivable {
   status: string;
   description: string;
   notes: string;
+}
+
+interface Transaction {
+  id: string;
+  type: string;
+  receivableId?: string;
+  clientId?: string;
+  amount: number;
+  date: string | Date;
+  status: string;
 }
 
 const getStatusColor = (status: string) => {
@@ -56,6 +69,10 @@ export const DebtsAndReceivables: React.FC = () => {
   const [selectedReceivable, setSelectedReceivable] = useState<Receivable | null>(null);
   const [modalType, setModalType] = useState<'debt' | 'receivable'>('debt');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [receivables, setReceivables] = useState<Receivable[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [debts, setDebts] = useState<Debt[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const handleDebtClick = (debt: Debt) => {
     setSelectedDebt(debt);
@@ -73,17 +90,68 @@ export const DebtsAndReceivables: React.FC = () => {
     setIsModalOpen(false);
   };
 
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [receivablesData, transactionsData, debtsData] = await Promise.all([
+          getReceivables(),
+          getTransactions(),
+          getDebts()
+        ]);
+        setReceivables(
+          receivablesData.map((r: Tables<'receivables'>) => ({
+            id: r.id,
+            clientId: r.client_id,
+            amount: r.amount,
+            dueDate: new Date(r.due_date),
+            status: r.status || 'pending',
+            description: r.description || '',
+            notes: r.notes || ''
+          }))
+        );
+        setTransactions(
+          transactionsData.map((t: Tables<'transactions'>) => ({
+            id: t.id,
+            type: t.type,
+            receivableId: t.receivable_id,
+            clientId: t.client_id,
+            amount: t.amount,
+            date: t.date,
+            status: t.status
+          }))
+        );
+        setDebts(
+          debtsData.map((d: Tables<'debts'>) => ({
+            id: d.id,
+            creditor: d.creditor,
+            amount: d.amount,
+            dueDate: new Date(d.due_date),
+            status: d.status || 'pending',
+            category: d.category || '',
+            notes: d.notes || ''
+          }))
+        );
+      } catch (err) {
+        console.error("Error al cargar datos de Supabase:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
   return (
     <div className="flex flex-col md:flex-row gap-6 w-full">
       {/* Cuentas por Cobrar */}
-      <Card className="h-full w-full md:w-1/2">
+      <Card className="h-full w-full">
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-lg font-semibold">Cuentas por Cobrar</CardTitle>
           </div>
           <div className="flex items-center gap-2">
             <Badge className="bg-green-500 text-white px-4 py-1 text-base font-semibold rounded-full shadow-sm">
-              Total: {formatCurrency(mockDetailedReceivables.reduce((sum, rec) => sum + rec.amount, 0))}
+              Total: {formatCurrency(receivables.reduce((sum, rec) => sum + rec.amount, 0))}
             </Badge>
             <Button variant="outline" size="sm" asChild className="whitespace-nowrap">
               <Link to="/all-receivables">
@@ -95,7 +163,7 @@ export const DebtsAndReceivables: React.FC = () => {
         <CardContent>
           <div className="space-y-1">
             <TooltipProvider>
-              {mockDetailedReceivables.map((receivable: Receivable) => (
+              {receivables.map((receivable: Receivable) => (
                 <HoverCard key={receivable.id}>
                   <HoverCardTrigger asChild>
                     <div className="flex items-center justify-between py-2 px-3 border-b hover:bg-gray-50 cursor-pointer transition-colors rounded-sm">
@@ -131,7 +199,7 @@ export const DebtsAndReceivables: React.FC = () => {
                       <div className="mt-3">
                         <span className="font-semibold text-xs text-gray-700">Historial de pagos:</span>
                         {(() => {
-                          const pagos = mockTransactions
+                          const pagos = transactions
                             .filter(t => t.type === 'payment' && t.receivableId === receivable.id)
                             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
                           let saldoAnterior = receivable.amount;
@@ -139,17 +207,15 @@ export const DebtsAndReceivables: React.FC = () => {
                             return (
                               <ul className="mt-1 space-y-1">
                                 {pagos.map((t, idx) => {
-                                  const cliente = t.clientId ? mockClients.find(c => c.id === t.clientId) : null;
-                                  const saldoDespues = Math.max(0, saldoAnterior - t.amount);
                                   const row = (
                                     <li key={t.id} className="text-xs items-center border-b last:border-b-0 py-1 grid grid-cols-4 gap-1">
                                       <span className="col-span-1">{new Date(t.date).toLocaleDateString('es-ES')}</span>
-                                      <span className="col-span-1 truncate">{cliente ? cliente.name : 'Cliente'}</span>
+                                      <span className="col-span-1 truncate">{t.clientId ? t.clientId : 'Cliente'}</span>
                                       <span className="col-span-1 font-semibold text-right">{formatCurrency(t.amount)}</span>
-                                      <span className="col-span-1 text-right text-gray-500">Antes: {formatCurrency(saldoAnterior)} <br/> Desp: {formatCurrency(saldoDespues)}</span>
+                                      <span className="col-span-1 text-right text-gray-500">Antes: {formatCurrency(saldoAnterior)} <br/> Desp: {formatCurrency(Math.max(0, saldoAnterior - t.amount))}</span>
                                     </li>
                                   );
-                                  saldoAnterior = saldoDespues;
+                                  saldoAnterior = Math.max(0, saldoAnterior - t.amount);
                                   return row;
                                 })}
                               </ul>
@@ -168,14 +234,14 @@ export const DebtsAndReceivables: React.FC = () => {
         </CardContent>
       </Card>
       {/* Deudas */}
-      <Card className="h-full w-full md:w-1/2">
+      <Card className="h-full w-full">
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-lg font-semibold">Deudas Pendientes</CardTitle>
           </div>
           <div className="flex items-center gap-2">
             <Badge className="bg-red-500 text-white px-4 py-1 text-base font-semibold rounded-full shadow-sm">
-              Total: {formatCurrency(mockDetailedDebts.reduce((sum, debt) => sum + debt.amount, 0))}
+              Total: {formatCurrency(debts.reduce((sum, debt) => sum + debt.amount, 0))}
             </Badge>
             <Button variant="outline" size="sm" asChild className="whitespace-nowrap">
               <Link to="/all-debts">
@@ -187,7 +253,7 @@ export const DebtsAndReceivables: React.FC = () => {
         <CardContent>
           <div className="space-y-1">
             <TooltipProvider>
-              {mockDetailedDebts.map((debt: Debt) => (
+              {debts.map((debt: Debt) => (
                 <HoverCard key={debt.id}>
                   <HoverCardTrigger asChild>
                     <div className="flex items-center justify-between py-2 px-3 border-b hover:bg-gray-50 cursor-pointer transition-colors rounded-sm">
@@ -223,25 +289,26 @@ export const DebtsAndReceivables: React.FC = () => {
                       <div className="mt-3">
                         <span className="font-semibold text-xs text-gray-700">Historial de pagos:</span>
                         {(() => {
-                          const pagos = mockTransactions
-                            .filter(t => t.type === 'payment' && t.debtId === debt.id)
+                          const isSupabaseTransaction = (t: Transaction | Tables<'transactions'>): t is Tables<'transactions'> => {
+                            return 'debt_id' in t;
+                          };
+                          const pagos = transactions
+                            .filter(t => t.type === 'payment' && isSupabaseTransaction(t) && t.debt_id === debt.id)
                             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
                           let saldoAnterior = debt.amount;
                           if (pagos.length > 0) {
                             return (
                               <ul className="mt-1 space-y-1">
                                 {pagos.map((t, idx) => {
-                                  const cliente = t.clientId ? mockClients.find(c => c.id === t.clientId) : null;
-                                  const saldoDespues = Math.max(0, saldoAnterior - t.amount);
                                   const row = (
                                     <li key={t.id} className="text-xs items-center border-b last:border-b-0 py-1 grid grid-cols-4 gap-1">
                                       <span className="col-span-1">{new Date(t.date).toLocaleDateString('es-ES')}</span>
-                                      <span className="col-span-1 truncate">{cliente ? cliente.name : 'Cliente'}</span>
+                                      <span className="col-span-1 truncate">{t.clientId ? t.clientId : 'Cliente'}</span>
                                       <span className="col-span-1 font-semibold text-right">{formatCurrency(t.amount)}</span>
-                                      <span className="col-span-1 text-right text-gray-500">Antes: {formatCurrency(saldoAnterior)} <br/> Desp: {formatCurrency(saldoDespues)}</span>
+                                      <span className="col-span-1 text-right text-gray-500">Antes: {formatCurrency(saldoAnterior)} <br/> Desp: {formatCurrency(Math.max(0, saldoAnterior - t.amount))}</span>
                                     </li>
                                   );
-                                  saldoAnterior = saldoDespues;
+                                  saldoAnterior = Math.max(0, saldoAnterior - t.amount);
                                   return row;
                                 })}
                               </ul>
@@ -259,8 +326,7 @@ export const DebtsAndReceivables: React.FC = () => {
           </div>
         </CardContent>
       </Card>
-
-      {/* Modal for displaying debt/receivable details */}
+      {/* Modal para detalles de cuentas por cobrar y deudas */}
       {isModalOpen && selectedDebt && modalType === 'debt' && (
         <DebtDetailsModal 
           isOpen={isModalOpen}

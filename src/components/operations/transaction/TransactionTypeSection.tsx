@@ -1,11 +1,11 @@
-
 import React from "react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { Transaction } from "@/types";
 
 interface TransactionTypeSectionProps {
-  selectedType: string;
-  onTypeChange: (type: string) => void;
+  selectedType: Transaction["type"];
+  onTypeChange: (type: Transaction["type"]) => void;
 }
 
 export const TransactionTypeSection: React.FC<TransactionTypeSectionProps> = ({
@@ -14,17 +14,18 @@ export const TransactionTypeSection: React.FC<TransactionTypeSectionProps> = ({
 }) => {
   return (
     <div className="grid gap-2">
-      <Label htmlFor="transaction-type">Transaction Type</Label>
-      <Select value={selectedType} onValueChange={onTypeChange}>
+      <Label htmlFor="transaction-type">Tipo de Transacción</Label>
+      <Select value={selectedType} onValueChange={onTypeChange as (value: string) => void}>
         <SelectTrigger id="transaction-type">
-          <SelectValue placeholder="Select type" />
+          <SelectValue placeholder="Seleccionar tipo" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="purchase">Purchase</SelectItem>
-          <SelectItem value="sale">Sale</SelectItem>
-          <SelectItem value="banking">Banking</SelectItem>
-          <SelectItem value="balance-change">Balance Change</SelectItem>
-          <SelectItem value="expense">Expense</SelectItem>
+          <SelectItem value="purchase">Compra</SelectItem>
+          <SelectItem value="sale">Venta</SelectItem>
+          <SelectItem value="banking">Bancaria</SelectItem>
+          <SelectItem value="balance-change">Cambio de Saldo</SelectItem>
+          <SelectItem value="expense">Gasto</SelectItem>
+          <SelectItem value="payment">Pago</SelectItem>
         </SelectContent>
       </Select>
     </div>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,49 +6,105 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Calendar, BadgeDollarSign, Info, User, FileText, Users } from "lucide-react";
 import { format } from "date-fns";
-import { mockDetailedReceivables, mockTransactions, mockClients } from '@/data/mockData';
 import { formatCurrency } from '@/lib/utils';
 import { StatusBadge } from "@/components/operations/common/StatusBadge";
 import { PaymentsList } from "@/components/operations/payments/PaymentsList";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { getReceivableById } from "@/integrations/supabase/receivableService";
+import { getTransactions } from "@/integrations/supabase/transactionService";
+import { getClients } from "@/integrations/supabase/clientService";
+
+interface Receivable {
+  id: string;
+  clientId: string;
+  amount: number;
+  dueDate: Date;
+  status: string;
+  description: string;
+  notes: string;
+}
+
+interface Transaction {
+  id: string;
+  type: string;
+  receivableId?: string;
+  clientId?: string;
+  amount: number;
+  date: string | Date;
+  status: string;
+  clientName?: string;
+  clientType?: string;
+}
+
+interface Client {
+  id: string;
+  name: string;
+  clientType: string;
+}
 
 const ReceivableDetail = () => {
   const { receivableId } = useParams();
-  const [receivable, setReceivable] = useState<any>(null);
-  const [payments, setPayments] = useState<any[]>([]);
+  const [receivable, setReceivable] = useState<Receivable | null>(null);
+  const [payments, setPayments] = useState<Transaction[]>([]);
+  const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
-  const [client, setClient] = useState<any>(null);
   
   useEffect(() => {
-    // Simulamos la carga de datos
-    setTimeout(() => {
-      const foundReceivable = mockDetailedReceivables.find(r => r.id === receivableId);
-      
-      if (foundReceivable) {
-        // Encontrar los pagos asociados a esta cuenta por cobrar
-        const receivablePayments = mockTransactions
-          .filter(t => t.type === 'payment' && t.receivableId === foundReceivable.id && t.status === 'completed')
-          .map(payment => {
-            // Si el pago tiene un clientId, buscamos el cliente
-            const client = payment.clientId ? mockClients.find(c => c.id === payment.clientId) : null;
-            
-            return {
-              ...payment,
-              clientName: client?.name,
-              clientType: client?.clientType
-            };
-          });
-        
-        // Encontrar el cliente asociado
-        const associatedClient = mockClients.find(c => c.id === foundReceivable.clientId);
-        
-        setReceivable(foundReceivable);
-        setPayments(receivablePayments);
-        setClient(associatedClient);
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [receivableData, transactionsData, clientsData] = await Promise.all([
+          receivableId ? getReceivableById(receivableId) : null,
+          getTransactions(),
+          getClients()
+        ]);
+        if (receivableData) {
+          // Mapeo de datos de Supabase a la interfaz Receivable
+          const mappedReceivable: Receivable = {
+            id: receivableData.id,
+            clientId: receivableData.client_id,
+            amount: receivableData.amount,
+            dueDate: new Date(receivableData.due_date),
+            status: receivableData.status || 'pending',
+            description: receivableData.description || '',
+            notes: receivableData.notes || ''
+          };
+          setReceivable(mappedReceivable);
+          // Pagos asociados
+          const receivablePayments = transactionsData
+            .filter((t: any) => t.type === 'payment' && t.receivable_id === receivableData.id && t.status === 'completed')
+            .map((payment: any) => {
+              const client = payment.client_id ? clientsData.find((c: any) => c.id === payment.client_id) : null;
+              return {
+                id: payment.id,
+                type: payment.type,
+                receivableId: payment.receivable_id,
+                clientId: payment.client_id,
+                amount: payment.amount,
+                date: payment.date,
+                status: payment.status,
+                clientName: client?.name,
+                clientType: client?.client_type
+              };
+            });
+          setPayments(receivablePayments);
+          // Cliente asociado
+          const associatedClient = clientsData.find((c: any) => c.id === receivableData.client_id);
+          if (associatedClient) {
+            setClient({
+              id: associatedClient.id,
+              name: associatedClient.name,
+              clientType: associatedClient.client_type
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Error al cargar datos de Supabase:", err);
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
-    }, 500);
+    };
+    fetchData();
   }, [receivableId]);
   
   if (loading) {

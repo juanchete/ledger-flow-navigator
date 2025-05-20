@@ -17,13 +17,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { mockTransactions, mockDetailedDebts, mockDetailedReceivables } from "@/data/mockData";
+import { mockDetailedDebts, mockDetailedReceivables } from "@/data/mockData";
 import { format } from "date-fns";
 import { AlertTriangle, ChevronLeft, FileText, Receipt, Loader2 } from "lucide-react";
 import { clientService } from "@/integrations/supabase/clientService";
-import { Client } from "@/types";
+import { useTransactions } from "@/context/TransactionContext";
+import { Client, Transaction } from "@/types";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import ClientFormModal from "@/components/clients/ClientFormModal";
+import type { Client as SupabaseClient } from "@/integrations/supabase/clientService";
 
 const ClientDetail = () => {
   const { clientId } = useParams<{ clientId: string }>();
@@ -39,6 +41,11 @@ const ClientDetail = () => {
   // Estado para el formulario de edición
   const [editClient, setEditClient] = useState<Client | null>(null);
   
+  // Usar el contexto de transacciones
+  const { transactions: allTransactionsFromContext, isLoading: isLoadingTransactions } = useTransactions();
+  const [clientTransactions, setClientTransactions] = useState<Transaction[]>([]);
+  const [allRelevantTransactions, setAllRelevantTransactions] = useState<Transaction[]>([]);
+
   // Cargar los datos del cliente desde Supabase
   useEffect(() => {
     const loadClient = async () => {
@@ -46,45 +53,102 @@ const ClientDetail = () => {
       
       setIsLoading(true);
       try {
-        const { data, error } = await clientService.getClientById(clientId);
-        
-        if (error) {
-          throw error;
-        }
-        
-        if (data) {
-          setClient(data);
-          setEditClient(data); // Inicializar estado de edición
-          
+        const clientRaw = await clientService.getClientById(clientId);
+        if (clientRaw) {
+          const client: Client = {
+            id: clientRaw.id,
+            name: clientRaw.name,
+            email: clientRaw.email,
+            phone: clientRaw.phone,
+            category: clientRaw.category as Client["category"],
+            clientType: clientRaw.client_type as Client["clientType"],
+            active: clientRaw.active,
+            address: clientRaw.address,
+            contactPerson: clientRaw.contact_person,
+            documents: [], // Mapea si tienes documentos
+            createdAt: clientRaw.created_at ? new Date(clientRaw.created_at) : undefined,
+            updatedAt: clientRaw.updated_at ? new Date(clientRaw.updated_at) : undefined,
+            alertStatus: (clientRaw.alert_status as 'none' | 'yellow' | 'red') || 'none',
+            alertNote: clientRaw.alert_note || "",
+            relatedToClientId: clientRaw.related_to_client_id,
+          };
+          setClient(client);
+          setEditClient(client);
           // Si es un cliente indirecto, cargar el cliente principal asociado
-          if (data.clientType === "indirect" && data.relatedToClientId) {
-            const { data: relatedData } = await clientService.getClientById(data.relatedToClientId);
-            if (relatedData) {
-              setRelatedClient(relatedData);
+          if (client.clientType === "indirect" && client.relatedToClientId) {
+            const relatedRaw = await clientService.getClientById(client.relatedToClientId);
+            if (relatedRaw) {
+              const relatedClient: Client = {
+                id: relatedRaw.id,
+                name: relatedRaw.name,
+                email: relatedRaw.email,
+                phone: relatedRaw.phone,
+                category: relatedRaw.category as Client["category"],
+                clientType: relatedRaw.client_type as Client["clientType"],
+                active: relatedRaw.active,
+                address: relatedRaw.address,
+                contactPerson: relatedRaw.contact_person,
+                documents: [],
+                createdAt: relatedRaw.created_at ? new Date(relatedRaw.created_at) : undefined,
+                updatedAt: relatedRaw.updated_at ? new Date(relatedRaw.updated_at) : undefined,
+                alertStatus: (relatedRaw.alert_status as 'none' | 'yellow' | 'red') || 'none',
+                alertNote: relatedRaw.alert_note || "",
+                relatedToClientId: relatedRaw.related_to_client_id,
+              };
+              setRelatedClient(relatedClient);
             }
           }
-          
           // Buscar clientes indirectos asociados a este cliente
-          if (data.clientType === "direct") {
+          if (client.clientType === "direct") {
             try {
-              const { data: clientsData } = await clientService.getClients();
-              if (clientsData) {
-                setAllClients(clientsData);
-                const indirectClientsData = clientsData.filter(
-                  c => c.relatedToClientId === clientId
-                );
-                setIndirectClients(indirectClientsData);
-              }
+              const clientsRaw = await clientService.getClients();
+              const clients: Client[] = clientsRaw.map((c: SupabaseClient) => ({
+                id: c.id,
+                name: c.name,
+                email: c.email,
+                phone: c.phone,
+                category: c.category as Client["category"],
+                clientType: c.client_type as Client["clientType"],
+                active: c.active,
+                address: c.address,
+                contactPerson: c.contact_person,
+                documents: [],
+                createdAt: c.created_at ? new Date(c.created_at) : undefined,
+                updatedAt: c.updated_at ? new Date(c.updated_at) : undefined,
+                alertStatus: (c.alert_status as 'none' | 'yellow' | 'red') || 'none',
+                alertNote: c.alert_note || "",
+                relatedToClientId: c.related_to_client_id,
+              }));
+              setAllClients(clients);
+              const indirectClientsData = clients.filter(
+                c => c.relatedToClientId === clientId
+              );
+              setIndirectClients(indirectClientsData);
             } catch (error) {
               console.error("Error loading indirect clients:", error);
             }
           } else {
             // Si es indirecto, cargar todos los clientes para el selector
             try {
-              const { data: clientsData } = await clientService.getClients();
-              if (clientsData) {
-                setAllClients(clientsData);
-              }
+              const clientsRaw = await clientService.getClients();
+              const clients: Client[] = clientsRaw.map((c: SupabaseClient) => ({
+                id: c.id,
+                name: c.name,
+                email: c.email,
+                phone: c.phone,
+                category: c.category as Client["category"],
+                clientType: c.client_type as Client["clientType"],
+                active: c.active,
+                address: c.address,
+                contactPerson: c.contact_person,
+                documents: [],
+                createdAt: c.created_at ? new Date(c.created_at) : undefined,
+                updatedAt: c.updated_at ? new Date(c.updated_at) : undefined,
+                alertStatus: (c.alert_status as 'none' | 'yellow' | 'red') || 'none',
+                alertNote: c.alert_note || "",
+                relatedToClientId: c.related_to_client_id,
+              }));
+              setAllClients(clients);
             } catch (error) {
               console.error("Error loading clients:", error);
             }
@@ -100,32 +164,69 @@ const ClientDetail = () => {
     
     loadClient();
   }, [clientId]);
-  
-  const clientTransactions = mockTransactions.filter(t => t.clientId === clientId);
-  
-  // Pagos indirectos hechos a favor de este cliente (se mantiene mock data por ahora)
-  const indirectPayments = mockTransactions.filter(
-    t => t.type === "payment" && t.indirectForClientId === clientId
-  );
 
-  // Todas las transacciones relevantes (directas + pagos indirectos)
-  const allTransactions = [
-    ...clientTransactions,
-    ...indirectPayments
-  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  // Filtrar transacciones cuando se actualicen o cambie el cliente
+  useEffect(() => {
+    if (clientId && allTransactionsFromContext) {
+      // Transacciones directas del cliente
+      const directTransactions = allTransactionsFromContext
+        .filter(t => t.client_id === clientId)
+        .map(mapTransaction);
+      setClientTransactions(directTransactions);
+      
+      // Pagos indirectos hechos a favor de este cliente
+      const indirectPayments = allTransactionsFromContext
+        .filter(t => t.type === "payment" && t.indirect_for_client_id === clientId)
+        .map(mapTransaction);
 
+      // Todas las transacciones relevantes (directas + pagos indirectos)
+      setAllRelevantTransactions([
+        ...directTransactions,
+        ...indirectPayments
+      ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+    }
+  }, [clientId, allTransactionsFromContext]);
+  
   // Helper para saber si una transacción es un pago indirecto
-  const isIndirectPayment = (transaction: typeof mockTransactions[number]) =>
+  const isIndirectPayment = (transaction: Transaction) =>
     transaction.type === "payment" && transaction.indirectForClientId === clientId;
 
   // Sumar pagos indirectos para descontar de la deuda
-  const totalIndirectPayments = indirectPayments.reduce((sum, t) => sum + t.amount, 0);
+  const totalIndirectPayments = allRelevantTransactions
+    .filter(isIndirectPayment)
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  // Mapeo de transacciones de Supabase a Transaction del frontend
+  function mapTransaction(t: Record<string, any>): Transaction {
+    return {
+      id: t.id,
+      type: t.type,
+      amount: t.amount,
+      description: t.description,
+      date: t.date,
+      clientId: t.client_id,
+      status: t.status,
+      receipt: t.receipt,
+      invoice: t.invoice,
+      deliveryNote: t.delivery_note,
+      paymentMethod: t.payment_method,
+      category: t.category,
+      notes: t.notes,
+      createdAt: t.created_at ? new Date(t.created_at) : undefined,
+      updatedAt: t.updated_at ? new Date(t.updated_at) : undefined,
+      indirectForClientId: t.indirect_for_client_id,
+      debtId: t.debt_id,
+      receivableId: t.receivable_id,
+    };
+  }
 
   // Deudas asociadas a este cliente, con pagos calculados
   const clientDebts = mockDetailedDebts
     .filter(d => d.clientId === clientId)
     .map(debt => {
-      const payments = mockTransactions.filter(t => t.type === 'payment' && t.debtId === debt.id && t.status === 'completed');
+      const payments = allTransactionsFromContext
+        .filter(t => t.type === 'payment' && t.debt_id === debt.id && t.status === 'completed')
+        .map(mapTransaction);
       const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
       const isPaid = totalPaid >= debt.amount;
       return {
@@ -139,7 +240,9 @@ const ClientDetail = () => {
   const clientReceivables = mockDetailedReceivables
     .filter(r => r.clientId === clientId)
     .map(rec => {
-      const payments = mockTransactions.filter(t => t.type === 'payment' && t.receivableId === rec.id && t.status === 'completed');
+      const payments = allTransactionsFromContext
+        .filter(t => t.type === 'payment' && t.receivable_id === rec.id && t.status === 'completed')
+        .map(mapTransaction);
       const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
       const isPaid = totalPaid >= rec.amount;
       return {
@@ -163,7 +266,7 @@ const ClientDetail = () => {
     }
   }, [client]);
 
-  if (isLoading) {
+  if (isLoading || isLoadingTransactions) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
         <Loader2 className="h-12 w-12 animate-spin text-muted-foreground mb-4" />
@@ -189,19 +292,13 @@ const ClientDetail = () => {
     setIsUpdating(true);
     
     try {
-      const { error } = await clientService.updateClient(client.id, {
+      await clientService.updateClient(client.id, {
         active: checked
       });
-      
-      if (error) {
-        throw error;
-      }
-      
       toast.success(`Estado del cliente ${checked ? 'activado' : 'desactivado'}`);
     } catch (error) {
       console.error("Error updating client status:", error);
       toast.error("Error al actualizar el estado del cliente");
-      // Revertir el cambio en la UI si hay error
       setIsActive(!checked);
     } finally {
       setIsUpdating(false);
@@ -214,19 +311,13 @@ const ClientDetail = () => {
     setIsUpdating(true);
     
     try {
-      const { error } = await clientService.updateClient(client.id, {
-        alertStatus: newAlertStatus
+      await clientService.updateClient(client.id, {
+        alert_status: newAlertStatus
       });
-      
-      if (error) {
-        throw error;
-      }
-      
       toast.success(`Estado de alerta actualizado a ${value}`);
     } catch (error) {
       console.error("Error updating alert status:", error);
       toast.error("Error al actualizar el estado de alerta");
-      // Revertir el cambio en la UI si hay error
       setAlertStatus(client.alertStatus || 'none');
     } finally {
       setIsUpdating(false);
@@ -237,19 +328,13 @@ const ClientDetail = () => {
     setIsUpdating(true);
     
     try {
-      const { error } = await clientService.updateClient(client.id, {
-        alertNote
+      await clientService.updateClient(client.id, {
+        alert_note: alertNote
       });
-      
-      if (error) {
-        throw error;
-      }
-      
       toast.success("Nota de alerta actualizada");
     } catch (error) {
       console.error("Error updating alert note:", error);
       toast.error("Error al actualizar la nota de alerta");
-      // Revertir el cambio en la UI si hay error
       setAlertNote(client.alertNote || '');
     } finally {
       setIsUpdating(false);
@@ -276,28 +361,40 @@ const ClientDetail = () => {
   
   // Manejar la actualización exitosa de un cliente
   const handleClientUpdated = (updatedClient: Client) => {
-    // Actualizar el cliente en el estado
     setClient(updatedClient);
-    
     // Si era un cliente indirecto y ha cambiado el cliente principal, cargar el nuevo cliente principal
     if (updatedClient.clientType === "indirect" && updatedClient.relatedToClientId && 
         (!client || updatedClient.relatedToClientId !== client.relatedToClientId)) {
       clientService.getClientById(updatedClient.relatedToClientId)
-        .then(({ data }) => {
-          if (data) {
-            setRelatedClient(data);
+        .then((relatedRaw) => {
+          if (relatedRaw) {
+            const relatedClient: Client = {
+              id: relatedRaw.id,
+              name: relatedRaw.name,
+              email: relatedRaw.email,
+              phone: relatedRaw.phone,
+              category: relatedRaw.category as Client["category"],
+              clientType: relatedRaw.client_type as Client["clientType"],
+              active: relatedRaw.active,
+              address: relatedRaw.address,
+              contactPerson: relatedRaw.contact_person,
+              documents: [],
+              createdAt: relatedRaw.created_at ? new Date(relatedRaw.created_at) : undefined,
+              updatedAt: relatedRaw.updated_at ? new Date(relatedRaw.updated_at) : undefined,
+              alertStatus: (relatedRaw.alert_status as 'none' | 'yellow' | 'red') || 'none',
+              alertNote: relatedRaw.alert_note || "",
+              relatedToClientId: relatedRaw.related_to_client_id,
+            };
+            setRelatedClient(relatedClient);
           }
         })
         .catch(error => {
           console.error("Error loading related client:", error);
         });
     }
-    
-    // Actualizar el estado local
     setIsActive(updatedClient.active);
     setAlertStatus(updatedClient.alertStatus || "none");
     setAlertNote(updatedClient.alertNote || "");
-    
     toast.success("Cliente actualizado con éxito");
   };
   
@@ -357,7 +454,7 @@ const ClientDetail = () => {
               
               <div className="grid grid-cols-[100px_1fr] gap-1">
                 <span className="font-medium text-muted-foreground">Agregado:</span>
-                <span>{format(client.createdAt, 'MMM d, yyyy')}</span>
+                <span>{client.createdAt ? format(client.createdAt, 'MMM d, yyyy') : 'Sin fecha'}</span>
               </div>
               
               {client.clientType === "indirect" && relatedClient && (
@@ -517,10 +614,13 @@ const ClientDetail = () => {
                   <TabsTrigger value="receivables">Cuentas por Cobrar</TabsTrigger>
                 </TabsList>
                 <TabsContent value="overview">
-                  {/* ... existing overview content ... */}
+                  <div className="space-y-4 mt-4">
+                    <p>Esta sección mostrará un resumen financiero del cliente.</p>
+                    <p>Total de transacciones: {allRelevantTransactions.length}</p>
+                  </div>
                 </TabsContent>
                 <TabsContent value="transactions">
-                  {allTransactions.length > 0 ? (
+                  {allRelevantTransactions.length > 0 ? (
                     <div className="rounded-md border">
                       <div className="grid grid-cols-12 p-3 bg-muted/50 text-sm font-medium">
                         <div className="col-span-5">Descripción</div>
@@ -530,7 +630,7 @@ const ClientDetail = () => {
                         <div className="col-span-1">Acción</div>
                       </div>
                       <div className="divide-y">
-                        {allTransactions.map((transaction) => (
+                        {allRelevantTransactions.map((transaction) => (
                           <div key={transaction.id} className="grid grid-cols-12 p-3 items-center text-sm">
                             <div className="col-span-5">
                               <span className="capitalize">{transaction.description}</span>
@@ -542,7 +642,7 @@ const ClientDetail = () => {
                               )}
                             </div>
                             <div className="col-span-2">
-                              {format(new Date(transaction.date), 'MMM d, yyyy')}
+                              {transaction.date ? format(new Date(transaction.date), 'MMM d, yyyy') : 'Sin fecha'}
                             </div>
                             <div className="col-span-2 font-medium">
                               {formatCurrency(transaction.amount)}
@@ -557,7 +657,9 @@ const ClientDetail = () => {
                               </Badge>
                             </div>
                             <div className="col-span-1">
-                              <Button size="sm" variant="ghost">Ver</Button>
+                              <Button size="sm" variant="ghost" asChild>
+                                <Link to={`/operations/transaction/${transaction.id}`}>Ver</Link>
+                              </Button>
                             </div>
                           </div>
                         ))}
@@ -567,7 +669,7 @@ const ClientDetail = () => {
                     <div className="text-center py-8">
                       <p className="text-muted-foreground">No hay transacciones para este cliente.</p>
                       <Button variant="outline" className="mt-4" asChild>
-                        <Link to="/operations/transaction/new">Agregar Transacción</Link>
+                        <Link to={`/operations/transaction/new?clientId=${clientId}`}>Agregar Transacción</Link>
                       </Button>
                     </div>
                   )}
@@ -588,7 +690,7 @@ const ClientDetail = () => {
                             <div className="col-span-2">{debt.creditor}</div>
                             <div className="col-span-1 font-medium">{formatCurrency(debt.amount)}</div>
                             <div className="col-span-1 font-medium">{formatCurrency(debt.totalPaid)}</div>
-                            <div className="col-span-1">{format(new Date(debt.dueDate), 'MMM d, yyyy')}</div>
+                            <div className="col-span-1">{debt.dueDate ? format(new Date(debt.dueDate), 'MMM d, yyyy') : 'Sin fecha'}</div>
                             <div className="col-span-1">
                               <Badge variant="outline" className={
                                 debt.status === 'pending' ? 'bg-finance-yellow text-finance-gray-dark border-finance-yellow' :
@@ -624,7 +726,7 @@ const ClientDetail = () => {
                             <div className="col-span-2">{rec.description}</div>
                             <div className="col-span-1 font-medium">{formatCurrency(rec.amount)}</div>
                             <div className="col-span-1 font-medium">{formatCurrency(rec.totalPaid)}</div>
-                            <div className="col-span-1">{format(new Date(rec.dueDate), 'MMM d, yyyy')}</div>
+                            <div className="col-span-1">{rec.dueDate ? format(new Date(rec.dueDate), 'MMM d, yyyy') : 'Sin fecha'}</div>
                             <div className="col-span-1">
                               <Badge variant="outline" className={
                                 rec.status === 'pending' ? 'bg-finance-yellow text-finance-gray-dark border-finance-yellow' :

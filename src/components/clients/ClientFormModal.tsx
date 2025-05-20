@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FileText, Loader2 } from "lucide-react";
 import { clientService } from "@/integrations/supabase/clientService";
 import { toast } from "sonner";
+import { v4 as uuidv4 } from "uuid";
 
 interface ClientFormModalProps {
   open: boolean;
@@ -87,38 +88,60 @@ const ClientFormModal = ({
 
       if (mode === "create") {
         // Crear nuevo cliente
-        result = await clientService.createClient(clientData as Omit<Client, "id" | "createdAt" | "updatedAt" | "documents">);
+        // Preparamos los campos que espera Supabase
+        const now = new Date().toISOString();
+        const clientToCreate = {
+          id: uuidv4(),
+          name: clientData.name,
+          email: clientData.email,
+          phone: clientData.phone,
+          address: clientData.address,
+          category: clientData.category,
+          client_type: clientData.clientType,
+          contact_person: clientData.contactPerson,
+          active: clientData.active ?? true,
+          related_to_client_id: clientData.clientType === "direct" ? null : clientData.relatedToClientId || null,
+          alert_status: clientData.alertStatus || null,
+          alert_note: clientData.alertNote || null,
+          identification_type: clientData.identificationDoc?.type || null,
+          identification_number: clientData.identificationDoc?.number || null,
+          identification_file_url: clientData.identificationDoc?.fileUrl || null,
+          created_at: now,
+          updated_at: now,
+        };
+        const created = await clientService.createClient(clientToCreate);
+        if (created) {
+          toast.success("Cliente creado con éxito");
+          if (onSuccess) onSuccess(created);
+          onOpenChange(false);
+          setFormData(defaultClientData);
+        }
       } else {
         // Editar cliente existente
         if (!client?.id) throw new Error("ID de cliente no disponible");
-
-        // Omitir propiedades que no se deben enviar en una actualización
-        const { id, createdAt, updatedAt, documents, ...updateData } = clientData as any;
-
-        result = await clientService.updateClient(client.id, updateData);
-      }
-
-      if (result.error) {
-        throw result.error;
-      }
-
-      if (result.data) {
-        // Notificar éxito
-        toast.success(
-          mode === "create" ? "Cliente creado con éxito" : "Cliente actualizado con éxito"
-        );
-
-        // Llamar al callback de éxito si existe
-        if (onSuccess) {
-          onSuccess(result.data);
-        }
-
-        // Cerrar el modal
-        onOpenChange(false);
-
-        // Limpiar formulario si es modo crear
-        if (mode === "create") {
-          setFormData(defaultClientData);
+        const now = new Date().toISOString();
+        const updateData = {
+          name: clientData.name,
+          email: clientData.email,
+          phone: clientData.phone,
+          address: clientData.address,
+          category: clientData.category,
+          client_type: clientData.clientType,
+          contact_person: clientData.contactPerson,
+          active: clientData.active ?? true,
+          related_to_client_id: clientData.clientType === "direct" ? null : clientData.relatedToClientId || null,
+          alert_status: clientData.alertStatus || null,
+          alert_note: clientData.alertNote || null,
+          identification_type: clientData.identificationDoc?.type || null,
+          identification_number: clientData.identificationDoc?.number || null,
+          identification_file_url: clientData.identificationDoc?.fileUrl || null,
+          updated_at: now,
+        };
+        const updated = await clientService.updateClient(client.id, updateData);
+        if (updated) {
+          toast.success("Cliente actualizado con éxito");
+          if (onSuccess) onSuccess(updated);
+          onOpenChange(false);
         }
       }
     } catch (error) {

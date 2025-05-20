@@ -12,10 +12,9 @@ import { mockDetailedDebts, mockDetailedReceivables, mockTransactions } from "@/
 import { Client } from "@/types";
 import { Link } from "react-router-dom";
 import { Search, UserPlus, Filter, AlertTriangle, FileText, UserRound, Users, Loader2 } from "lucide-react";
-import { format } from "date-fns";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { clientService } from "@/integrations/supabase/clientService";
 import ClientFormModal from "@/components/clients/ClientFormModal";
+import type { Client as SupabaseClient } from "@/integrations/supabase/clientService";
 
 const Clients = () => {
   const [clients, setClients] = useState<Client[]>([]);
@@ -35,14 +34,25 @@ const Clients = () => {
   const loadClients = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await clientService.getClients();
-      if (error) {
-        throw error;
-      }
-      
-      if (data) {
-        setClients(data);
-      }
+      const clientsRaw = await clientService.getClients();
+      const clients: Client[] = clientsRaw.map((c: SupabaseClient) => ({
+        id: c.id,
+        name: c.name,
+        email: c.email,
+        phone: c.phone,
+        category: c.category as Client["category"],
+        clientType: c.client_type as Client["clientType"],
+        active: c.active,
+        address: c.address,
+        contactPerson: c.contact_person,
+        documents: [], // Si tienes documentos, mapea aquí
+        createdAt: c.created_at ? new Date(c.created_at) : undefined,
+        updatedAt: c.updated_at ? new Date(c.updated_at) : undefined,
+        alertStatus: (c.alert_status as 'none' | 'yellow' | 'red') || 'none',
+        alertNote: c.alert_note || "",
+        relatedToClientId: c.related_to_client_id,
+      }));
+      setClients(clients);
     } catch (error) {
       console.error("Error loading clients:", error);
       toast.error("Error al cargar los clientes");
