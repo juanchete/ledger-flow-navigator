@@ -1,6 +1,5 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { mockTransactions, mockClients, mockFinancialStats, mockExpenseStats, mockCalendarEvents } from "@/data/mockData";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,11 +13,109 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
-import { useState } from "react";
 import { BankAccountsModal } from "@/components/BankAccountsModal";
 import { DebtsAndReceivables } from "@/components/operations/DebtsAndReceivables";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { TransactionForm } from "@/components/operations/TransactionForm";
+import { getTransactions } from "@/integrations/supabase/transactionService";
+import { getClients } from "@/integrations/supabase/clientService";
+import { getDebts } from "@/integrations/supabase/debtService";
+import { getReceivables } from "@/integrations/supabase/receivableService";
+import { getBankAccounts, BankAccount } from "@/integrations/supabase/bankAccountService";
+import { getCalendarEvents, CalendarEvent } from "@/integrations/supabase/calendarEventService";
+import { Transaction as SupabaseTransaction } from "@/integrations/supabase/transactionService";
+import { Tables as SupabaseClient } from "@/integrations/supabase/types";
+import { Debt } from "@/integrations/supabase/debtService";
+import { Receivable } from "@/integrations/supabase/receivableService";
+
+// Defino el tipo para la UI
+interface BankAccountUI {
+  id: string;
+  bank: string;
+  accountNumber: string;
+  amount: number;
+  currency: "USD" | "VES";
+}
+
+// Tipos para la UI
+interface TransactionUI {
+  id: string;
+  type: string;
+  amount: number;
+  description?: string;
+  date: Date;
+  clientId?: string;
+  status?: string;
+  receipt?: string;
+  invoice?: string;
+  deliveryNote?: string;
+  paymentMethod?: string;
+  category?: string;
+  notes?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  indirectForClientId?: string;
+  debtId?: string;
+  receivableId?: string;
+}
+
+interface ClientUI {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  category?: string;
+  clientType?: string;
+  active: boolean;
+  address?: string;
+  contactPerson?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  alertStatus?: string;
+  alertNote?: string;
+  relatedToClientId?: string;
+}
+
+interface DebtUI {
+  id: string;
+  creditor: string;
+  amount: number;
+  dueDate: Date;
+  status?: string;
+  category?: string;
+  notes?: string;
+  clientId?: string;
+  interestRate?: number;
+  commission?: number;
+  currency?: string;
+}
+
+interface ReceivableUI {
+  id: string;
+  clientId: string;
+  amount: number;
+  dueDate: Date;
+  status?: string;
+  description?: string;
+  notes?: string;
+  interestRate?: number;
+  commission?: number;
+  currency?: string;
+}
+
+interface CalendarEventUI {
+  id: string;
+  title: string;
+  description?: string;
+  startDate: Date;
+  endDate: Date;
+  category?: string;
+  clientId?: string;
+  isReminder: boolean;
+  completed: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -28,47 +125,148 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
-const mockUSDAccounts = [
-  { id: "1", bank: "Bank of America", accountNumber: "****1234", amount: 50000, currency: "USD" },
-  { id: "2", bank: "Chase", accountNumber: "****5678", amount: 25420.50, currency: "USD" },
-] as const;
-
-const mockVESAccounts = [
-  { id: "3", bank: "Banco Mercantil", accountNumber: "****9012", amount: 2425750.00, currency: "VES" },
-  { id: "4", bank: "Banesco", accountNumber: "****3456", amount: 1000000.00, currency: "VES" },
-] as const;
-
 const Dashboard = () => {
+  const [transactions, setTransactions] = useState<TransactionUI[]>([]);
+  const [clients, setClients] = useState<ClientUI[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccountUI[]>([]);
+  const [events, setEvents] = useState<CalendarEventUI[]>([]);
+  const [debts, setDebts] = useState<DebtUI[]>([]);
+  const [receivables, setReceivables] = useState<ReceivableUI[]>([]);
   const [openModal, setOpenModal] = useState<null | 'USD' | 'VES'>(null);
   const [openTransactionModal, setOpenTransactionModal] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const currentStats = mockFinancialStats[mockFinancialStats.length - 1];
-  const previousStats = mockFinancialStats[mockFinancialStats.length - 2];
-  
-  const netWorthChange = currentStats.netWorth - previousStats.netWorth;
-  const netWorthPercentChange = (netWorthChange / previousStats.netWorth * 100).toFixed(1);
-  
-  const receivablesChange = currentStats.receivables - previousStats.receivables;
-  const receivablesPercentChange = (receivablesChange / previousStats.receivables * 100).toFixed(1);
-  
-  const debtsChange = currentStats.debts - previousStats.debts;
-  const debtsPercentChange = (debtsChange / previousStats.debts * 100).toFixed(1);
+  useEffect(() => {
+    const fetchAll = async () => {
+      setLoading(true);
+      const [txs, cls, dbts, recs, bks, evs] = await Promise.all([
+        getTransactions(),
+        getClients(),
+        getDebts(),
+        getReceivables(),
+        getBankAccounts(),
+        getCalendarEvents()
+      ]);
+      setTransactions(txs.map(t => ({
+        id: t.id,
+        type: t.type || '',
+        amount: t.amount,
+        description: t.description || '',
+        date: t.date ? new Date(t.date) : new Date(),
+        clientId: t.client_id || undefined,
+        status: t.status || undefined,
+        receipt: t.receipt || undefined,
+        invoice: t.invoice || undefined,
+        deliveryNote: t.delivery_note || undefined,
+        paymentMethod: t.payment_method || undefined,
+        category: t.category || undefined,
+        notes: t.notes || undefined,
+        createdAt: t.created_at ? new Date(t.created_at) : undefined,
+        updatedAt: t.updated_at ? new Date(t.updated_at) : undefined,
+        indirectForClientId: t.indirect_for_client_id || undefined,
+        debtId: t.debt_id || undefined,
+        receivableId: t.receivable_id || undefined,
+      })));
+      setClients(cls.map(c => ({
+        id: c.id,
+        name: c.name,
+        email: c.email || undefined,
+        phone: c.phone || undefined,
+        category: c.category || undefined,
+        clientType: c.client_type || undefined,
+        active: c.active,
+        address: c.address || undefined,
+        contactPerson: c.contact_person || undefined,
+        createdAt: c.created_at ? new Date(c.created_at) : undefined,
+        updatedAt: c.updated_at ? new Date(c.updated_at) : undefined,
+        alertStatus: c.alert_status || undefined,
+        alertNote: c.alert_note || undefined,
+        relatedToClientId: c.related_to_client_id || undefined,
+      })));
+      setDebts(dbts.map(d => ({
+        id: d.id,
+        creditor: d.creditor,
+        amount: d.amount,
+        dueDate: d.due_date ? new Date(d.due_date) : new Date(),
+        status: d.status || undefined,
+        category: d.category || undefined,
+        notes: d.notes || undefined,
+        clientId: d.client_id || undefined,
+        interestRate: d.interest_rate || undefined,
+        commission: d.commission || undefined,
+        currency: d.currency || undefined,
+      })));
+      setReceivables(recs.map(r => ({
+        id: r.id,
+        clientId: r.client_id,
+        amount: r.amount,
+        dueDate: r.due_date ? new Date(r.due_date) : new Date(),
+        status: r.status || undefined,
+        description: r.description || undefined,
+        notes: r.notes || undefined,
+        interestRate: r.interest_rate || undefined,
+        commission: r.commission || undefined,
+        currency: r.currency || undefined,
+      })));
+      setBankAccounts(bks.map(acc => ({
+        id: acc.id,
+        bank: acc.bank,
+        accountNumber: acc.account_number,
+        amount: acc.amount,
+        currency: acc.currency === 'USD' ? 'USD' : 'VES',
+      })));
+      setEvents(evs.map(e => ({
+        id: e.id,
+        title: e.title,
+        description: e.description || undefined,
+        startDate: e.start_date ? new Date(e.start_date) : new Date(),
+        endDate: e.end_date ? new Date(e.end_date) : new Date(),
+        category: e.category || undefined,
+        clientId: e.client_id || undefined,
+        isReminder: e.is_reminder,
+        completed: e.completed,
+        createdAt: e.created_at ? new Date(e.created_at) : undefined,
+        updatedAt: e.updated_at ? new Date(e.updated_at) : undefined,
+      })));
+      setLoading(false);
+    };
+    fetchAll();
+  }, []);
 
-  const upcomingEvents = mockCalendarEvents.filter(e => 
-    new Date(e.startDate) > new Date() && 
-    new Date(e.startDate) < new Date(new Date().setDate(new Date().getDate() + 7))
-  ).sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+  // Clientes con alerta
+  const alertClients = clients.filter((c) => c.alertStatus === 'red' || c.alertStatus === 'yellow');
 
-  const alertClients = mockClients.filter(c => c.alertStatus === 'red' || c.alertStatus === 'yellow');
-  
+  // Próximos eventos (requiere eventos cargados)
+  const now = new Date();
+  const upcomingEvents = events.filter((e) =>
+    new Date(e.startDate) > now &&
+    new Date(e.startDate) < new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+  );
+
+  // Estadísticas financieras simples
+  const totalDebts = debts.reduce((sum, d) => sum + Number(d.amount), 0);
+  const totalReceivables = receivables.reduce((sum, r) => sum + Number(r.amount), 0);
+
+  // Balance por moneda (requiere cuentas bancarias)
+  const usdAccounts = bankAccounts.filter((acc) => acc.currency === 'USD');
+  const vesAccounts = bankAccounts.filter((acc) => acc.currency === 'VES');
+  const totalUSD = usdAccounts.reduce((sum, acc) => sum + Number(acc.amount), 0);
+  const totalVES = vesAccounts.reduce((sum, acc) => sum + Number(acc.amount), 0);
+
+  const currentStats = {
+    netWorth: totalUSD + totalReceivables - totalDebts,
+    receivables: totalReceivables,
+    debts: totalDebts
+  };
+
   const formatDateForChart = (date: Date) => format(new Date(date), 'MMM d');
   
-  const chartData = mockFinancialStats.map(stat => ({
-    date: formatDateForChart(stat.date),
-    netWorth: stat.netWorth,
-    receivables: stat.receivables,
-    debts: stat.debts
-  }));
+  const chartData = {
+    date: formatDateForChart(new Date()),
+    netWorth: currentStats.netWorth,
+    receivables: currentStats.receivables,
+    debts: currentStats.debts
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -113,9 +311,9 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="flex items-center text-xs">
-              <span className={`inline-flex items-center ${netWorthChange >= 0 ? 'text-finance-green' : 'text-finance-red'}`}>
-                {netWorthChange >= 0 ? <ArrowUp size={14} className="mr-1" /> : <ArrowDown size={14} className="mr-1" />}
-                {Math.abs(Number(netWorthPercentChange))}%
+              <span className={`inline-flex items-center ${currentStats.netWorth > 0 ? 'text-finance-green' : 'text-finance-red'}`}>
+                {currentStats.netWorth > 0 ? <ArrowUp size={14} className="mr-1" /> : <ArrowDown size={14} className="mr-1" />}
+                {Math.abs(Number(currentStats.netWorth))}%
               </span>
               <span className="text-muted-foreground ml-2">vs mes anterior</span>
             </div>
@@ -129,9 +327,9 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="flex items-center text-xs">
-              <span className={`inline-flex items-center ${receivablesChange >= 0 ? 'text-finance-green' : 'text-finance-red'}`}>
-                {receivablesChange >= 0 ? <ArrowUp size={14} className="mr-1" /> : <ArrowDown size={14} className="mr-1" />}
-                {Math.abs(Number(receivablesPercentChange))}%
+              <span className={`inline-flex items-center ${currentStats.receivables > 0 ? 'text-finance-green' : 'text-finance-red'}`}>
+                {currentStats.receivables > 0 ? <ArrowUp size={14} className="mr-1" /> : <ArrowDown size={14} className="mr-1" />}
+                {Math.abs(Number(currentStats.receivables))}%
               </span>
               <span className="text-muted-foreground ml-2">vs mes anterior</span>
             </div>
@@ -145,9 +343,9 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="flex items-center text-xs">
-              <span className={`inline-flex items-center ${debtsChange <= 0 ? 'text-finance-green' : 'text-finance-red'}`}>
-                {debtsChange <= 0 ? <ArrowDown size={14} className="mr-1" /> : <ArrowUp size={14} className="mr-1" />}
-                {Math.abs(Number(debtsPercentChange))}%
+              <span className={`inline-flex items-center ${currentStats.debts <= 0 ? 'text-finance-green' : 'text-finance-red'}`}>
+                {currentStats.debts <= 0 ? <ArrowDown size={14} className="mr-1" /> : <ArrowUp size={14} className="mr-1" />}
+                {Math.abs(Number(currentStats.debts))}%
               </span>
               <span className="text-muted-foreground ml-2">vs mes anterior</span>
             </div>
@@ -159,7 +357,7 @@ const Dashboard = () => {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Disponible en USD</CardTitle>
             <CardDescription className="text-2xl font-bold">
-              {formatCurrency(mockUSDAccounts.reduce((sum, acc) => sum + acc.amount, 0))}
+              {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalUSD)}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -179,7 +377,7 @@ const Dashboard = () => {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Disponible en VES</CardTitle>
             <CardDescription className="text-2xl font-bold">
-              Bs. {new Intl.NumberFormat('es-VE').format(mockVESAccounts.reduce((sum, acc) => sum + acc.amount, 0))}
+              Bs. {new Intl.NumberFormat('es-VE').format(totalVES)}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -202,14 +400,14 @@ const Dashboard = () => {
         isOpen={openModal === 'USD'}
         onClose={() => setOpenModal(null)}
         currency="USD"
-        accounts={[...mockUSDAccounts]}
+        accounts={usdAccounts}
       />
       
       <BankAccountsModal
         isOpen={openModal === 'VES'}
         onClose={() => setOpenModal(null)}
         currency="VES"
-        accounts={[...mockVESAccounts]}
+        accounts={vesAccounts}
       />
     </div>
   );

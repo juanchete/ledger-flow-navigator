@@ -6,26 +6,18 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Calendar, BadgeDollarSign, Info, User, AlertTriangle, FileText, Users } from "lucide-react";
 import { format } from "date-fns";
-import { mockDetailedDebts, mockTransactions, mockClients } from '@/data/mockData';
+import { getDebtById } from "@/integrations/supabase/debtService";
+import { getPaymentsByDebtId } from "@/integrations/supabase/transactionService";
+import { getClientById } from "@/integrations/supabase/clientService";
 import { formatCurrency } from '@/lib/utils';
 import { StatusBadge } from "@/components/operations/common/StatusBadge";
 import { PaymentsList } from "@/components/operations/payments/PaymentsList";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Transaction, Client } from '@/types';
+import type { Debt } from "@/integrations/supabase/debtService";
+import type { Transaction } from "@/integrations/supabase/transactionService";
+import type { Client } from "@/integrations/supabase/clientService";
 
-// Define Debt locally if it's not in @/types
-interface Debt {
-  id: string;
-  creditor: string;
-  amount: number;
-  dueDate: Date;
-  status: string;
-  category: string;
-  notes: string;
-  clientId?: string;
-}
-
-// Ensure this interface is defined
+// Defino tipos para la UI
 interface PaymentWithClientInfo extends Transaction {
   clientName?: string;
   clientType?: 'direct' | 'indirect';
@@ -34,50 +26,48 @@ interface PaymentWithClientInfo extends Transaction {
 const DebtDetail = () => {
   const { debtId } = useParams<{ debtId: string }>();
   const [debt, setDebt] = useState<Debt | null>(null);
-  const [payments, setPayments] = useState<PaymentWithClientInfo[]>([]);
+  const [payments, setPayments] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [primaryClient, setPrimaryClient] = useState<Client | null>(null);
   const [payingClients, setPayingClients] = useState<Client[]>([]);
   
   useEffect(() => {
-    // Simulamos la carga de datos
-    setTimeout(() => {
-      const foundDebt = mockDetailedDebts.find(d => d.id === debtId);
-      
-      if (foundDebt) {
-        // Map payments and add client info
-        const debtPayments: PaymentWithClientInfo[] = mockTransactions
-          .filter(t => t.type === 'payment' && t.debtId === foundDebt.id && t.status === 'completed')
-          .map(payment => {
-            const client = payment.clientId ? mockClients.find(c => c.id === payment.clientId) : null;
-            // No need for type assertion here, the returned object matches PaymentWithClientInfo
-            return {
-              ...payment,
-              clientName: client?.name,
-              clientType: client?.clientType
-            };
-          });
-        const totalPaid = debtPayments.reduce((sum, t) => sum + t.amount, 0);
-        const remainingAmount = Math.max(0, foundDebt.amount - totalPaid);
-        
-        // Encontrar el cliente primario (relacionado directamente con la deuda)
-        const client = foundDebt.clientId ? mockClients.find(c => c.id === foundDebt.clientId) : null;
-        
-        // Clientes que han pagado esta deuda (sin duplicados)
-        const uniquePayingClients = debtPayments
-          .map(p => p.clientId)
-          .filter((clientId, index, self) => clientId && self.indexOf(clientId) === index)
-          .map(clientId => mockClients.find(c => c.id === clientId))
-          .filter(Boolean);
-        
-        setDebt(foundDebt);
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // Obtener deuda
+        const foundDebt = await getDebtById(debtId!);
+        setDebt(foundDebt || null);
+        // Obtener pagos
+        const debtPayments = await getPaymentsByDebtId(debtId!);
         setPayments(debtPayments);
+        // Obtener clientes pagadores y enriquecer pagos
+        const uniqueClientIds = Array.from(new Set(debtPayments.map(p => p.client_id).filter(Boolean)));
+        const clientsPagadores: Client[] = [];
+        const clientMap: Record<string, Client> = {};
+        for (const clientId of uniqueClientIds) {
+          const c = await getClientById(clientId);
+          if (c) {
+            clientsPagadores.push(c);
+            clientMap[clientId] = c;
+          }
+        }
+        setPayingClients(clientsPagadores);
+        // Cliente principal
+        let client: Client | null = null;
+        if (foundDebt?.client_id) {
+          client = await getClientById(foundDebt.client_id);
+        }
         setPrimaryClient(client);
-        setPayingClients(uniquePayingClients);
+      } catch (e) {
+        setDebt(null);
+        setPayments([]);
+        setPrimaryClient(null);
+        setPayingClients([]);
       }
-      
       setLoading(false);
-    }, 500);
+    };
+    fetchData();
   }, [debtId]);
   
   if (loading) {
@@ -164,7 +154,7 @@ const DebtDetail = () => {
               <span className="text-muted-foreground">Fecha de Vencimiento:</span>
               <div className="flex items-center gap-1">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span>{formatDate(debt.dueDate)}</span>
+                <span>{formatDate(new Date(debt.due_date))}</span>
               </div>
             </div>
             
@@ -200,7 +190,7 @@ const DebtDetail = () => {
                   </div>
                   <div className="mt-1 flex gap-2 text-sm text-muted-foreground">
                     <Badge variant="outline" className="bg-slate-50">
-                      {primaryClient.clientType === 'direct' ? 'Cliente Directo' : 'Cliente Indirecto'}
+                      {primaryClient.client_type === 'direct' ? 'Cliente Directo' : 'Cliente Indirecto'}
                     </Badge>
                     <Badge variant="outline">
                       {primaryClient.category}
@@ -219,7 +209,7 @@ const DebtDetail = () => {
                   {payingClients.map(client => (
                     <div key={client.id} className="bg-muted/50 p-3 rounded-md">
                       <div className="flex items-center gap-2">
-                        {client.clientType === 'direct' ? (
+                        {client.client_type === 'direct' ? (
                           <User className="h-4 w-4" />
                         ) : (
                           <Users className="h-4 w-4" />
@@ -229,8 +219,8 @@ const DebtDetail = () => {
                         </Link>
                       </div>
                       <div className="mt-1 flex gap-2 text-sm text-muted-foreground">
-                        <Badge variant="outline" className={client.clientType === 'direct' ? 'bg-slate-50' : 'bg-yellow-50'}>
-                          {client.clientType === 'direct' ? 'Cliente Directo' : 'Cliente Indirecto'}
+                        <Badge variant="outline" className={client.client_type === 'direct' ? 'bg-slate-50' : 'bg-yellow-50'}>
+                          {client.client_type === 'direct' ? 'Cliente Directo' : 'Cliente Indirecto'}
                         </Badge>
                       </div>
                     </div>
@@ -264,24 +254,24 @@ const DebtDetail = () => {
                 <TableBody>
                   {payments.map(payment => (
                     <TableRow key={payment.id}>
-                      <TableCell>{formatDate(payment.date)}</TableCell>
+                      <TableCell>{formatDate(new Date(payment.date))}</TableCell>
                       <TableCell className="font-medium">{formatCurrency(payment.amount)}</TableCell>
-                      <TableCell>{payment.paymentMethod || 'No especificado'}</TableCell>
+                      <TableCell>{payment.payment_method || 'No especificado'}</TableCell>
                       <TableCell>
-                        {payment.clientName ? (
+                        {payment.client_id && payingClients.find(c => c.id === payment.client_id) ? (
                           <div className="flex flex-col">
                             <div className="flex items-center gap-1">
-                              {payment.clientType === 'indirect' ? (
+                              {payingClients.find(c => c.id === payment.client_id)?.client_type === 'indirect' ? (
                                 <Users size={14} className="text-muted-foreground" />
                               ) : (
                                 <User size={14} className="text-muted-foreground" />
                               )}
-                              <Link to={`/clients/${payment.clientId}`} className="hover:underline">
-                                {payment.clientName}
+                              <Link to={`/clients/${payment.client_id}`} className="hover:underline">
+                                {payingClients.find(c => c.id === payment.client_id)?.name}
                               </Link>
                             </div>
                             <Badge variant="outline" className="mt-1 text-xs w-fit">
-                              {payment.clientType === 'indirect' ? 'Indirecto' : 'Directo'}
+                              {payingClients.find(c => c.id === payment.client_id)?.client_type === 'indirect' ? 'Indirecto' : 'Directo'}
                             </Badge>
                           </div>
                         ) : (
