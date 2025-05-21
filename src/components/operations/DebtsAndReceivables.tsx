@@ -163,72 +163,76 @@ export const DebtsAndReceivables: React.FC = () => {
         <CardContent>
           <div className="space-y-1">
             <TooltipProvider>
-              {receivables.map((receivable: Receivable) => (
-                <HoverCard key={receivable.id}>
-                  <HoverCardTrigger asChild>
-                    <div className="flex items-center justify-between py-2 px-3 border-b hover:bg-gray-50 cursor-pointer transition-colors rounded-sm">
-                      <div className="flex items-center gap-3">
-                        <Badge className={`${getStatusColor(receivable.status)} h-2 w-2 p-1 rounded-full`} />
-                        <span className="font-medium">{receivable.description}</span>
+              {receivables
+                .slice()
+                .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
+                .slice(0, 5)
+                .map((receivable: Receivable) => (
+                  <HoverCard key={receivable.id}>
+                    <HoverCardTrigger asChild>
+                      <div className="flex items-center justify-between py-2 px-3 border-b hover:bg-gray-50 cursor-pointer transition-colors rounded-sm">
+                        <div className="flex items-center gap-3">
+                          <Badge className={`${getStatusColor(receivable.status)} h-2 w-2 p-1 rounded-full`} />
+                          <span className="font-medium">{receivable.description}</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className="text-sm text-gray-500">{formatDate(receivable.dueDate)}</span>
+                          <span className="font-semibold">{formatCurrency(receivable.amount)}</span>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6" 
+                                onClick={() => handleReceivableClick(receivable)}
+                              >
+                                <Info className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Ver detalles completos</TooltipContent>
+                          </Tooltip>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <span className="text-sm text-gray-500">{formatDate(receivable.dueDate)}</span>
-                        <span className="font-semibold">{formatCurrency(receivable.amount)}</span>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-6 w-6" 
-                              onClick={() => handleReceivableClick(receivable)}
-                            >
-                              <Info className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Ver detalles completos</TooltipContent>
-                        </Tooltip>
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-80 p-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold">{receivable.description}</h4>
+                          <Badge className={getStatusColor(receivable.status)}>{receivable.status}</Badge>
+                        </div>
+                        <div className="mt-3">
+                          <span className="font-semibold text-xs text-gray-700">Historial de pagos:</span>
+                          {(() => {
+                            const pagos = transactions
+                              .filter(t => t.type === 'payment' && t.receivableId === receivable.id)
+                              .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                            let saldoAnterior = receivable.amount;
+                            if (pagos.length > 0) {
+                              return (
+                                <ul className="mt-1 space-y-1">
+                                  {pagos.map((t, idx) => {
+                                    const row = (
+                                      <li key={t.id} className="text-xs items-center border-b last:border-b-0 py-1 grid grid-cols-4 gap-1">
+                                        <span className="col-span-1">{new Date(t.date).toLocaleDateString('es-ES')}</span>
+                                        <span className="col-span-1 truncate">{t.clientId ? t.clientId : 'Cliente'}</span>
+                                        <span className="col-span-1 font-semibold text-right">{formatCurrency(t.amount)}</span>
+                                        <span className="col-span-1 text-right text-gray-500">Antes: {formatCurrency(saldoAnterior)} <br/> Desp: {formatCurrency(Math.max(0, saldoAnterior - t.amount))}</span>
+                                      </li>
+                                    );
+                                    saldoAnterior = Math.max(0, saldoAnterior - t.amount);
+                                    return row;
+                                  })}
+                                </ul>
+                              );
+                            } else {
+                              return <div className="text-xs text-gray-500 mt-1">Sin pagos asociados</div>;
+                            }
+                          })()}
+                        </div>
                       </div>
-                    </div>
-                  </HoverCardTrigger>
-                  <HoverCardContent className="w-80 p-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-semibold">{receivable.description}</h4>
-                        <Badge className={getStatusColor(receivable.status)}>{receivable.status}</Badge>
-                      </div>
-                      <div className="mt-3">
-                        <span className="font-semibold text-xs text-gray-700">Historial de pagos:</span>
-                        {(() => {
-                          const pagos = transactions
-                            .filter(t => t.type === 'payment' && t.receivableId === receivable.id)
-                            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-                          let saldoAnterior = receivable.amount;
-                          if (pagos.length > 0) {
-                            return (
-                              <ul className="mt-1 space-y-1">
-                                {pagos.map((t, idx) => {
-                                  const row = (
-                                    <li key={t.id} className="text-xs items-center border-b last:border-b-0 py-1 grid grid-cols-4 gap-1">
-                                      <span className="col-span-1">{new Date(t.date).toLocaleDateString('es-ES')}</span>
-                                      <span className="col-span-1 truncate">{t.clientId ? t.clientId : 'Cliente'}</span>
-                                      <span className="col-span-1 font-semibold text-right">{formatCurrency(t.amount)}</span>
-                                      <span className="col-span-1 text-right text-gray-500">Antes: {formatCurrency(saldoAnterior)} <br/> Desp: {formatCurrency(Math.max(0, saldoAnterior - t.amount))}</span>
-                                    </li>
-                                  );
-                                  saldoAnterior = Math.max(0, saldoAnterior - t.amount);
-                                  return row;
-                                })}
-                              </ul>
-                            );
-                          } else {
-                            return <div className="text-xs text-gray-500 mt-1">Sin pagos asociados</div>;
-                          }
-                        })()}
-                      </div>
-                    </div>
-                  </HoverCardContent>
-                </HoverCard>
-              ))}
+                    </HoverCardContent>
+                  </HoverCard>
+                ))}
             </TooltipProvider>
           </div>
         </CardContent>
@@ -253,75 +257,79 @@ export const DebtsAndReceivables: React.FC = () => {
         <CardContent>
           <div className="space-y-1">
             <TooltipProvider>
-              {debts.map((debt: Debt) => (
-                <HoverCard key={debt.id}>
-                  <HoverCardTrigger asChild>
-                    <div className="flex items-center justify-between py-2 px-3 border-b hover:bg-gray-50 cursor-pointer transition-colors rounded-sm">
-                      <div className="flex items-center gap-3">
-                        <Badge className={`${getStatusColor(debt.status)} h-2 w-2 p-1 rounded-full`} />
-                        <span className="font-medium">{debt.creditor}</span>
+              {debts
+                .slice()
+                .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
+                .slice(0, 5)
+                .map((debt: Debt) => (
+                  <HoverCard key={debt.id}>
+                    <HoverCardTrigger asChild>
+                      <div className="flex items-center justify-between py-2 px-3 border-b hover:bg-gray-50 cursor-pointer transition-colors rounded-sm">
+                        <div className="flex items-center gap-3">
+                          <Badge className={`${getStatusColor(debt.status)} h-2 w-2 p-1 rounded-full`} />
+                          <span className="font-medium">{debt.creditor}</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className="text-sm text-gray-500">{formatDate(debt.dueDate)}</span>
+                          <span className="font-semibold">{formatCurrency(debt.amount)}</span>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6" 
+                                onClick={() => handleDebtClick(debt)}
+                              >
+                                <Info className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Ver detalles completos</TooltipContent>
+                          </Tooltip>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <span className="text-sm text-gray-500">{formatDate(debt.dueDate)}</span>
-                        <span className="font-semibold">{formatCurrency(debt.amount)}</span>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-6 w-6" 
-                              onClick={() => handleDebtClick(debt)}
-                            >
-                              <Info className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Ver detalles completos</TooltipContent>
-                        </Tooltip>
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-80 p-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold">{debt.creditor}</h4>
+                          <Badge className={getStatusColor(debt.status)}>{debt.status}</Badge>
+                        </div>
+                        <div className="mt-3">
+                          <span className="font-semibold text-xs text-gray-700">Historial de pagos:</span>
+                          {(() => {
+                            const isSupabaseTransaction = (t: Transaction | Tables<'transactions'>): t is Tables<'transactions'> => {
+                              return 'debt_id' in t;
+                            };
+                            const pagos = transactions
+                              .filter(t => t.type === 'payment' && isSupabaseTransaction(t) && t.debt_id === debt.id)
+                              .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                            let saldoAnterior = debt.amount;
+                            if (pagos.length > 0) {
+                              return (
+                                <ul className="mt-1 space-y-1">
+                                  {pagos.map((t, idx) => {
+                                    const row = (
+                                      <li key={t.id} className="text-xs items-center border-b last:border-b-0 py-1 grid grid-cols-4 gap-1">
+                                        <span className="col-span-1">{new Date(t.date).toLocaleDateString('es-ES')}</span>
+                                        <span className="col-span-1 truncate">{t.clientId ? t.clientId : 'Cliente'}</span>
+                                        <span className="col-span-1 font-semibold text-right">{formatCurrency(t.amount)}</span>
+                                        <span className="col-span-1 text-right text-gray-500">Antes: {formatCurrency(saldoAnterior)} <br/> Desp: {formatCurrency(Math.max(0, saldoAnterior - t.amount))}</span>
+                                      </li>
+                                    );
+                                    saldoAnterior = Math.max(0, saldoAnterior - t.amount);
+                                    return row;
+                                  })}
+                                </ul>
+                              );
+                            } else {
+                              return <div className="text-xs text-gray-500 mt-1">Sin pagos asociados</div>;
+                            }
+                          })()}
+                        </div>
                       </div>
-                    </div>
-                  </HoverCardTrigger>
-                  <HoverCardContent className="w-80 p-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-semibold">{debt.creditor}</h4>
-                        <Badge className={getStatusColor(debt.status)}>{debt.status}</Badge>
-                      </div>
-                      <div className="mt-3">
-                        <span className="font-semibold text-xs text-gray-700">Historial de pagos:</span>
-                        {(() => {
-                          const isSupabaseTransaction = (t: Transaction | Tables<'transactions'>): t is Tables<'transactions'> => {
-                            return 'debt_id' in t;
-                          };
-                          const pagos = transactions
-                            .filter(t => t.type === 'payment' && isSupabaseTransaction(t) && t.debt_id === debt.id)
-                            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-                          let saldoAnterior = debt.amount;
-                          if (pagos.length > 0) {
-                            return (
-                              <ul className="mt-1 space-y-1">
-                                {pagos.map((t, idx) => {
-                                  const row = (
-                                    <li key={t.id} className="text-xs items-center border-b last:border-b-0 py-1 grid grid-cols-4 gap-1">
-                                      <span className="col-span-1">{new Date(t.date).toLocaleDateString('es-ES')}</span>
-                                      <span className="col-span-1 truncate">{t.clientId ? t.clientId : 'Cliente'}</span>
-                                      <span className="col-span-1 font-semibold text-right">{formatCurrency(t.amount)}</span>
-                                      <span className="col-span-1 text-right text-gray-500">Antes: {formatCurrency(saldoAnterior)} <br/> Desp: {formatCurrency(Math.max(0, saldoAnterior - t.amount))}</span>
-                                    </li>
-                                  );
-                                  saldoAnterior = Math.max(0, saldoAnterior - t.amount);
-                                  return row;
-                                })}
-                              </ul>
-                            );
-                          } else {
-                            return <div className="text-xs text-gray-500 mt-1">Sin pagos asociados</div>;
-                          }
-                        })()}
-                      </div>
-                    </div>
-                  </HoverCardContent>
-                </HoverCard>
-              ))}
+                    </HoverCardContent>
+                  </HoverCard>
+                ))}
             </TooltipProvider>
           </div>
         </CardContent>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -18,7 +17,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { createDebt, updateDebt, type NewDebt, type UpdatedDebt, type Debt } from "@/integrations/supabase/debtService";
 
 const debtSchema = z.object({
-  creditor: z.string().min(1, "Acreedor es requerido"),
   client_id: z.string().optional(),
   amount: z.coerce.number().positive("El monto debe ser positivo"),
   due_date: z.date({ required_error: "Fecha de vencimiento es requerida" }),
@@ -51,7 +49,6 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
   const form = useForm<DebtFormValues>({
     resolver: zodResolver(debtSchema),
     defaultValues: {
-      creditor: debt?.creditor || "",
       client_id: debt?.client_id || undefined,
       amount: debt?.amount || 0,
       due_date: debt?.due_date ? new Date(debt.due_date) : new Date(),
@@ -65,7 +62,6 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
   useEffect(() => {
     if (debt) {
       form.reset({
-        creditor: debt.creditor || "",
         client_id: debt.client_id || undefined,
         amount: debt.amount || 0,
         due_date: debt.due_date ? new Date(debt.due_date) : new Date(),
@@ -76,7 +72,6 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
       });
     } else {
       form.reset({
-        creditor: "",
         client_id: undefined,
         amount: 0,
         due_date: new Date(),
@@ -95,14 +90,14 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
       if (isEditing && debt) {
         // Update existing debt
         const updatedData: UpdatedDebt = {
-          creditor: data.creditor,
-          client_id: data.client_id,
+          creditor: "",
+          client_id: data.client_id === undefined || data.client_id === "none" ? null : data.client_id,
           amount: data.amount,
           due_date: data.due_date.toISOString(),
           status: data.status,
-          category: data.category,
-          notes: data.notes,
-          currency: data.currency
+          category: data.category || null,
+          notes: data.notes || null,
+          currency: data.currency || null
         };
         
         await updateDebt(debt.id, updatedData);
@@ -110,14 +105,14 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
       } else {
         // Create new debt
         const newData: NewDebt = {
-          creditor: data.creditor,
-          client_id: data.client_id,
+          creditor: "",
+          client_id: data.client_id === undefined || data.client_id === "none" ? null : data.client_id,
           amount: data.amount,
           due_date: data.due_date.toISOString(),
           status: data.status,
-          category: data.category,
-          notes: data.notes,
-          currency: data.currency,
+          category: data.category || null,
+          notes: data.notes || null,
+          currency: data.currency || null,
           id: crypto.randomUUID()
         };
         
@@ -146,20 +141,6 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
         
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="creditor"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Acreedor</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
             <FormField
               control={form.control}
               name="client_id"
