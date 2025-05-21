@@ -99,3 +99,15 @@ export const deleteDebt = async (id: string): Promise<void> => {
     throw error;
   }
 };
+
+/**
+ * Obtiene todas las deudas de un cliente por su client_id.
+ */
+export const getDebtsByClientId = async (clientId: string): Promise<Debt[]> => {
+  const { data, error } = await supabase
+    .from(DEBTS_TABLE)
+    .select("*")
+    .eq("client_id", clientId);
+  if (error) throw error;
+  return data || [];
+};

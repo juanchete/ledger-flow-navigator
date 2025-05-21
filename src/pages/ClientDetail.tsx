@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { 
   Card, 
-  CardContent, 
-  CardDescription, 
+  CardContent,
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
@@ -17,7 +16,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { mockDetailedDebts, mockDetailedReceivables } from "@/data/mockData";
 import { format } from "date-fns";
 import { AlertTriangle, ChevronLeft, FileText, Receipt, Loader2 } from "lucide-react";
 import { clientService } from "@/integrations/supabase/clientService";
@@ -26,6 +24,21 @@ import { Client, Transaction } from "@/types";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import ClientFormModal from "@/components/clients/ClientFormModal";
 import type { Client as SupabaseClient } from "@/integrations/supabase/clientService";
+import { getDebtsByClientId, Debt } from "@/integrations/supabase/debtService";
+import { getReceivablesByClientId, Receivable } from "@/integrations/supabase/receivableService";
+import { getPaymentsByDebtId, getPaymentsByReceivableId, Transaction as SupabaseTransaction } from "@/integrations/supabase/transactionService";
+
+// Tipos extendidos para los estados
+interface DebtWithPayments extends Debt {
+  payments: SupabaseTransaction[];
+  totalPaid: number;
+  status: string;
+}
+interface ReceivableWithPayments extends Receivable {
+  payments: SupabaseTransaction[];
+  totalPaid: number;
+  status: string;
+}
 
 const ClientDetail = () => {
   const { clientId } = useParams<{ clientId: string }>();
@@ -45,6 +58,10 @@ const ClientDetail = () => {
   const { transactions: allTransactionsFromContext, isLoading: isLoadingTransactions } = useTransactions();
   const [clientTransactions, setClientTransactions] = useState<Transaction[]>([]);
   const [allRelevantTransactions, setAllRelevantTransactions] = useState<Transaction[]>([]);
+
+  // Estados para deudas y cuentas por cobrar reales
+  const [clientDebts, setClientDebts] = useState<DebtWithPayments[]>([]);
+  const [clientReceivables, setClientReceivables] = useState<ReceivableWithPayments[]>([]);
 
   // Cargar los datos del cliente desde Supabase
   useEffect(() => {
@@ -220,38 +237,32 @@ const ClientDetail = () => {
     };
   }
 
-  // Deudas asociadas a este cliente, con pagos calculados
-  const clientDebts = mockDetailedDebts
-    .filter(d => d.clientId === clientId)
-    .map(debt => {
-      const payments = allTransactionsFromContext
-        .filter(t => t.type === 'payment' && t.debt_id === debt.id && t.status === 'completed')
-        .map(mapTransaction);
-      const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
-      const isPaid = totalPaid >= debt.amount;
-      return {
-        ...debt,
-        status: isPaid ? 'paid' : debt.status,
-        totalPaid,
-        payments
-      };
+  // useEffect para cargar deudas y cuentas por cobrar desde Supabase
+  useEffect(() => {
+    if (!clientId) return;
+    // Cargar deudas y pagos
+    getDebtsByClientId(clientId).then(async (debts) => {
+      const debtsWithPayments = await Promise.all(
+        debts.map(async (debt) => {
+          const payments = await getPaymentsByDebtId(debt.id);
+          const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
+          return { ...debt, payments, totalPaid, status: totalPaid >= debt.amount ? "paid" : debt.status };
+        })
+      );
+      setClientDebts(debtsWithPayments);
     });
-  // Cuentas por cobrar asociadas a este cliente, con pagos calculados
-  const clientReceivables = mockDetailedReceivables
-    .filter(r => r.clientId === clientId)
-    .map(rec => {
-      const payments = allTransactionsFromContext
-        .filter(t => t.type === 'payment' && t.receivable_id === rec.id && t.status === 'completed')
-        .map(mapTransaction);
-      const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
-      const isPaid = totalPaid >= rec.amount;
-      return {
-        ...rec,
-        status: isPaid ? 'paid' : rec.status,
-        totalPaid,
-        payments
-      };
+    // Cargar cuentas por cobrar y pagos
+    getReceivablesByClientId(clientId).then(async (receivables) => {
+      const receivablesWithPayments = await Promise.all(
+        receivables.map(async (rec) => {
+          const payments = await getPaymentsByReceivableId(rec.id);
+          const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
+          return { ...rec, payments, totalPaid, status: totalPaid >= rec.amount ? "paid" : rec.status };
+        })
+      );
+      setClientReceivables(receivablesWithPayments);
     });
+  }, [clientId]);
 
   const [isActive, setIsActive] = useState(false);
   const [alertStatus, setAlertStatus] = useState<'none' | 'yellow' | 'red'>('none');
@@ -690,7 +701,7 @@ const ClientDetail = () => {
                             <div className="col-span-2">{debt.creditor}</div>
                             <div className="col-span-1 font-medium">{formatCurrency(debt.amount)}</div>
                             <div className="col-span-1 font-medium">{formatCurrency(debt.totalPaid)}</div>
-                            <div className="col-span-1">{debt.dueDate ? format(new Date(debt.dueDate), 'MMM d, yyyy') : 'Sin fecha'}</div>
+                            <div className="col-span-1">{debt.due_date ? format(new Date(debt.due_date), 'MMM d, yyyy') : 'Sin fecha'}</div>
                             <div className="col-span-1">
                               <Badge variant="outline" className={
                                 debt.status === 'pending' ? 'bg-finance-yellow text-finance-gray-dark border-finance-yellow' :
@@ -726,7 +737,7 @@ const ClientDetail = () => {
                             <div className="col-span-2">{rec.description}</div>
                             <div className="col-span-1 font-medium">{formatCurrency(rec.amount)}</div>
                             <div className="col-span-1 font-medium">{formatCurrency(rec.totalPaid)}</div>
-                            <div className="col-span-1">{rec.dueDate ? format(new Date(rec.dueDate), 'MMM d, yyyy') : 'Sin fecha'}</div>
+                            <div className="col-span-1">{rec.due_date ? format(new Date(rec.due_date), 'MMM d, yyyy') : 'Sin fecha'}</div>
                             <div className="col-span-1">
                               <Badge variant="outline" className={
                                 rec.status === 'pending' ? 'bg-finance-yellow text-finance-gray-dark border-finance-yellow' :

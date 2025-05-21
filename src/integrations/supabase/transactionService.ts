@@ -126,6 +126,38 @@ export const deleteTransaction = async (id: string): Promise<void> => {
   }
 };
 
+/**
+ * Obtiene los pagos asociados a una deuda específica.
+ */
+export const getPaymentsByDebtId = async (
+  debtId: string
+): Promise<Transaction[]> => {
+  const { data, error } = await supabase
+    .from(TRANSACTIONS_TABLE)
+    .select("*")
+    .eq("debt_id", debtId)
+    .eq("type", "payment")
+    .eq("status", "completed");
+  if (error) throw error;
+  return data || [];
+};
+
+/**
+ * Obtiene los pagos asociados a una cuenta por cobrar específica.
+ */
+export const getPaymentsByReceivableId = async (
+  receivableId: string
+): Promise<Transaction[]> => {
+  const { data, error } = await supabase
+    .from(TRANSACTIONS_TABLE)
+    .select("*")
+    .eq("receivable_id", receivableId)
+    .eq("type", "payment")
+    .eq("status", "completed");
+  if (error) throw error;
+  return data || [];
+};
+
 // TODO: Complex functions like getTransactionsByClientId, searchTransactions, filterTransactions
 // from the original transactionService object need to be refactored here
 // to work with Supabase types directly and be exported as individual functions if needed.

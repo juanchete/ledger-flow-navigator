@@ -101,3 +101,17 @@ export const deleteReceivable = async (id: string): Promise<void> => {
     throw error;
   }
 };
+
+/**
+ * Obtiene todas las cuentas por cobrar de un cliente por su client_id.
+ */
+export const getReceivablesByClientId = async (
+  clientId: string
+): Promise<Receivable[]> => {
+  const { data, error } = await supabase
+    .from(RECEIVABLES_TABLE)
+    .select("*")
+    .eq("client_id", clientId);
+  if (error) throw error;
+  return data || [];
+};

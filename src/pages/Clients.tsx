@@ -1,20 +1,33 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { mockDetailedDebts, mockDetailedReceivables, mockTransactions } from "@/data/mockData";
 import { Client } from "@/types";
 import { Link } from "react-router-dom";
 import { Search, UserPlus, Filter, AlertTriangle, FileText, UserRound, Users, Loader2 } from "lucide-react";
 import { clientService } from "@/integrations/supabase/clientService";
 import ClientFormModal from "@/components/clients/ClientFormModal";
 import type { Client as SupabaseClient } from "@/integrations/supabase/clientService";
+import { getDebtsByClientId, Debt } from "@/integrations/supabase/debtService";
+import { getReceivablesByClientId, Receivable } from "@/integrations/supabase/receivableService";
+import { getPaymentsByDebtId, getPaymentsByReceivableId, Transaction as SupabaseTransaction } from "@/integrations/supabase/transactionService";
+
+// Tipos extendidos para el resumen financiero
+interface DebtWithPayments extends Debt {
+  payments: SupabaseTransaction[];
+  totalPaid: number;
+  status: string;
+}
+interface ReceivableWithPayments extends Receivable {
+  payments: SupabaseTransaction[];
+  totalPaid: number;
+  status: string;
+}
 
 const Clients = () => {
   const [clients, setClients] = useState<Client[]>([]);
@@ -24,6 +37,7 @@ const Clients = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [clientTypeFilter, setClientTypeFilter] = useState<"all" | "direct" | "indirect">("all");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [financialSummaries, setFinancialSummaries] = useState<Record<string, { debts: DebtWithPayments[]; receivables: ReceivableWithPayments[] }>>({});
   
   // Cargar clientes al montar el componente
   useEffect(() => {
@@ -111,37 +125,44 @@ const Clients = () => {
     return 'bg-muted text-muted-foreground';
   };
 
-  // Helper para obtener resumen de deudas y cuentas por cobrar de un cliente (usando mock data por ahora)
-  const getClientFinancialSummary = (clientId: string) => {
+  // Función para cargar el resumen financiero de un cliente desde Supabase
+  const loadClientFinancialSummary = async (clientId: string) => {
     // Deudas
-    const debts = mockDetailedDebts.filter(d => d.clientId === clientId);
-    const debtsWithPayments = debts.map(debt => {
-      const payments = mockTransactions.filter(t => t.type === 'payment' && t.debtId === debt.id && t.status === 'completed');
-      const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
-      const isPaid = totalPaid >= debt.amount;
-      return {
-        ...debt,
-        status: isPaid ? 'paid' : debt.status,
-        totalPaid
-      };
-    });
+    const debts = await getDebtsByClientId(clientId);
+    const debtsWithPayments = await Promise.all(
+      debts.map(async (debt) => {
+        const payments = await getPaymentsByDebtId(debt.id);
+        const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
+        return { ...debt, payments, totalPaid, status: totalPaid >= debt.amount ? "paid" : debt.status };
+      })
+    );
     // Cuentas por cobrar
-    const receivables = mockDetailedReceivables.filter(r => r.clientId === clientId);
-    const receivablesWithPayments = receivables.map(rec => {
-      const payments = mockTransactions.filter(t => t.type === 'payment' && t.receivableId === rec.id && t.status === 'completed');
-      const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
-      const isPaid = totalPaid >= rec.amount;
-      return {
-        ...rec,
-        status: isPaid ? 'paid' : rec.status,
-        totalPaid
-      };
-    });
-    return {
-      debts: debtsWithPayments,
-      receivables: receivablesWithPayments
-    };
+    const receivables = await getReceivablesByClientId(clientId);
+    const receivablesWithPayments = await Promise.all(
+      receivables.map(async (rec) => {
+        const payments = await getPaymentsByReceivableId(rec.id);
+        const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
+        return { ...rec, payments, totalPaid, status: totalPaid >= rec.amount ? "paid" : rec.status };
+      })
+    );
+    return { debts: debtsWithPayments, receivables: receivablesWithPayments };
   };
+
+  // useEffect para cargar los resúmenes financieros de todos los clientes al cargar la lista
+  useEffect(() => {
+    if (clients.length === 0) return;
+    const fetchSummaries = async () => {
+      const summaries: Record<string, { debts: DebtWithPayments[]; receivables: ReceivableWithPayments[] }> = {};
+      await Promise.all(
+        clients.map(async (client) => {
+          summaries[client.id] = await loadClientFinancialSummary(client.id);
+        })
+      );
+      setFinancialSummaries(summaries);
+    };
+    fetchSummaries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clients]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -244,7 +265,7 @@ const Clients = () => {
               
               <div className="divide-y">
                 {filteredClients.map((client) => {
-                  const summary = getClientFinancialSummary(client.id);
+                  const summary = financialSummaries[client.id] || { debts: [], receivables: [] };
                   return (
                     <div key={client.id} className="grid grid-cols-1 md:grid-cols-12 p-4 items-center">
                       <div className="md:col-span-3 space-y-1">
