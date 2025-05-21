@@ -590,6 +590,7 @@ export type Database = {
           status: string | null;
           type: string | null;
           updated_at: string;
+          bank_account_id: string | null;
         };
         Insert: {
           amount: number;
@@ -612,6 +613,7 @@ export type Database = {
           status?: string | null;
           type?: string | null;
           updated_at: string;
+          bank_account_id?: string | null;
         };
         Update: {
           amount?: number;
@@ -634,6 +636,7 @@ export type Database = {
           status?: string | null;
           type?: string | null;
           updated_at?: string;
+          bank_account_id?: string | null;
         };
         Relationships: [
           {

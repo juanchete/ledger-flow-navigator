@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -9,7 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { ClientSelectionSection } from '../transaction/ClientSelectionSection';
 import { toast } from "sonner";
 import { v4 as uuidv4 } from 'uuid';
-import { mockClients } from '@/data/mockData';
+import { getClients } from '@/integrations/supabase/clientService';
+import { createTransaction } from '@/integrations/supabase/transactionService';
+import type { Client } from '@/integrations/supabase/clientService';
 
 interface Payment {
   id: string;
@@ -37,23 +38,61 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
   const [method, setMethod] = useState('credit_card');
   const [notes, setNotes] = useState('');
   const [selectedClient, setSelectedClient] = useState('');
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = () => {
-    const selectedClientData = mockClients.find(c => c.id === selectedClient);
-    
-    const newPayment: Payment = {
-      id: uuidv4(),
-      amount,
-      date: new Date(),
-      method,
-      notes,
-      clientId: selectedClient || undefined,
-      clientName: selectedClientData?.name,
-      clientType: selectedClientData?.clientType
+  useEffect(() => {
+    const fetchClients = async () => {
+      const data = await getClients();
+      setClients(data);
     };
-    
-    onPaymentAdded(newPayment);
-    resetForm();
+    fetchClients();
+  }, []);
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    const selectedClientData = clients.find(c => c.id === selectedClient);
+    try {
+      // Registrar el pago en Supabase
+      const newTx = await createTransaction({
+        id: uuidv4(),
+        amount,
+        date: new Date().toISOString(),
+        description: notes,
+        type: 'payment',
+        client_id: selectedClient || null,
+        payment_method: method,
+        status: 'completed',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        // Otros campos opcionales en null
+        category: null,
+        currency: null,
+        debt_id: null,
+        receivable_id: null,
+        indirect_for_client_id: null,
+        invoice: null,
+        notes,
+        receipt: null,
+        delivery_note: null,
+        exchange_rate_id: null,
+      });
+      // Llamar callback con el pago creado (adaptado al tipo Payment)
+      onPaymentAdded({
+        id: newTx.id,
+        amount: newTx.amount,
+        date: new Date(newTx.date),
+        method: newTx.payment_method || '',
+        notes: newTx.notes || '',
+        clientId: newTx.client_id || undefined,
+        clientName: selectedClientData?.name,
+        clientType: selectedClientData?.client_type as 'direct' | 'indirect',
+      });
+      resetForm();
+    } catch (e) {
+      toast.error('Error al registrar el pago');
+    }
+    setLoading(false);
   };
 
   const resetForm = () => {
@@ -105,7 +144,6 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
           <ClientSelectionSection 
             selectedClient={selectedClient}
             onClientChange={setSelectedClient}
-            clients={mockClients}
           />
           
           <div className="grid gap-2">
@@ -120,11 +158,11 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
         </div>
         
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={loading}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit}>
-            Registrar Pago
+          <Button onClick={handleSubmit} disabled={loading}>
+            {loading ? 'Registrando...' : 'Registrar Pago'}
           </Button>
         </DialogFooter>
       </DialogContent>

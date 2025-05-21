@@ -158,6 +158,21 @@ export const getPaymentsByReceivableId = async (
   return data || [];
 };
 
+/**
+ * Obtiene las transacciones asociadas a una cuenta bancaria específica.
+ */
+export const getTransactionsByBankAccountId = async (
+  bankAccountId: string
+): Promise<Transaction[]> => {
+  const { data, error } = await supabase
+    .from(TRANSACTIONS_TABLE)
+    .select("*")
+    .eq("bank_account_id", bankAccountId)
+    .order("date", { ascending: false });
+  if (error) throw error;
+  return data || [];
+};
+
 // TODO: Complex functions like getTransactionsByClientId, searchTransactions, filterTransactions
 // from the original transactionService object need to be refactored here
 // to work with Supabase types directly and be exported as individual functions if needed.

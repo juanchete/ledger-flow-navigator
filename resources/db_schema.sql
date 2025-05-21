@@ -83,11 +83,13 @@ CREATE TABLE transactions (
     receivable_id VARCHAR(64),
     exchange_rate_id INTEGER,
     currency VARCHAR(8),
+    bank_account_id VARCHAR(64),
     FOREIGN KEY (client_id) REFERENCES clients(id),
     FOREIGN KEY (indirect_for_client_id) REFERENCES clients(id),
     FOREIGN KEY (debt_id) REFERENCES debts(id),
     FOREIGN KEY (receivable_id) REFERENCES receivables(id),
-    FOREIGN KEY (exchange_rate_id) REFERENCES exchange_rates(id)
+    FOREIGN KEY (exchange_rate_id) REFERENCES exchange_rates(id),
+    FOREIGN KEY (bank_account_id) REFERENCES bank_accounts(id)
 );
 
 CREATE TABLE calendar_events (

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { mockBankAccounts } from "@/data/mockData";
+import { getBankAccounts } from "@/integrations/supabase/bankAccountService";
 import { TransactionTypeSection } from "./transaction/TransactionTypeSection";
 import { AmountInputSection } from "./transaction/AmountInputSection";
 import { ClientSelectionSection } from "./transaction/ClientSelectionSection";
@@ -36,9 +36,22 @@ export const TransactionForm = () => {
   const [notes, setNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
 
-  // Type assertion to inform TypeScript about the structure of mockBankAccounts
-  const bankAccounts = (mockBankAccounts || []) as BankAccount[];
+  useEffect(() => {
+    const fetchBankAccounts = async () => {
+      const data = await getBankAccounts();
+      setBankAccounts(
+        data.map(acc => ({
+          id: acc.id,
+          bank: acc.bank,
+          accountNumber: acc.account_number,
+          currency: acc.currency,
+        }))
+      );
+    };
+    fetchBankAccounts();
+  }, []);
 
   // Get unique banks for the bank selection dropdown
   const availableBanks = Array.from(
@@ -83,6 +96,7 @@ export const TransactionForm = () => {
         client_id: selectedClient || undefined,
         created_at: now,
         updated_at: now,
+        bank_account_id: selectedAccount || undefined,
       };
 
       // Enviar la transacción a la API
