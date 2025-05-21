@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Calendar as CalendarIcon } from "lucide-react";
@@ -10,132 +10,109 @@ import { es } from "date-fns/locale";
 import { cn, formatCurrency, formatDateEs } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { mockTransactions, mockDetailedDebts, mockDetailedReceivables, mockFinancialStats } from "@/data/mockData";
-
-// Mock data for historical account balances
-const mockHistoricalAccounts = [
-  {
-    date: new Date(2023, 9, 15), // October 15, 2023
-    accounts: [
-      { id: "1", bank: "Bank of America", accountNumber: "****1234", amount: 42000, currency: "USD" },
-      { id: "2", bank: "Chase", accountNumber: "****5678", amount: 18500, currency: "USD" },
-      { id: "3", bank: "Banco Mercantil", accountNumber: "****9012", amount: 1950000, currency: "VES" },
-      { id: "4", bank: "Banesco", accountNumber: "****3456", amount: 875000, currency: "VES" },
-    ]
-  },
-  {
-    date: new Date(2023, 10, 15), // November 15, 2023
-    accounts: [
-      { id: "1", bank: "Bank of America", accountNumber: "****1234", amount: 45000, currency: "USD" },
-      { id: "2", bank: "Chase", accountNumber: "****5678", amount: 20000, currency: "USD" },
-      { id: "3", bank: "Banco Mercantil", accountNumber: "****9012", amount: 2100000, currency: "VES" },
-      { id: "4", bank: "Banesco", accountNumber: "****3456", amount: 950000, currency: "VES" },
-    ]
-  },
-  {
-    date: new Date(2023, 11, 15), // December 15, 2023
-    accounts: [
-      { id: "1", bank: "Bank of America", accountNumber: "****1234", amount: 47500, currency: "USD" },
-      { id: "2", bank: "Chase", accountNumber: "****5678", amount: 22500, currency: "USD" },
-      { id: "3", bank: "Banco Mercantil", accountNumber: "****9012", amount: 2250000, currency: "VES" },
-      { id: "4", bank: "Banesco", accountNumber: "****3456", amount: 975000, currency: "VES" },
-    ]
-  },
-  {
-    date: new Date(2024, 0, 15), // January 15, 2024
-    accounts: [
-      { id: "1", bank: "Bank of America", accountNumber: "****1234", amount: 49000, currency: "USD" },
-      { id: "2", bank: "Chase", accountNumber: "****5678", amount: 23750, currency: "USD" },
-      { id: "3", bank: "Banco Mercantil", accountNumber: "****9012", amount: 2350000, currency: "VES" },
-      { id: "4", bank: "Banesco", accountNumber: "****3456", amount: 990000, currency: "VES" },
-    ]
-  },
-  {
-    date: new Date(2024, 1, 15), // February 15, 2024
-    accounts: [
-      { id: "1", bank: "Bank of America", accountNumber: "****1234", amount: 50000, currency: "USD" },
-      { id: "2", bank: "Chase", accountNumber: "****5678", amount: 25420.50, currency: "USD" },
-      { id: "3", bank: "Banco Mercantil", accountNumber: "****9012", amount: 2425750, currency: "VES" },
-      { id: "4", bank: "Banesco", accountNumber: "****3456", amount: 1000000, currency: "VES" },
-    ]
-  }
-];
-
-// Mock data for historical transactions
-const getHistoricalTransactions = (date: Date) => {
-  const weekBefore = new Date(date);
-  weekBefore.setDate(date.getDate() - 7);
-  
-  return mockTransactions.filter(t => {
-    const transDate = new Date(t.date);
-    return transDate >= weekBefore && transDate <= date;
-  });
-};
-
-// Mock data for historical debts and receivables
-const getHistoricalDebtsAndReceivables = (date: Date) => {
-  // Filter debts and receivables that were active on the selected date
-  return {
-    debts: mockDetailedDebts.map(debt => ({
-      ...debt,
-      // Simulate different status based on the date
-      status: new Date(debt.dueDate) <= date ? 
-        (Math.random() > 0.6 ? 'paid' : 'overdue') : 'pending'
-    })),
-    receivables: mockDetailedReceivables.map(receivable => ({
-      ...receivable,
-      // Simulate different status based on the date
-      status: new Date(receivable.dueDate) <= date ? 
-        (Math.random() > 0.4 ? 'paid' : 'overdue') : 'pending'
-    }))
-  };
-};
+import { getBankAccounts, BankAccount } from "@/integrations/supabase/bankAccountService";
+import { getTransactions, Transaction } from "@/integrations/supabase/transactionService";
+import { getDebts, Debt } from "@/integrations/supabase/debtService";
+import { getReceivables, Receivable } from "@/integrations/supabase/receivableService";
+import { getFinancialStats, FinancialStat } from "@/integrations/supabase/financialStatsService";
 
 const HistoricalBalance = () => {
-  const [date, setDate] = useState<Date | undefined>(mockHistoricalAccounts[mockHistoricalAccounts.length - 2].date);
+  const [date, setDate] = useState<Date>(new Date());
   const [view, setView] = useState<"summary" | "accounts" | "transactions" | "debtReceivables">("summary");
-  
-  // Get the closest historical data to the selected date
-  const getClosestHistoricalData = () => {
-    if (!date) return mockHistoricalAccounts[mockHistoricalAccounts.length - 1];
-    
-    return mockHistoricalAccounts.reduce((prev, curr) => {
-      return (Math.abs(curr.date.getTime() - date.getTime()) < Math.abs(prev.date.getTime() - date.getTime()))
-        ? curr
-        : prev;
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [debts, setDebts] = useState<Debt[]>([]);
+  const [receivables, setReceivables] = useState<Receivable[]>([]);
+  const [financialStats, setFinancialStats] = useState<FinancialStat[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      setLoading(true);
+      try {
+        const [bks, txs, dbts, recs, stats] = await Promise.all([
+          getBankAccounts(),
+          getTransactions(),
+          getDebts(),
+          getReceivables(),
+          getFinancialStats()
+        ]);
+        setBankAccounts(bks);
+        setTransactions(txs);
+        setDebts(dbts);
+        setReceivables(recs);
+        setFinancialStats(stats);
+      } catch (e) {
+        // Manejo de error
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAll();
+  }, []);
+
+  // 1. Saldos históricos de cuentas
+  const getHistoricalAccountBalances = () => {
+    return bankAccounts.map(account => {
+      // Suma todas las transacciones asociadas a la cuenta hasta la fecha seleccionada
+      const txs = transactions.filter(t => t.bank_account_id === account.id && new Date(t.date) <= date);
+      const saldo = txs.reduce((sum, t) => sum + (t.type === 'expense' || t.type === 'purchase' ? -t.amount : t.amount), account.amount);
+      return {
+        ...account,
+        amount: saldo
+      };
     });
   };
-  
-  const historicalData = getClosestHistoricalData();
-  const usdAccounts = historicalData.accounts.filter(acc => acc.currency === 'USD');
-  const vesAccounts = historicalData.accounts.filter(acc => acc.currency === 'VES');
-  const transactions = getHistoricalTransactions(historicalData.date);
-  const { debts, receivables } = getHistoricalDebtsAndReceivables(historicalData.date);
-  
-  // Calculate totals
+  const historicalAccounts = getHistoricalAccountBalances();
+  const usdAccounts = historicalAccounts.filter(acc => acc.currency === 'USD');
+  const vesAccounts = historicalAccounts.filter(acc => acc.currency === 'VES');
   const totalUSD = usdAccounts.reduce((sum, acc) => sum + acc.amount, 0);
   const totalVES = vesAccounts.reduce((sum, acc) => sum + acc.amount, 0);
-  
-  const paidDebts = debts.filter(d => d.status === 'paid');
-  const pendingDebts = debts.filter(d => d.status === 'pending');
-  const overdueDebts = debts.filter(d => d.status === 'overdue');
-  
-  const paidReceivables = receivables.filter(r => r.status === 'paid');
-  const pendingReceivables = receivables.filter(r => r.status === 'pending');
-  const overdueReceivables = receivables.filter(r => r.status === 'overdue');
-  
-  // Get historical financial stats
-  const getHistoricalFinancialStats = () => {
-    if (!date) return mockFinancialStats[mockFinancialStats.length - 1];
-    
-    return mockFinancialStats.reduce((prev, curr) => {
-      return (Math.abs(new Date(curr.date).getTime() - date.getTime()) < Math.abs(new Date(prev.date).getTime() - date.getTime()))
-        ? curr
-        : prev;
-    });
+
+  // 2. Transacciones históricas
+  const historicalTransactions = transactions.filter(t => new Date(t.date) <= date);
+
+  // 3. Deudas y cuentas por cobrar históricas
+  // Deudas activas a la fecha: creadas antes o igual a la fecha
+  const historicalDebts = debts.filter(d => new Date(d.due_date) <= date);
+  const historicalReceivables = receivables.filter(r => new Date(r.due_date) <= date);
+
+  // Estado de deudas/cobros según pagos y vencimiento a la fecha
+  const getDebtStatus = (debt: Debt) => {
+    const pagos = transactions.filter(t => t.debt_id === debt.id && new Date(t.date) <= date && t.type === 'payment' && t.status === 'completed');
+    const totalPagado = pagos.reduce((sum, t) => sum + t.amount, 0);
+    if (totalPagado >= debt.amount) return 'paid';
+    if (new Date(debt.due_date) < date) return 'overdue';
+    return 'pending';
   };
-  
-  const financialStats = getHistoricalFinancialStats();
+  const debtsWithStatus = historicalDebts.map(d => ({ ...d, status: getDebtStatus(d) }));
+
+  const getReceivableStatus = (rec: Receivable) => {
+    const pagos = transactions.filter(t => t.receivable_id === rec.id && new Date(t.date) <= date && t.type === 'payment' && t.status === 'completed');
+    const totalPagado = pagos.reduce((sum, t) => sum + t.amount, 0);
+    if (totalPagado >= rec.amount) return 'paid';
+    if (new Date(rec.due_date) < date) return 'overdue';
+    return 'pending';
+  };
+  const receivablesWithStatus = historicalReceivables.map(r => ({ ...r, status: getReceivableStatus(r) }));
+
+  // 4. Financial stats históricos: el más cercano anterior o igual a la fecha
+  const getClosestFinancialStat = () => {
+    if (financialStats.length === 0) return null;
+    let closest = financialStats[0];
+    let minDiff = Math.abs(new Date(closest.date).getTime() - date.getTime());
+    for (const stat of financialStats) {
+      const diff = Math.abs(new Date(stat.date).getTime() - date.getTime());
+      if (new Date(stat.date) <= date && diff < minDiff) {
+        closest = stat;
+        minDiff = diff;
+      }
+    }
+    return closest;
+  };
+  const stat = getClosestFinancialStat();
+
+  if (loading) return <div className="p-8 text-center">Cargando historial...</div>;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -185,21 +162,21 @@ const HistoricalBalance = () => {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Patrimonio Neto</CardTitle>
-                <CardDescription className="text-2xl font-bold">{formatCurrency(financialStats.netWorth)}</CardDescription>
+                <CardDescription className="text-2xl font-bold">{formatCurrency(stat?.net_worth || 0)}</CardDescription>
               </CardHeader>
             </Card>
             
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Cuentas por Cobrar</CardTitle>
-                <CardDescription className="text-2xl font-bold">{formatCurrency(financialStats.receivables)}</CardDescription>
+                <CardDescription className="text-2xl font-bold">{formatCurrency(stat?.receivables || 0)}</CardDescription>
               </CardHeader>
             </Card>
             
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Deudas</CardTitle>
-                <CardDescription className="text-2xl font-bold">{formatCurrency(financialStats.debts)}</CardDescription>
+                <CardDescription className="text-2xl font-bold">{formatCurrency(stat?.debts || 0)}</CardDescription>
               </CardHeader>
             </Card>
           </div>
@@ -244,7 +221,7 @@ const HistoricalBalance = () => {
                   {usdAccounts.map((account) => (
                     <TableRow key={account.id}>
                       <TableCell className="font-medium">{account.bank}</TableCell>
-                      <TableCell>{account.accountNumber}</TableCell>
+                      <TableCell>{account.account_number}</TableCell>
                       <TableCell className="text-right">{formatCurrency(account.amount)}</TableCell>
                     </TableRow>
                   ))}
@@ -275,7 +252,7 @@ const HistoricalBalance = () => {
                   {vesAccounts.map((account) => (
                     <TableRow key={account.id}>
                       <TableCell className="font-medium">{account.bank}</TableCell>
-                      <TableCell>{account.accountNumber}</TableCell>
+                      <TableCell>{account.account_number}</TableCell>
                       <TableCell className="text-right">Bs. {new Intl.NumberFormat('es-VE').format(account.amount)}</TableCell>
                     </TableRow>
                   ))}
@@ -298,9 +275,9 @@ const HistoricalBalance = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {transactions.length > 0 ? (
+              {historicalTransactions.length > 0 ? (
                 <div className="space-y-4">
-                  {transactions.map(transaction => (
+                  {historicalTransactions.map(transaction => (
                     <div key={transaction.id} className="border rounded-md p-4">
                       <div className="flex items-center justify-between mb-2">
                         <div>
@@ -354,30 +331,30 @@ const HistoricalBalance = () => {
                   <div className="grid grid-cols-3 gap-4">
                     <div className="border rounded-md p-3 text-center">
                       <p className="text-sm text-muted-foreground">Pagadas</p>
-                      <p className="text-lg font-bold text-green-600">{paidDebts.length}</p>
+                      <p className="text-lg font-bold text-green-600">{debtsWithStatus.filter(d => d.status === 'paid').length}</p>
                       <p className="text-sm font-bold">
-                        {formatCurrency(paidDebts.reduce((sum, d) => sum + d.amount, 0))}
+                        {formatCurrency(debtsWithStatus.filter(d => d.status === 'paid').reduce((sum, d) => sum + d.amount, 0))}
                       </p>
                     </div>
                     <div className="border rounded-md p-3 text-center">
                       <p className="text-sm text-muted-foreground">Pendientes</p>
-                      <p className="text-lg font-bold text-yellow-600">{pendingDebts.length}</p>
+                      <p className="text-lg font-bold text-yellow-600">{debtsWithStatus.filter(d => d.status === 'pending').length}</p>
                       <p className="text-sm font-bold">
-                        {formatCurrency(pendingDebts.reduce((sum, d) => sum + d.amount, 0))}
+                        {formatCurrency(debtsWithStatus.filter(d => d.status === 'pending').reduce((sum, d) => sum + d.amount, 0))}
                       </p>
                     </div>
                     <div className="border rounded-md p-3 text-center">
                       <p className="text-sm text-muted-foreground">Vencidas</p>
-                      <p className="text-lg font-bold text-red-600">{overdueDebts.length}</p>
+                      <p className="text-lg font-bold text-red-600">{debtsWithStatus.filter(d => d.status === 'overdue').length}</p>
                       <p className="text-sm font-bold">
-                        {formatCurrency(overdueDebts.reduce((sum, d) => sum + d.amount, 0))}
+                        {formatCurrency(debtsWithStatus.filter(d => d.status === 'overdue').reduce((sum, d) => sum + d.amount, 0))}
                       </p>
                     </div>
                   </div>
                   
                   <div className="space-y-2">
                     <h4 className="font-medium">Deudas recientes</h4>
-                    {debts.slice(0, 3).map(debt => (
+                    {debtsWithStatus.slice(0, 3).map(debt => (
                       <div key={debt.id} className="border rounded-md p-3">
                         <div className="flex justify-between">
                           <div>
@@ -396,7 +373,7 @@ const HistoricalBalance = () => {
                         <div className="mt-2 flex justify-between">
                           <p className="font-bold">{formatCurrency(debt.amount)}</p>
                           <p className="text-sm text-muted-foreground">
-                            Vence: {formatDateEs(debt.dueDate, 'dd/MM/yyyy')}
+                            Vence: {formatDateEs(debt.due_date, 'dd/MM/yyyy')}
                           </p>
                         </div>
                       </div>
@@ -416,35 +393,35 @@ const HistoricalBalance = () => {
                   <div className="grid grid-cols-3 gap-4">
                     <div className="border rounded-md p-3 text-center">
                       <p className="text-sm text-muted-foreground">Cobradas</p>
-                      <p className="text-lg font-bold text-green-600">{paidReceivables.length}</p>
+                      <p className="text-lg font-bold text-green-600">{receivablesWithStatus.filter(r => r.status === 'paid').length}</p>
                       <p className="text-sm font-bold">
-                        {formatCurrency(paidReceivables.reduce((sum, r) => sum + r.amount, 0))}
+                        {formatCurrency(receivablesWithStatus.filter(r => r.status === 'paid').reduce((sum, r) => sum + r.amount, 0))}
                       </p>
                     </div>
                     <div className="border rounded-md p-3 text-center">
                       <p className="text-sm text-muted-foreground">Pendientes</p>
-                      <p className="text-lg font-bold text-yellow-600">{pendingReceivables.length}</p>
+                      <p className="text-lg font-bold text-yellow-600">{receivablesWithStatus.filter(r => r.status === 'pending').length}</p>
                       <p className="text-sm font-bold">
-                        {formatCurrency(pendingReceivables.reduce((sum, r) => sum + r.amount, 0))}
+                        {formatCurrency(receivablesWithStatus.filter(r => r.status === 'pending').reduce((sum, r) => sum + r.amount, 0))}
                       </p>
                     </div>
                     <div className="border rounded-md p-3 text-center">
                       <p className="text-sm text-muted-foreground">Vencidas</p>
-                      <p className="text-lg font-bold text-red-600">{overdueReceivables.length}</p>
+                      <p className="text-lg font-bold text-red-600">{receivablesWithStatus.filter(r => r.status === 'overdue').length}</p>
                       <p className="text-sm font-bold">
-                        {formatCurrency(overdueReceivables.reduce((sum, r) => sum + r.amount, 0))}
+                        {formatCurrency(receivablesWithStatus.filter(r => r.status === 'overdue').reduce((sum, r) => sum + r.amount, 0))}
                       </p>
                     </div>
                   </div>
                   
                   <div className="space-y-2">
                     <h4 className="font-medium">Cuentas por cobrar recientes</h4>
-                    {receivables.slice(0, 3).map(receivable => (
+                    {receivablesWithStatus.slice(0, 3).map(receivable => (
                       <div key={receivable.id} className="border rounded-md p-3">
                         <div className="flex justify-between">
                           <div>
                             <p className="font-medium">{receivable.description}</p>
-                            <p className="text-sm text-muted-foreground">Cliente ID: {receivable.clientId}</p>
+                            <p className="text-sm text-muted-foreground">Cliente ID: {receivable.client_id}</p>
                           </div>
                           <Badge className={
                             receivable.status === 'paid' ? 'bg-green-500 text-white' :
@@ -458,7 +435,7 @@ const HistoricalBalance = () => {
                         <div className="mt-2 flex justify-between">
                           <p className="font-bold">{formatCurrency(receivable.amount)}</p>
                           <p className="text-sm text-muted-foreground">
-                            Vence: {formatDateEs(receivable.dueDate, 'dd/MM/yyyy')}
+                            Vence: {formatDateEs(receivable.due_date, 'dd/MM/yyyy')}
                           </p>
                         </div>
                       </div>

@@ -14,6 +14,8 @@ import { CalendarIcon, ChevronLeft, ChevronRight, PlusCircle, Search, Filter, X 
 import { cn, formatDateEs } from "@/lib/utils";
 import { EventCard } from "@/components/calendar/EventCard";
 import { EventForm } from "@/components/calendar/EventForm";
+import { getCalendarEvents, CalendarEvent as SupabaseCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from "@/integrations/supabase/calendarEventService";
+import { getClients, Client } from "@/integrations/supabase/clientService";
 
 interface CalendarEvent {
   id: string;
@@ -26,98 +28,6 @@ interface CalendarEvent {
   amount: number;
   currency: 'VES' | 'USD';
 }
-
-// Mock data for calendar events
-const mockCalendarEvents: CalendarEvent[] = [
-  {
-    id: "1",
-    title: "Pago a Pepe",
-    description: "Pago mensual por servicios de consultoría",
-    startDate: new Date(2025, 3, 30, 10, 0),
-    endDate: new Date(2025, 3, 30, 11, 0),
-    category: "payment",
-    completed: false,
-    amount: 500,
-    currency: "USD"
-  },
-  {
-    id: "2",
-    title: "Recibo de pago de María",
-    description: "Factura #123 por diseño gráfico",
-    startDate: new Date(2025, 3, 28, 14, 0),
-    endDate: new Date(2025, 3, 28, 15, 0),
-    category: "invoice",
-    completed: false,
-    amount: 350,
-    currency: "VES"
-  },
-  {
-    id: "3",
-    title: "Pago a Juan",
-    description: "Servicios de desarrollo web",
-    startDate: new Date(2025, 3, 29, 9, 0),
-    endDate: new Date(2025, 3, 29, 10, 30),
-    category: "payment",
-    completed: true,
-    amount: 750,
-    currency: "USD"
-  },
-  {
-    id: "4",
-    title: "Recibo de pago de Carlos",
-    description: "Proyecto de consultoría financiera",
-    startDate: new Date(2025, 3, 29, 13, 0),
-    endDate: new Date(2025, 3, 29, 14, 0),
-    category: "invoice",
-    completed: false,
-    amount: 1200,
-    currency: "VES"
-  },
-  {
-    id: "5",
-    title: "Reunión con proveedor",
-    description: "Discutir nuevos términos de contrato",
-    startDate: new Date(2025, 4, 2, 11, 0),
-    endDate: new Date(2025, 4, 2, 12, 0),
-    category: "meeting",
-    completed: false,
-    amount: 0,
-    currency: "USD"
-  },
-  {
-    id: "6",
-    title: "Pago a Ana",
-    description: "Servicios de traducción",
-    startDate: new Date(2025, 4, 3, 15, 30),
-    endDate: new Date(2025, 4, 3, 16, 0),
-    category: "payment",
-    completed: false,
-    amount: 250,
-    currency: "VES"
-  },
-  {
-    id: "7",
-    title: "Recibo de pago de Laura",
-    description: "Proyecto de marketing digital",
-    startDate: new Date(2025, 4, 4, 10, 0),
-    endDate: new Date(2025, 4, 4, 11, 0),
-    category: "invoice",
-    completed: false,
-    amount: 850,
-    currency: "USD"
-  },
-  {
-    id: "8",
-    title: "Entrega de informe",
-    description: "Informe mensual de finanzas",
-    startDate: new Date(2025, 4, 5, 9, 0),
-    endDate: new Date(2025, 4, 5, 10, 0),
-    category: "task",
-    completed: false,
-    amount: 0,
-    currency: "USD"
-  }
-];
 
 const Calendar = () => {
   const [date, setDate] = useState<Date>(new Date());
@@ -133,15 +43,45 @@ const Calendar = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [isEventDetailOpen, setIsEventDetailOpen] = useState(false);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isEditEventOpen, setIsEditEventOpen] = useState(false);
+  const [editEventData, setEditEventData] = useState<CalendarEvent | null>(null);
+  
+  // Definir fetchEvents fuera del useEffect para poder reutilizarla
+  const fetchEvents = async () => {
+    setLoading(true);
+    try {
+      const events = await getCalendarEvents();
+      setCalendarEvents(events.map(ev => ({
+        id: ev.id,
+        title: ev.title,
+        description: ev.description || '',
+        startDate: new Date(ev.start_date),
+        endDate: new Date(ev.end_date),
+        category: ev.category as CalendarEvent["category"],
+        completed: ev.completed,
+        amount: 0, // Si tienes un campo amount en la tabla, usa ev.amount
+        currency: 'USD', // Si tienes un campo currency en la tabla, usa ev.currency
+      })));
+    } catch (e) {
+      toast.error("Error al cargar eventos del calendario");
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchEvents();
+  }, []);
   
   const getEventsForDate = (date: Date) => {
-    return filteredEvents.filter(event => {
+    return calendarEvents.filter(event => {
       const eventDate = new Date(event.startDate);
       return isSameDay(eventDate, date);
     });
   };
   
-  const filteredEvents = mockCalendarEvents.filter(event => {
+  const filteredEvents = calendarEvents.filter(event => {
     const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           event.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter = filters[event.category as keyof typeof filters];
@@ -150,7 +90,9 @@ const Calendar = () => {
   
   const eventsForSelectedDate = date ? getEventsForDate(date) : [];
   
-  const handleAddEvent = () => {
+  const handleAddEvent = async () => {
+    await new Promise(r => setTimeout(r, 300)); // Espera breve para que Supabase procese
+    await fetchEvents();
     toast.success("Evento creado exitosamente!");
     setIsCreateEventOpen(false);
   };
@@ -217,6 +159,42 @@ const Calendar = () => {
       default: return 'Evento';
     }
   };
+
+  const handleEditEvent = (event: CalendarEvent) => {
+    setEditEventData(event);
+    setIsEditEventOpen(true);
+  };
+
+  const handleUpdateEvent = async (updated: Partial<CalendarEvent>) => {
+    if (!editEventData) return;
+    try {
+      await updateCalendarEvent(editEventData.id, {
+        ...updated,
+        start_date: updated.startDate?.toISOString() || editEventData.startDate.toISOString(),
+        end_date: updated.endDate?.toISOString() || editEventData.endDate.toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      toast.success("Evento actualizado");
+      setIsEditEventOpen(false);
+      setEditEventData(null);
+      await fetchEvents();
+    } catch (e) {
+      toast.error("Error al actualizar el evento");
+    }
+  };
+
+  const handleDeleteEvent = async (id: string) => {
+    try {
+      await deleteCalendarEvent(id);
+      toast.success("Evento eliminado");
+      setIsEventDetailOpen(false);
+      await fetchEvents();
+    } catch (e) {
+      toast.error("Error al eliminar el evento");
+    }
+  };
+
+  if (loading) return <div className="p-8 text-center">Cargando eventos...</div>;
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -524,11 +502,22 @@ const Calendar = () => {
               
               <div className="flex justify-end gap-2 pt-4">
                 <Button variant="outline" onClick={() => setIsEventDetailOpen(false)}>Cerrar</Button>
-                <Button>Editar</Button>
+                <Button onClick={() => handleEditEvent(selectedEvent)}>Editar</Button>
+                <Button variant="destructive" onClick={() => handleDeleteEvent(selectedEvent.id)}>Borrar</Button>
               </div>
             </div>
           </DialogContent>
         )}
+      </Dialog>
+      
+      <Dialog open={isEditEventOpen} onOpenChange={setIsEditEventOpen}>
+        <DialogContent className="sm:max-w-[550px]">
+          <EventForm
+            onSave={(data) => handleUpdateEvent(data)}
+            onCancel={() => setIsEditEventOpen(false)}
+            initialData={editEventData}
+          />
+        </DialogContent>
       </Dialog>
     </div>
   );
