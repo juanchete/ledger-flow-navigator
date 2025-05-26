@@ -11,11 +11,10 @@ import { DebtFormModal } from '@/components/debts/DebtFormModal';
 
 import { useDebts } from '../contexts/DebtContext';
 import { useTransactions } from '../context/TransactionContext';
-import { getClients } from '@/integrations/supabase/clientService';
+import { getClients, type Client as SupabaseClient } from '@/integrations/supabase/clientService';
 
 import type { Debt as SupabaseDebt } from '../integrations/supabase/debtService';
 import type { Transaction as SupabaseTransaction } from '../integrations/supabase/transactionService';
-import type { Client as SupabaseClient } from '../integrations/supabase/clientService';
 
 interface EnrichedDebt extends SupabaseDebt {
   totalPaid: number;
@@ -29,18 +28,18 @@ export interface EnrichedDebtForTable extends SupabaseDebt {
   totalPaid: number;
   calculatedStatus: string; 
   payments: SupabaseTransaction[];
-  primaryClient?: SupabaseClient & { name?: string };
-  payingClients?: (SupabaseClient & { name?: string })[];
+  primaryClient?: SupabaseClient;
+  payingClients?: SupabaseClient[];
   dueDate: Date;
 }
 
 const AllDebts: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("pending");
   const [dateRange, setDateRange] = useState<Date | undefined>(undefined);
   const [isDebtModalOpen, setIsDebtModalOpen] = useState(false);
   const [selectedDebt, setSelectedDebt] = useState<SupabaseDebt | undefined>(undefined);
-  const [clients, setClients] = useState<Array<{ id: string, name: string }>>([]);
+  const [clients, setClients] = useState<SupabaseClient[]>([]);
   const [loadingClients, setLoadingClients] = useState(false);
 
   const { debts: allDebtsFromContext, isLoading: isLoadingDebts, error: errorDebts, fetchDebts } = useDebts();
@@ -51,10 +50,7 @@ const AllDebts: React.FC = () => {
       setLoadingClients(true);
       try {
         const clientsData = await getClients();
-        setClients(clientsData.map(client => ({
-          id: client.id,
-          name: client.name
-        })));
+        setClients(clientsData);
       } catch (error) {
         console.error('Error loading clients:', error);
       } finally {
@@ -74,16 +70,22 @@ const AllDebts: React.FC = () => {
       const totalPaid = paymentsForDebt.reduce((sum, t) => sum + t.amount, 0);
       const calculatedStatus = totalPaid >= debt.amount ? 'paid' : debt.status;
 
+      // Buscar el cliente asociado a la deuda
+      const primaryClient = debt.client_id ? 
+        clients.find(client => client.id === debt.client_id) : 
+        undefined;
+
       return {
         ...debt,
         dueDate: new Date(debt.due_date || 0),
         totalPaid,
         calculatedStatus,
         payments: paymentsForDebt,
+        primaryClient,
         payingClients: [],
       };
     });
-  }, [allDebtsFromContext, allTransactionsFromContext]);
+  }, [allDebtsFromContext, allTransactionsFromContext, clients]);
 
   const filteredDebts = useMemo(() => {
     return enrichedDebts.filter((debt) => {
@@ -102,17 +104,23 @@ const AllDebts: React.FC = () => {
     });
   }, [enrichedDebts, searchQuery, statusFilter, dateRange]);
 
-  // Calculate totals from filteredDebts
+  // Calculate totals from filteredDebts (considering actual payments)
   const totalAmount = filteredDebts.reduce((sum, debt) => sum + debt.amount, 0);
   const pendingAmount = filteredDebts
     .filter(debt => debt.calculatedStatus === 'pending')
-    .reduce((sum, debt) => sum + debt.amount, 0);
+    .reduce((sum, debt) => {
+      const remainingAmount = Math.max(0, debt.amount - debt.totalPaid);
+      return sum + remainingAmount;
+    }, 0);
   const overdueAmount = filteredDebts
     .filter(debt => debt.calculatedStatus === 'overdue')
-    .reduce((sum, debt) => sum + debt.amount, 0);
+    .reduce((sum, debt) => {
+      const remainingAmount = Math.max(0, debt.amount - debt.totalPaid);
+      return sum + remainingAmount;
+    }, 0);
   const paidAmount = filteredDebts
     .filter(debt => debt.calculatedStatus === 'paid')
-    .reduce((sum, debt) => sum + debt.amount, 0);
+    .reduce((sum, debt) => sum + debt.totalPaid, 0);
 
   const formatDate = useCallback((dateString: string | null | undefined | Date): string => {
     if (!dateString) return 'N/A';
@@ -127,14 +135,14 @@ const AllDebts: React.FC = () => {
     }
   }, []);
 
-  const handleDebtClick = (debt: any) => {
+  const handleDebtClick = (debt: EnrichedDebtForTable) => {
     // Navigation will be handled by Link component in DebtTable
     console.log('Deuda seleccionada para detalle (desde AllDebts):', debt.id);
   };
 
   const clearFilters = () => {
     setSearchQuery("");
-    setStatusFilter("all");
+    setStatusFilter("pending");
     setDateRange(undefined);
   };
 
@@ -237,7 +245,7 @@ const AllDebts: React.FC = () => {
           isOpen={isDebtModalOpen}
           onClose={handleDebtModalClose}
           debt={selectedDebt}
-          clients={clients}
+          clients={clients.map(client => ({ id: client.id, name: client.name }))}
           onSuccess={handleDebtSuccess}
         />
       )}

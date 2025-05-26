@@ -1,38 +1,61 @@
 -- Esquema de base de datos para Ledger Flow Navigator
 -- Incluye soporte para deudas, cuentas por cobrar, comisiones, intereses y tasas de cambio
 
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Users table (extends Supabase auth.users)
+CREATE TABLE users (
+    id UUID PRIMARY KEY REFERENCES auth.users(id),
+    email VARCHAR(255) NOT NULL UNIQUE,
+    full_name VARCHAR(255),
+    avatar_url VARCHAR(255),
+    role VARCHAR(50) DEFAULT 'user',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Clients table
 CREATE TABLE clients (
     id VARCHAR(64) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255),
-    phone VARCHAR(50),
-    category VARCHAR(32) CHECK (category IN ('individual', 'company', 'non-profit', 'government')),
-    client_type VARCHAR(16) CHECK (client_type IN ('direct', 'indirect')),
-    identification_type VARCHAR(16),
-    identification_number VARCHAR(64),
-    identification_file_url VARCHAR(255),
-    active BOOLEAN NOT NULL,
-    address VARCHAR(255),
+    phone VARCHAR(20),
+    address TEXT,
     contact_person VARCHAR(255),
+    category VARCHAR(64),
+    client_type VARCHAR(32) CHECK (client_type IN ('individual', 'company')),
+    active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
-    alert_status VARCHAR(16) CHECK (alert_status IN ('none', 'yellow', 'red')),
+    identification_type VARCHAR(32),
+    identification_number VARCHAR(64),
+    identification_file_url VARCHAR(255),
+    alert_status VARCHAR(16) CHECK (alert_status IN ('green', 'yellow', 'red')),
     alert_note TEXT,
     related_to_client_id VARCHAR(64),
     FOREIGN KEY (related_to_client_id) REFERENCES clients(id)
 );
 
-CREATE TABLE documents (
+-- Bank accounts table
+CREATE TABLE bank_accounts (
     id VARCHAR(64) PRIMARY KEY,
-    client_id VARCHAR(64) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    type VARCHAR(32) NOT NULL,
-    url VARCHAR(255) NOT NULL,
-    uploaded_at TIMESTAMP NOT NULL,
-    size INTEGER,
-    FOREIGN KEY (client_id) REFERENCES clients(id)
+    bank VARCHAR(255) NOT NULL,
+    account_number VARCHAR(255) NOT NULL,
+    amount DECIMAL(18,2) NOT NULL DEFAULT 0,
+    currency VARCHAR(8) NOT NULL DEFAULT 'USD'
 );
 
+-- Exchange rates table
+CREATE TABLE exchange_rates (
+    id SERIAL PRIMARY KEY,
+    from_currency VARCHAR(8) NOT NULL,
+    to_currency VARCHAR(8) NOT NULL,
+    rate DECIMAL(10,6) NOT NULL,
+    date DATE NOT NULL
+);
+
+-- Debts table
 CREATE TABLE debts (
     id VARCHAR(64) PRIMARY KEY,
     creditor VARCHAR(255) NOT NULL,
@@ -45,9 +68,11 @@ CREATE TABLE debts (
     interest_rate DECIMAL(6,3),
     commission DECIMAL(18,2),
     currency VARCHAR(8),
+    installments INTEGER DEFAULT 1,
     FOREIGN KEY (client_id) REFERENCES clients(id)
 );
 
+-- Receivables table
 CREATE TABLE receivables (
     id VARCHAR(64) PRIMARY KEY,
     client_id VARCHAR(64) NOT NULL,
@@ -59,6 +84,7 @@ CREATE TABLE receivables (
     interest_rate DECIMAL(6,3),
     commission DECIMAL(18,2),
     currency VARCHAR(8),
+    installments INTEGER DEFAULT 1,
     FOREIGN KEY (client_id) REFERENCES clients(id)
 );
 
@@ -92,89 +118,77 @@ CREATE TABLE transactions (
     FOREIGN KEY (bank_account_id) REFERENCES bank_accounts(id)
 );
 
+-- Documents table
+CREATE TABLE documents (
+    id VARCHAR(64) PRIMARY KEY,
+    client_id VARCHAR(64) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(64) NOT NULL,
+    url VARCHAR(255) NOT NULL,
+    size INTEGER,
+    uploaded_at TIMESTAMP NOT NULL,
+    FOREIGN KEY (client_id) REFERENCES clients(id)
+);
+
+-- Calendar events table
 CREATE TABLE calendar_events (
     id VARCHAR(64) PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     description TEXT,
     start_date TIMESTAMP NOT NULL,
     end_date TIMESTAMP NOT NULL,
-    category VARCHAR(32) CHECK (category IN ('legal', 'banking', 'home', 'social', 'charity', 'other', 'meeting', 'deadline', 'reminder')),
+    category VARCHAR(64),
     client_id VARCHAR(64),
-    is_reminder BOOLEAN NOT NULL,
-    completed BOOLEAN NOT NULL,
+    is_reminder BOOLEAN DEFAULT FALSE,
     reminder_days INTEGER,
     location VARCHAR(255),
     location_url VARCHAR(255),
+    completed BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
     FOREIGN KEY (client_id) REFERENCES clients(id)
 );
 
-CREATE TABLE bank_accounts (
-    id VARCHAR(64) PRIMARY KEY,
-    bank VARCHAR(255) NOT NULL,
-    account_number VARCHAR(64) NOT NULL,
-    amount DECIMAL(18,2) NOT NULL,
-    currency VARCHAR(8) NOT NULL
+-- Notifications table
+CREATE TABLE notifications (
+    id SERIAL PRIMARY KEY,
+    user_id UUID,
+    client_id VARCHAR(64),
+    type VARCHAR(32),
+    title VARCHAR(255),
+    message TEXT,
+    read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (client_id) REFERENCES clients(id)
 );
 
+-- Financial stats table (for dashboard)
 CREATE TABLE financial_stats (
     id SERIAL PRIMARY KEY,
-    date TIMESTAMP NOT NULL,
+    date DATE NOT NULL,
     net_worth DECIMAL(18,2) NOT NULL,
     receivables DECIMAL(18,2) NOT NULL,
     debts DECIMAL(18,2) NOT NULL,
     expenses DECIMAL(18,2) NOT NULL
 );
 
+-- Expense stats table (for charts)
 CREATE TABLE expense_stats (
     id SERIAL PRIMARY KEY,
     category VARCHAR(64) NOT NULL,
     amount DECIMAL(18,2) NOT NULL,
-    percentage DECIMAL(6,2) NOT NULL,
-    color VARCHAR(16) NOT NULL
+    percentage DECIMAL(5,2) NOT NULL,
+    color VARCHAR(7) NOT NULL
 );
 
-CREATE TABLE exchange_rates (
-    id SERIAL PRIMARY KEY,
-    date TIMESTAMP NOT NULL,
-    from_currency VARCHAR(8) NOT NULL,
-    to_currency VARCHAR(8) NOT NULL,
-    rate DECIMAL(18,6) NOT NULL
-);
-
--- Tabla de usuarios (integración con Supabase Auth, solo info adicional y roles)
-CREATE TABLE users (
-    id VARCHAR(64) PRIMARY KEY, -- Debe coincidir con el user id de Supabase Auth
-    email VARCHAR(255) NOT NULL,
-    full_name VARCHAR(255),
-    avatar_url VARCHAR(255),
-    role VARCHAR(32) DEFAULT 'user', -- Ejemplo: 'admin', 'user', 'auditor', etc.
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-);
-
--- Tabla de notificaciones
-CREATE TABLE notifications (
-    id SERIAL PRIMARY KEY,
-    user_id VARCHAR(64), -- FK a users.id
-    client_id VARCHAR(64), -- FK a clients.id (opcional)
-    type VARCHAR(32), -- Ejemplo: 'alert', 'reminder', 'info'
-    title VARCHAR(255),
-    message TEXT,
-    read BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (client_id) REFERENCES clients(id)
-);
-
--- Tabla de auditoría para deudas
+-- Audit tables for tracking changes
 CREATE TABLE debts_audit (
     audit_id SERIAL PRIMARY KEY,
     debt_id VARCHAR(64),
-    action VARCHAR(16) CHECK (action IN ('INSERT', 'UPDATE', 'DELETE')),
-    changed_by VARCHAR(64), -- user_id de la tabla users
-    changed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    action VARCHAR(16),
+    changed_by VARCHAR(64),
+    changed_at TIMESTAMP DEFAULT NOW(),
     creditor VARCHAR(255),
     amount DECIMAL(18,2),
     due_date TIMESTAMP,
@@ -184,16 +198,16 @@ CREATE TABLE debts_audit (
     client_id VARCHAR(64),
     interest_rate DECIMAL(6,3),
     commission DECIMAL(18,2),
-    currency VARCHAR(8)
+    currency VARCHAR(8),
+    installments INTEGER
 );
 
--- Tabla de auditoría para cuentas por cobrar
 CREATE TABLE receivables_audit (
     audit_id SERIAL PRIMARY KEY,
     receivable_id VARCHAR(64),
-    action VARCHAR(16) CHECK (action IN ('INSERT', 'UPDATE', 'DELETE')),
+    action VARCHAR(16),
     changed_by VARCHAR(64),
-    changed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    changed_at TIMESTAMP DEFAULT NOW(),
     client_id VARCHAR(64),
     amount DECIMAL(18,2),
     due_date TIMESTAMP,
@@ -202,16 +216,16 @@ CREATE TABLE receivables_audit (
     notes TEXT,
     interest_rate DECIMAL(6,3),
     commission DECIMAL(18,2),
-    currency VARCHAR(8)
+    currency VARCHAR(8),
+    installments INTEGER
 );
 
--- Tabla de auditoría para transacciones
 CREATE TABLE transactions_audit (
     audit_id SERIAL PRIMARY KEY,
     transaction_id VARCHAR(64),
-    action VARCHAR(16) CHECK (action IN ('INSERT', 'UPDATE', 'DELETE')),
+    action VARCHAR(16),
     changed_by VARCHAR(64),
-    changed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    changed_at TIMESTAMP DEFAULT NOW(),
     type VARCHAR(32),
     amount DECIMAL(18,2),
     description TEXT,
@@ -233,13 +247,12 @@ CREATE TABLE transactions_audit (
     currency VARCHAR(8)
 );
 
--- Tabla de auditoría para notificaciones
 CREATE TABLE notifications_audit (
     audit_id SERIAL PRIMARY KEY,
     notification_id INTEGER,
-    action VARCHAR(16) CHECK (action IN ('INSERT', 'UPDATE', 'DELETE')),
+    action VARCHAR(16),
     changed_by VARCHAR(64),
-    changed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    changed_at TIMESTAMP DEFAULT NOW(),
     user_id VARCHAR(64),
     client_id VARCHAR(64),
     type VARCHAR(32),
@@ -247,4 +260,115 @@ CREATE TABLE notifications_audit (
     message TEXT,
     read BOOLEAN,
     created_at TIMESTAMP
-); 
+);
+
+-- Function to update bank account balance based on transaction
+CREATE OR REPLACE FUNCTION update_bank_account_balance()
+RETURNS TRIGGER AS $$
+DECLARE
+    balance_change DECIMAL(18,2) := 0;
+BEGIN
+    -- Handle INSERT (new transaction)
+    IF TG_OP = 'INSERT' THEN
+        IF NEW.bank_account_id IS NOT NULL AND NEW.type IS NOT NULL THEN
+            -- Determine balance change based on transaction type
+            CASE NEW.type
+                WHEN 'sale', 'payment', 'banking' THEN
+                    balance_change := NEW.amount;
+                WHEN 'purchase', 'expense' THEN
+                    balance_change := -NEW.amount;
+                WHEN 'balance-change' THEN
+                    balance_change := NEW.amount;
+                ELSE
+                    balance_change := 0;
+            END CASE;
+            
+            -- Update bank account balance
+            UPDATE bank_accounts 
+            SET amount = amount + balance_change 
+            WHERE id = NEW.bank_account_id;
+        END IF;
+        RETURN NEW;
+    END IF;
+    
+    -- Handle UPDATE (modified transaction)
+    IF TG_OP = 'UPDATE' THEN
+        -- Revert old transaction effect if it had a bank account
+        IF OLD.bank_account_id IS NOT NULL AND OLD.type IS NOT NULL THEN
+            CASE OLD.type
+                WHEN 'sale', 'payment', 'banking' THEN
+                    balance_change := -OLD.amount;
+                WHEN 'purchase', 'expense' THEN
+                    balance_change := OLD.amount;
+                WHEN 'balance-change' THEN
+                    balance_change := -OLD.amount;
+                ELSE
+                    balance_change := 0;
+            END CASE;
+            
+            UPDATE bank_accounts 
+            SET amount = amount + balance_change 
+            WHERE id = OLD.bank_account_id;
+        END IF;
+        
+        -- Apply new transaction effect if it has a bank account
+        IF NEW.bank_account_id IS NOT NULL AND NEW.type IS NOT NULL THEN
+            CASE NEW.type
+                WHEN 'sale', 'payment', 'banking' THEN
+                    balance_change := NEW.amount;
+                WHEN 'purchase', 'expense' THEN
+                    balance_change := -NEW.amount;
+                WHEN 'balance-change' THEN
+                    balance_change := NEW.amount;
+                ELSE
+                    balance_change := 0;
+            END CASE;
+            
+            UPDATE bank_accounts 
+            SET amount = amount + balance_change 
+            WHERE id = NEW.bank_account_id;
+        END IF;
+        RETURN NEW;
+    END IF;
+    
+    -- Handle DELETE (removed transaction)
+    IF TG_OP = 'DELETE' THEN
+        IF OLD.bank_account_id IS NOT NULL AND OLD.type IS NOT NULL THEN
+            -- Revert the transaction effect
+            CASE OLD.type
+                WHEN 'sale', 'payment', 'banking' THEN
+                    balance_change := -OLD.amount;
+                WHEN 'purchase', 'expense' THEN
+                    balance_change := OLD.amount;
+                WHEN 'balance-change' THEN
+                    balance_change := -OLD.amount;
+                ELSE
+                    balance_change := 0;
+            END CASE;
+            
+            UPDATE bank_accounts 
+            SET amount = amount + balance_change 
+            WHERE id = OLD.bank_account_id;
+        END IF;
+        RETURN OLD;
+    END IF;
+    
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger for bank account balance updates
+CREATE TRIGGER trigger_update_bank_account_balance
+    AFTER INSERT OR UPDATE OR DELETE ON transactions
+    FOR EACH ROW
+    EXECUTE FUNCTION update_bank_account_balance();
+
+-- Indexes for better performance
+CREATE INDEX idx_transactions_bank_account_id ON transactions(bank_account_id);
+CREATE INDEX idx_transactions_date ON transactions(date);
+CREATE INDEX idx_transactions_client_id ON transactions(client_id);
+CREATE INDEX idx_transactions_type ON transactions(type);
+CREATE INDEX idx_clients_active ON clients(active);
+CREATE INDEX idx_debts_status ON debts(status);
+CREATE INDEX idx_receivables_status ON receivables(status);
+CREATE INDEX idx_calendar_events_date ON calendar_events(start_date); 

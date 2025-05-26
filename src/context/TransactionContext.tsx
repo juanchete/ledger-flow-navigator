@@ -6,13 +6,15 @@ import {
   updateTransaction as apiUpdateTransaction,
   deleteTransaction as apiDeleteTransaction,
   getTransactionById as apiGetTransactionById,
-  // searchTransactions, // TODO: Refactor in service and add here if needed
-  // filterTransactions, // TODO: Refactor in service and add here if needed
+  searchTransactions as apiSearchTransactions,
+  filterTransactions as apiFilterTransactions,
   type Transaction, // Supabase based type
   type NewTransaction, // Supabase based type
-  type UpdatedTransaction // Supabase based type
+  type UpdatedTransaction, // Supabase based type
+  type TransactionFilter // Filter interface
 } from "../integrations/supabase/transactionService"; // Correct path
-// import type { Transaction } from "@/types"; // Old import
+import { useToast } from "@/components/ui/use-toast";
+
 
 interface TransactionContextType {
   transactions: Transaction[];
@@ -23,8 +25,8 @@ interface TransactionContextType {
   modifyTransaction: (id: string, updates: UpdatedTransaction) => Promise<Transaction | undefined>; // Use UpdatedTransaction
   removeTransaction: (id: string) => Promise<boolean>;
   fetchTransactionById: (id: string) => Promise<Transaction | null>;
-  // searchTransactions: (searchTerm: string) => Promise<Transaction[]>; // Temporarily remove
-  // filterTransactions: (filters: any) => Promise<Transaction[]>; // Temporarily remove, `any` was placeholder
+  searchTransactions: (searchTerm: string) => Promise<Transaction[]>;
+  filterTransactions: (filters: TransactionFilter) => Promise<Transaction[]>;
 }
 
 const TransactionContext = createContext<TransactionContextType | undefined>(undefined);
@@ -45,6 +47,7 @@ export const TransactionProvider: React.FC<TransactionProviderProps> = ({ childr
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const fetchTransactionsCallback = useCallback(async () => {
     setIsLoading(true);
@@ -128,8 +131,33 @@ export const TransactionProvider: React.FC<TransactionProviderProps> = ({ childr
     }
   };
 
-  // Temporarily removing search and filter functions from context value
-  // as they are not yet refactored in the service layer
+  const searchTransactions = async (searchTerm: string) => {
+    setIsLoading(true);
+    try {
+      const results = await apiSearchTransactions(searchTerm);
+      setIsLoading(false);
+      return results;
+    } catch (err) {
+      console.error("Error searching transactions:", err);
+      setError(err instanceof Error ? err.message : "Error desconocido al buscar transacciones");
+      setIsLoading(false);
+      return [];
+    }
+  };
+
+  const filterTransactions = async (filters: TransactionFilter) => {
+    setIsLoading(true);
+    try {
+      const results = await apiFilterTransactions(filters);
+      setIsLoading(false);
+      return results;
+    } catch (err) {
+      console.error("Error filtering transactions:", err);
+      setError(err instanceof Error ? err.message : "Error desconocido al filtrar transacciones");
+      setIsLoading(false);
+      return [];
+    }
+  };
 
   const value = {
     transactions,
@@ -140,8 +168,8 @@ export const TransactionProvider: React.FC<TransactionProviderProps> = ({ childr
     modifyTransaction,
     removeTransaction,
     fetchTransactionById,
-    // searchTransactions, 
-    // filterTransactions,
+    searchTransactions,
+    filterTransactions,
   };
 
   return (

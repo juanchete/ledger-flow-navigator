@@ -10,7 +10,10 @@ import { toast } from "sonner";
 import { v4 as uuidv4 } from 'uuid';
 import { getClients } from '@/integrations/supabase/clientService';
 import { createTransaction } from '@/integrations/supabase/transactionService';
+import { getBankAccounts } from '@/integrations/supabase/bankAccountService';
+import { useTransactions } from '@/context/TransactionContext';
 import type { Client } from '@/integrations/supabase/clientService';
+import type { BankAccount } from '@/integrations/supabase/bankAccountService';
 
 interface Payment {
   id: string;
@@ -27,29 +30,72 @@ interface PaymentFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onPaymentAdded: (payment: Payment) => void;
+  receivableId?: string; // ID de la cuenta por cobrar para asociar el pago
+  debtId?: string; // ID de la deuda para asociar el pago
+  defaultClientId?: string; // Cliente predeterminado
+  maxAmount?: number; // Monto máximo permitido (monto restante)
 }
 
 export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
   isOpen,
   onClose,
-  onPaymentAdded
+  onPaymentAdded,
+  receivableId,
+  debtId,
+  defaultClientId,
+  maxAmount
 }) => {
   const [amount, setAmount] = useState(100);
   const [method, setMethod] = useState('credit_card');
   const [notes, setNotes] = useState('');
   const [selectedClient, setSelectedClient] = useState('');
+  const [selectedBankAccount, setSelectedBankAccount] = useState('');
   const [clients, setClients] = useState<Client[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  // Usar el contexto de transacciones para actualizar automáticamente la lista
+  const { refetchTransactions } = useTransactions();
 
   useEffect(() => {
-    const fetchClients = async () => {
-      const data = await getClients();
-      setClients(data);
+    const fetchData = async () => {
+      const [clientsData, bankAccountsData] = await Promise.all([
+        getClients(),
+        getBankAccounts()
+      ]);
+      setClients(clientsData);
+      setBankAccounts(bankAccountsData);
     };
-    fetchClients();
+    fetchData();
   }, []);
 
+  // Establecer cliente predeterminado cuando se proporciona
+  useEffect(() => {
+    if (defaultClientId && isOpen) {
+      setSelectedClient(defaultClientId);
+    }
+  }, [defaultClientId, isOpen]);
+
+  // Establecer monto máximo cuando se proporciona
+  useEffect(() => {
+    if (maxAmount && isOpen) {
+      setAmount(Math.min(100, maxAmount));
+    }
+  }, [maxAmount, isOpen]);
+
   const handleSubmit = async () => {
+    // Validar monto máximo si se proporciona
+    if (maxAmount && amount > maxAmount) {
+      toast.error(`El monto no puede exceder ${maxAmount.toFixed(2)}`);
+      return;
+    }
+
+    // Validar que se haya seleccionado una cuenta bancaria
+    if (!selectedBankAccount) {
+      toast.error('Debe seleccionar una cuenta bancaria');
+      return;
+    }
+
     setLoading(true);
     const selectedClientData = clients.find(c => c.id === selectedClient);
     try {
@@ -58,18 +104,21 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
         id: uuidv4(),
         amount,
         date: new Date().toISOString(),
-        description: notes,
+        description: notes || `Pago ${receivableId ? 'para cuenta por cobrar' : debtId ? 'para deuda' : ''}`,
         type: 'payment',
         client_id: selectedClient || null,
         payment_method: method,
         status: 'completed',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        // Asociar con la cuenta por cobrar o deuda si se proporciona
+        receivable_id: receivableId || null,
+        debt_id: debtId || null,
+        // Asociar con la cuenta bancaria seleccionada
+        bank_account_id: selectedBankAccount,
         // Otros campos opcionales en null
         category: null,
         currency: null,
-        debt_id: null,
-        receivable_id: null,
         indirect_for_client_id: null,
         invoice: null,
         notes,
@@ -77,6 +126,7 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
         delivery_note: null,
         exchange_rate_id: null,
       });
+      
       // Llamar callback con el pago creado (adaptado al tipo Payment)
       onPaymentAdded({
         id: newTx.id,
@@ -88,18 +138,29 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
         clientName: selectedClientData?.name,
         clientType: selectedClientData?.client_type as 'direct' | 'indirect',
       });
+      
+      toast.success('Pago registrado exitosamente');
+      
+      // Actualizar el contexto de transacciones para refrescar automáticamente las listas
+      await refetchTransactions();
+      
       resetForm();
+      onClose();
     } catch (e) {
+      console.error('Error al registrar el pago:', e);
       toast.error('Error al registrar el pago');
     }
     setLoading(false);
   };
 
   const resetForm = () => {
-    setAmount(100);
+    setAmount(maxAmount ? Math.min(100, maxAmount) : 100);
     setMethod('credit_card');
     setNotes('');
-    setSelectedClient('');
+    setSelectedBankAccount('');
+    if (!defaultClientId) {
+      setSelectedClient('');
+    }
   };
 
   return (
@@ -111,7 +172,11 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
     }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Registrar Nuevo Pago</DialogTitle>
+          <DialogTitle>
+            {receivableId ? 'Registrar Pago para Cuenta por Cobrar' : 
+             debtId ? 'Registrar Pago para Deuda' : 
+             'Registrar Nuevo Pago'}
+          </DialogTitle>
         </DialogHeader>
         
         <div className="space-y-4">
@@ -120,9 +185,16 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
             <Input 
               id="amount"
               type="number" 
+              step="0.01"
               value={amount}
               onChange={(e) => setAmount(Number(e.target.value))}
+              max={maxAmount}
             />
+            {maxAmount && (
+              <p className="text-sm text-muted-foreground">
+                Monto máximo: {maxAmount.toFixed(2)}
+              </p>
+            )}
           </div>
           
           <div className="grid gap-2">
@@ -139,6 +211,30 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
                 <SelectItem value="check">Cheque</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="bankAccount">Cuenta Bancaria *</Label>
+            <Select value={selectedBankAccount} onValueChange={setSelectedBankAccount}>
+              <SelectTrigger id="bankAccount">
+                <SelectValue placeholder="Selecciona la cuenta donde se depositará" />
+              </SelectTrigger>
+              <SelectContent>
+                {bankAccounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id}>
+                    {account.bank} - {account.account_number} ({account.currency})
+                    <span className="ml-2 text-muted-foreground">
+                      Saldo: {account.currency === 'USD' 
+                        ? `$${account.amount.toLocaleString()}` 
+                        : `Bs. ${account.amount.toLocaleString()}`}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              El pago se depositará en la cuenta seleccionada y se actualizará automáticamente el saldo.
+            </p>
           </div>
           
           <ClientSelectionSection 

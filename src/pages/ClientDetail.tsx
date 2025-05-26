@@ -214,26 +214,26 @@ const ClientDetail = () => {
     .reduce((sum, t) => sum + t.amount, 0);
 
   // Mapeo de transacciones de Supabase a Transaction del frontend
-  function mapTransaction(t: Record<string, any>): Transaction {
+  function mapTransaction(t: SupabaseTransaction): Transaction {
     return {
       id: t.id,
-      type: t.type,
+      type: t.type as Transaction["type"],
       amount: t.amount,
-      description: t.description,
-      date: t.date,
-      clientId: t.client_id,
-      status: t.status,
-      receipt: t.receipt,
-      invoice: t.invoice,
-      deliveryNote: t.delivery_note,
-      paymentMethod: t.payment_method,
-      category: t.category,
-      notes: t.notes,
+      description: t.description || '',
+      date: t.date ? new Date(t.date) : new Date(),
+      clientId: t.client_id || undefined,
+      status: t.status as Transaction["status"],
+      receipt: t.receipt || undefined,
+      invoice: t.invoice || undefined,
+      deliveryNote: t.delivery_note || undefined,
+      paymentMethod: t.payment_method || undefined,
+      category: t.category || undefined,
+      notes: t.notes || undefined,
       createdAt: t.created_at ? new Date(t.created_at) : undefined,
       updatedAt: t.updated_at ? new Date(t.updated_at) : undefined,
-      indirectForClientId: t.indirect_for_client_id,
-      debtId: t.debt_id,
-      receivableId: t.receivable_id,
+      indirectForClientId: t.indirect_for_client_id || undefined,
+      debtId: t.debt_id || undefined,
+      receivableId: t.receivable_id || undefined,
     };
   }
 

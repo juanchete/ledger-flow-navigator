@@ -21,7 +21,12 @@ interface BankAccount {
   currency: string;
 }
 
-export const TransactionForm = () => {
+interface TransactionFormProps {
+  onSuccess?: () => void;
+  showCancelButton?: boolean;
+}
+
+export const TransactionForm = ({ onSuccess, showCancelButton = true }: TransactionFormProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { addTransaction } = useTransactions();
@@ -107,8 +112,14 @@ export const TransactionForm = () => {
           title: "¡Éxito!",
           description: "La transacción se ha creado correctamente.",
         });
-        // Navegar a la página de detalle de la transacción creada
-        navigate(`/operations/transaction/${result.id}`);
+        
+        // Si hay un callback onSuccess, ejecutarlo (para modales)
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          // Si no hay callback, navegar a la página de detalle (comportamiento por defecto)
+          navigate(`/operations/transaction/${result.id}`);
+        }
       } else {
         throw new Error("No se pudo crear la transacción");
       }
@@ -217,14 +228,16 @@ export const TransactionForm = () => {
       </div>
 
       <div className="flex justify-end gap-2">
-        <Button 
-          type="button" 
-          variant="outline" 
-          onClick={() => navigate("/operations")}
-          disabled={isSubmitting}
-        >
-          Cancelar
-        </Button>
+        {showCancelButton && (
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={() => onSuccess ? onSuccess() : navigate("/operations")}
+            disabled={isSubmitting}
+          >
+            Cancelar
+          </Button>
+        )}
         <Button 
           type="submit" 
           disabled={isSubmitting}

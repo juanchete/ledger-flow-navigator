@@ -6,14 +6,83 @@ import { format, subDays, subMonths, isWithinInterval, parseISO } from "date-fns
 import { FilterIcon, Download } from "lucide-react";
 import { toast } from "sonner";
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
-import { getFinancialStats, FinancialStat } from "@/integrations/supabase/financialStatsService";
-import { getExpenseStats, ExpenseStat } from "@/integrations/supabase/expenseStatsService";
 import { getTransactions, Transaction } from "@/integrations/supabase/transactionService";
+import { getDebts, Debt } from "@/integrations/supabase/debtService";
+import { getReceivables, Receivable } from "@/integrations/supabase/receivableService";
+import { getClients } from "@/integrations/supabase/clientService";
+
+// Interfaces para datos calculados
+interface CalculatedFinancialStat {
+  date: string;
+  net_worth: number;
+  receivables: number;
+  debts: number;
+}
+
+interface CalculatedExpenseStat {
+  category: string;
+  amount: number;
+  color: string;
+}
+
+// Función para calcular estadísticas financieras dinámicamente
+const calculateFinancialStats = (debts: Debt[], receivables: Receivable[], transactions: Transaction[]): CalculatedFinancialStat[] => {
+  const today = new Date();
+  const stats: CalculatedFinancialStat[] = [];
+  
+  // Generar estadísticas para los últimos 30 días
+  for (let i = 29; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    
+    // Calcular totales hasta esa fecha
+    const totalDebts = debts
+      .filter(debt => new Date(debt.due_date) <= date)
+      .reduce((sum, debt) => sum + (debt.status === 'pending' ? debt.amount : 0), 0);
+    
+    const totalReceivables = receivables
+      .filter(receivable => new Date(receivable.due_date) <= date)
+      .reduce((sum, receivable) => sum + (receivable.status === 'pending' ? receivable.amount : 0), 0);
+    
+    const netWorth = totalReceivables - totalDebts;
+    
+    stats.push({
+      date: date.toISOString(),
+      net_worth: netWorth,
+      receivables: totalReceivables,
+      debts: totalDebts
+    });
+  }
+  
+  return stats;
+};
+
+// Función para calcular estadísticas de gastos por categoría
+const calculateExpenseStats = (transactions: Transaction[]): CalculatedExpenseStat[] => {
+  const expensesByCategory: { [key: string]: number } = {};
+  
+  // Agrupar gastos por categoría
+  transactions
+    .filter(t => t.type === 'expense' || t.type === 'purchase')
+    .forEach(transaction => {
+      const category = transaction.category || 'Sin categoría';
+      expensesByCategory[category] = (expensesByCategory[category] || 0) + transaction.amount;
+    });
+  
+  // Colores para las categorías
+  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8'];
+  
+  return Object.entries(expensesByCategory).map(([category, amount], index) => ({
+    category,
+    amount,
+    color: colors[index % colors.length]
+  }));
+};
 
 const Statistics = () => {
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d' | '1y' | 'all'>('30d');
-  const [financialStats, setFinancialStats] = useState<FinancialStat[]>([]);
-  const [expenseStats, setExpenseStats] = useState<ExpenseStat[]>([]);
+  const [financialStats, setFinancialStats] = useState<CalculatedFinancialStat[]>([]);
+  const [expenseStats, setExpenseStats] = useState<CalculatedExpenseStat[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -21,16 +90,25 @@ const Statistics = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [fs, es, txs] = await Promise.all([
-          getFinancialStats(),
-          getExpenseStats(),
-          getTransactions()
+        const [debts, receivables, transactions, clients] = await Promise.all([
+          getDebts(),
+          getReceivables(),
+          getTransactions(),
+          getClients()
         ]);
-        setFinancialStats(fs);
-        setExpenseStats(es);
-        setTransactions(txs);
+
+        // Calcular estadísticas financieras dinámicamente
+        const calculatedFinancialStats = calculateFinancialStats(debts, receivables, transactions);
+        
+        // Calcular estadísticas de gastos dinámicamente
+        const calculatedExpenseStats = calculateExpenseStats(transactions);
+
+        setFinancialStats(calculatedFinancialStats);
+        setExpenseStats(calculatedExpenseStats);
+        setTransactions(transactions);
       } catch (e) {
-        // Manejo de error
+        console.error('Error cargando datos:', e);
+        toast.error('Error al cargar las estadísticas');
       } finally {
         setLoading(false);
       }

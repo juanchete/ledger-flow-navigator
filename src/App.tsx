@@ -25,6 +25,10 @@ import AllReceivables from "./pages/AllReceivables";
 import HistoricalBalance from "./pages/HistoricalBalance";
 import DebtDetail from "./pages/DebtDetail";
 import ReceivableDetail from "./pages/ReceivableDetail";
+import BankAccounts from "./pages/BankAccounts";
+import ExchangeRates from "./pages/ExchangeRates";
+import InterestCalculatorPage from "./pages/InterestCalculatorPage";
+import { TestFunctionality } from "./components/TestFunctionality";
 
 const queryClient = new QueryClient();
 
@@ -57,12 +61,16 @@ const App = () => (
                         <Settings />
                       </ProtectedRoute>
                     } />
+                    <Route path="/accounts" element={<BankAccounts />} />
                     <Route path="/accounts/:accountId" element={<AccountDetail />} />
                     <Route path="/all-debts" element={<AllDebts />} />
                     <Route path="/all-debts/:debtId" element={<DebtDetail />} />
                     <Route path="/all-receivables" element={<AllReceivables />} />
                     <Route path="/all-receivables/:receivableId" element={<ReceivableDetail />} />
                     <Route path="/historical-balance" element={<HistoricalBalance />} />
+                    <Route path="/exchange-rates" element={<ExchangeRates />} />
+                    <Route path="/interest-calculator" element={<InterestCalculatorPage />} />
+                    <Route path="/test-functionality" element={<TestFunctionality />} />
                   </Route>
                   <Route path="*" element={<NotFound />} />
                 </Routes>

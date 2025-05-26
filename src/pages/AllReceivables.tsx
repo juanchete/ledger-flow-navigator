@@ -13,7 +13,7 @@ import { DebtDetailsModal } from '@/components/operations/DebtDetailsModal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
-import { getReceivables } from "@/integrations/supabase/receivableService";
+import { getReceivables, type Receivable as SupabaseReceivableType } from "@/integrations/supabase/receivableService";
 import { getTransactions } from "@/integrations/supabase/transactionService";
 import { getClients } from '@/integrations/supabase/clientService';
 import { ReceivableFormModal } from '@/components/receivables/ReceivableFormModal';
@@ -28,6 +28,8 @@ interface Receivable {
   notes: string;
 }
 
+
+
 interface Transaction {
   id: string;
   type: string;
@@ -40,7 +42,7 @@ interface Transaction {
 
 const AllReceivables: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("pending");
   const [selectedReceivable, setSelectedReceivable] = useState<Receivable | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -49,7 +51,7 @@ const AllReceivables: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [clients, setClients] = useState<Array<{ id: string, name: string }>>([]);
   const [loading, setLoading] = useState(true);
-  const [editingReceivable, setEditingReceivable] = useState<any>(null);
+  const [editingReceivable, setEditingReceivable] = useState<SupabaseReceivableType | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -110,10 +112,18 @@ const AllReceivables: React.FC = () => {
     };
   });
 
+  // Función para obtener el nombre del cliente
+  const getClientName = (clientId: string) => {
+    const client = clients.find(c => c.id === clientId);
+    return client ? client.name : clientId;
+  };
+
   // Usar receivablesWithPayments en vez de receivables
   const filteredReceivables = receivablesWithPayments.filter((receivable) => {
+    const clientName = getClientName(receivable.clientId);
     const matchesSearch = receivable.description.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         receivable.clientId.toLowerCase().includes(searchQuery.toLowerCase());
+                         receivable.clientId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         clientName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || receivable.status === statusFilter;
     const matchesDate = !dateRange || 
                        new Date(receivable.dueDate).toDateString() === new Date(dateRange).toDateString();
@@ -123,18 +133,24 @@ const AllReceivables: React.FC = () => {
   // Calculate totals
   const totalAmount = filteredReceivables.reduce((sum, receivable) => sum + receivable.amount, 0);
   
-  // Calculate pending, overdue, and paid amounts
+  // Calculate pending, overdue, and paid amounts (considering actual payments)
   const pendingAmount = filteredReceivables
     .filter(receivable => receivable.status === 'pending')
-    .reduce((sum, receivable) => sum + receivable.amount, 0);
+    .reduce((sum, receivable) => {
+      const remainingAmount = Math.max(0, receivable.amount - receivable.totalPaid);
+      return sum + remainingAmount;
+    }, 0);
   
   const overdueAmount = filteredReceivables
     .filter(receivable => receivable.status === 'overdue')
-    .reduce((sum, receivable) => sum + receivable.amount, 0);
+    .reduce((sum, receivable) => {
+      const remainingAmount = Math.max(0, receivable.amount - receivable.totalPaid);
+      return sum + remainingAmount;
+    }, 0);
   
   const paidAmount = filteredReceivables
     .filter(receivable => receivable.status === 'paid')
-    .reduce((sum, receivable) => sum + receivable.amount, 0);
+    .reduce((sum, receivable) => sum + receivable.totalPaid, 0);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -168,7 +184,7 @@ const AllReceivables: React.FC = () => {
 
   const clearFilters = () => {
     setSearchQuery("");
-    setStatusFilter("all");
+    setStatusFilter("pending");
     setDateRange(undefined);
   };
 
@@ -177,16 +193,19 @@ const AllReceivables: React.FC = () => {
     setIsFormModalOpen(true);
   };
 
-  const handleEditReceivable = (receivable: any) => {
+  const handleEditReceivable = (receivable: Receivable) => {
     // Convert from our local format to Supabase format
-    const supabaseFormat = {
+    const supabaseFormat: SupabaseReceivableType = {
       id: receivable.id,
       client_id: receivable.clientId,
       amount: receivable.amount,
-      due_date: receivable.dueDate,
+      due_date: receivable.dueDate.toISOString(),
       status: receivable.status,
       description: receivable.description,
-      notes: receivable.notes
+      notes: receivable.notes,
+      commission: null,
+      currency: "USD",
+      interest_rate: null
     };
     setEditingReceivable(supabaseFormat);
     setIsFormModalOpen(true);
@@ -279,7 +298,7 @@ const AllReceivables: React.FC = () => {
             <div className="relative flex-grow">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por descripción o cliente..."
+                placeholder="Buscar por descripción o nombre de cliente..."
                 className="pl-8"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -333,8 +352,9 @@ const AllReceivables: React.FC = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Descripción</TableHead>
-                  <TableHead>Cliente ID</TableHead>
-                  <TableHead>Monto</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Monto Total</TableHead>
+                  <TableHead>Pagado</TableHead>
                   <TableHead>Fecha de Vencimiento</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
@@ -347,8 +367,36 @@ const AllReceivables: React.FC = () => {
                       <HoverCardTrigger asChild>
                         <TableRow>
                           <TableCell className="font-medium">{receivable.description}</TableCell>
-                          <TableCell>{receivable.clientId}</TableCell>
+                          <TableCell>{getClientName(receivable.clientId)}</TableCell>
                           <TableCell>{formatCurrency(receivable.amount)}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              {(() => {
+                                const paymentPercentage = receivable.amount > 0 ? (receivable.totalPaid / receivable.amount) * 100 : 0;
+                                let colorClass = "text-red-600"; // Rojo por defecto (0-24%)
+                                
+                                if (paymentPercentage >= 100) {
+                                  colorClass = "text-green-600"; // Verde (100%)
+                                } else if (paymentPercentage >= 25) {
+                                  colorClass = "text-yellow-600"; // Amarillo (25-99%)
+                                }
+                                
+                                return (
+                                  <span className={`font-medium ${colorClass}`}>
+                                    {formatCurrency(receivable.totalPaid)}
+                                    <span className="text-xs ml-1">
+                                      ({paymentPercentage.toFixed(1)}%)
+                                    </span>
+                                  </span>
+                                );
+                              })()}
+                              {receivable.totalPaid > 0 && receivable.totalPaid < receivable.amount && (
+                                <span className="text-xs text-muted-foreground">
+                                  Restante: {formatCurrency(Math.max(0, receivable.amount - receivable.totalPaid))}
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell>{formatDate(receivable.dueDate)}</TableCell>
                           <TableCell>
                             <Badge className={getStatusColor(receivable.status)}>
@@ -393,7 +441,7 @@ const AllReceivables: React.FC = () => {
                                   const row = (
                                     <li key={t.id} className="text-xs items-center border-b last:border-b-0 py-1 grid grid-cols-4 gap-1">
                                       <span className="col-span-1">{new Date(t.date).toLocaleDateString('es-ES')}</span>
-                                      <span className="col-span-1 truncate">{t.clientId ? t.clientId : 'Cliente'}</span>
+                                      <span className="col-span-1 truncate">{t.clientId ? getClientName(t.clientId) : 'Cliente'}</span>
                                       <span className="col-span-1 font-semibold text-right">{formatCurrency(t.amount)}</span>
                                       <span className="col-span-1 text-right text-gray-500">Antes: {formatCurrency(saldoAnterior)} <br/> Desp: {formatCurrency(Math.max(0, saldoAnterior - t.amount))}</span>
                                     </li>
@@ -412,7 +460,7 @@ const AllReceivables: React.FC = () => {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
                       No se encontraron cuentas por cobrar con los filtros aplicados
                     </TableCell>
                   </TableRow>

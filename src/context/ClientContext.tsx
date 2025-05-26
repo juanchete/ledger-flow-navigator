@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { clientService } from "@/integrations/supabase/clientService";
-import type { Client } from "@/types";
+import type { Client, Document } from "@/types";
 
 interface ClientContextType {
   clients: Client[];
@@ -26,15 +26,15 @@ export const ClientProvider = ({ children }: { children: ReactNode }) => {
         name: c.name as string,
         email: c.email as string,
         phone: c.phone as string,
-        category: c.category as string,
+        category: c.category as "individual" | "company" | "non-profit" | "government",
         clientType: c.client_type as 'direct' | 'indirect',
         active: c.active as boolean,
         address: c.address as string,
         contactPerson: c.contact_person as string,
-        documents: (c.documents as any[]) || [],
-        createdAt: c.created_at ? new Date(c.created_at as string) : undefined,
-        updatedAt: c.updated_at ? new Date(c.updated_at as string) : undefined,
-        alertStatus: (c.alert_status as string) || "none",
+        documents: (c.documents as Document[]) || [],
+        createdAt: c.created_at ? new Date(c.created_at as string) : new Date(),
+        updatedAt: c.updated_at ? new Date(c.updated_at as string) : new Date(),
+        alertStatus: (c.alert_status as "none" | "yellow" | "red") || "none",
         alertNote: (c.alert_note as string) || "",
         relatedToClientId: c.related_to_client_id as string,
       }));

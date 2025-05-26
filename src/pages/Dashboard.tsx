@@ -27,6 +27,8 @@ import { Transaction as SupabaseTransaction } from "@/integrations/supabase/tran
 import { Tables as SupabaseClient } from "@/integrations/supabase/types";
 import { Debt } from "@/integrations/supabase/debtService";
 import { Receivable } from "@/integrations/supabase/receivableService";
+import { useExchangeRates } from "@/hooks/useExchangeRates";
+import { ExchangeRateDisplay } from "@/components/ExchangeRateDisplay";
 
 // Defino el tipo para la UI
 interface BankAccountUI {
@@ -243,20 +245,35 @@ const Dashboard = () => {
     new Date(e.startDate) < new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
   );
 
-  // Estadísticas financieras simples
-  const totalDebts = debts.reduce((sum, d) => sum + Number(d.amount), 0);
-  const totalReceivables = receivables.reduce((sum, r) => sum + Number(r.amount), 0);
+  // Cálculos financieros corregidos
+  
+  // 1. Cuentas por Cobrar - Solo las pendientes (no pagadas)
+  const pendingReceivables = receivables.filter(r => 
+    r.status === 'pending' || r.status === 'overdue' || !r.status
+  );
+  const totalPendingReceivables = pendingReceivables.reduce((sum, r) => sum + Number(r.amount), 0);
 
-  // Balance por moneda (requiere cuentas bancarias)
+  // 2. Deudas - Solo las pendientes (no pagadas)
+  const pendingDebts = debts.filter(d => 
+    d.status === 'pending' || d.status === 'overdue' || !d.status
+  );
+  const totalPendingDebts = pendingDebts.reduce((sum, d) => sum + Number(d.amount), 0);
+
+  // 3. Balance por moneda - Total real en cuentas bancarias
   const usdAccounts = bankAccounts.filter((acc) => acc.currency === 'USD');
   const vesAccounts = bankAccounts.filter((acc) => acc.currency === 'VES');
   const totalUSD = usdAccounts.reduce((sum, acc) => sum + Number(acc.amount), 0);
   const totalVES = vesAccounts.reduce((sum, acc) => sum + Number(acc.amount), 0);
 
+  // 4. Patrimonio Neto - Total en todas las cuentas usando tasas de cambio dinámicas
+  const { rates: exchangeRates, convertVESToUSD } = useExchangeRates();
+  const totalVESInUSD = convertVESToUSD ? convertVESToUSD(totalVES, 'parallel') || 0 : 0;
+  const totalNetWorth = totalUSD + totalVESInUSD;
+
   const currentStats = {
-    netWorth: totalUSD + totalReceivables - totalDebts,
-    receivables: totalReceivables,
-    debts: totalDebts
+    netWorth: totalNetWorth,
+    receivables: totalPendingReceivables,
+    debts: totalPendingDebts
   };
 
   const formatDateForChart = (date: Date) => format(new Date(date), 'MMM d');
@@ -287,11 +304,10 @@ const Dashboard = () => {
                   Ingresa los detalles para tu nueva transacción.
                 </DialogDescription>
               </DialogHeader>
-              <TransactionForm />
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setOpenTransactionModal(false)}>Cancelar</Button>
-                <Button onClick={() => setOpenTransactionModal(false)}>Crear Transacción</Button>
-              </DialogFooter>
+              <TransactionForm 
+                onSuccess={() => setOpenTransactionModal(false)} 
+                showCancelButton={true}
+              />
             </DialogContent>
           </Dialog>
           <Button asChild variant="outline" size="sm">
@@ -310,65 +326,83 @@ const Dashboard = () => {
             <CardDescription className="text-2xl font-bold">{formatCurrency(currentStats.netWorth)}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center text-xs">
-              <span className={`inline-flex items-center ${currentStats.netWorth > 0 ? 'text-finance-green' : 'text-finance-red'}`}>
-                {currentStats.netWorth > 0 ? <ArrowUp size={14} className="mr-1" /> : <ArrowDown size={14} className="mr-1" />}
-                {Math.abs(Number(currentStats.netWorth))}%
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">
+                Total en todas las cuentas
               </span>
-              <span className="text-muted-foreground ml-2">vs mes anterior</span>
+              <div className="text-right">
+                <div className="text-xs text-muted-foreground">USD: {formatCurrency(totalUSD)}</div>
+                <div className="text-xs text-muted-foreground">VES: Bs. {new Intl.NumberFormat('es-VE').format(totalVES)}</div>
+                {exchangeRates && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Tasa: Bs. {exchangeRates.usd_to_ves_parallel.toFixed(2)}/USD
+                  </div>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Cuentas por Cobrar</CardTitle>
+            <CardTitle className="text-sm font-medium">Cuentas por Cobrar Pendientes</CardTitle>
             <CardDescription className="text-2xl font-bold">{formatCurrency(currentStats.receivables)}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center text-xs">
-              <span className={`inline-flex items-center ${currentStats.receivables > 0 ? 'text-finance-green' : 'text-finance-red'}`}>
-                {currentStats.receivables > 0 ? <ArrowUp size={14} className="mr-1" /> : <ArrowDown size={14} className="mr-1" />}
-                {Math.abs(Number(currentStats.receivables))}%
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">
+                {pendingReceivables.length} cuenta{pendingReceivables.length !== 1 ? 's' : ''} pendiente{pendingReceivables.length !== 1 ? 's' : ''}
               </span>
-              <span className="text-muted-foreground ml-2">vs mes anterior</span>
+              <Button variant="ghost" size="sm" asChild className="h-6 px-2 text-xs">
+                <Link to="/all-receivables">Ver todas</Link>
+              </Button>
             </div>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Deudas</CardTitle>
+            <CardTitle className="text-sm font-medium">Deudas Pendientes</CardTitle>
             <CardDescription className="text-2xl font-bold">{formatCurrency(currentStats.debts)}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center text-xs">
-              <span className={`inline-flex items-center ${currentStats.debts <= 0 ? 'text-finance-green' : 'text-finance-red'}`}>
-                {currentStats.debts <= 0 ? <ArrowDown size={14} className="mr-1" /> : <ArrowUp size={14} className="mr-1" />}
-                {Math.abs(Number(currentStats.debts))}%
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">
+                {pendingDebts.length} deuda{pendingDebts.length !== 1 ? 's' : ''} pendiente{pendingDebts.length !== 1 ? 's' : ''}
               </span>
-              <span className="text-muted-foreground ml-2">vs mes anterior</span>
+              <Button variant="ghost" size="sm" asChild className="h-6 px-2 text-xs">
+                <Link to="/all-debts">Ver todas</Link>
+              </Button>
             </div>
           </CardContent>
         </Card>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <ExchangeRateDisplay compact={false} showRefreshButton={true} />
+        
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Disponible en USD</CardTitle>
             <CardDescription className="text-2xl font-bold">
-              {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalUSD)}
+              {formatCurrency(totalUSD)}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center">
-                <DollarSign size={16} className="mr-2 text-finance-blue" />
-                <span>Balance total en dólares</span>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center">
+                  <DollarSign size={16} className="mr-2 text-finance-blue" />
+                  <span>{usdAccounts.length} cuenta{usdAccounts.length !== 1 ? 's' : ''} bancaria{usdAccounts.length !== 1 ? 's' : ''}</span>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setOpenModal('USD')}>
+                  Ver detalles
+                </Button>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setOpenModal('USD')}>
-                Ver detalles
-              </Button>
+              {usdAccounts.length > 0 && (
+                <div className="text-xs text-muted-foreground">
+                  Mayor saldo: {formatCurrency(Math.max(...usdAccounts.map(acc => acc.amount)))}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -381,14 +415,21 @@ const Dashboard = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center">
-                <Coins size={16} className="mr-2 text-finance-green" />
-                <span>Balance total en bolívares</span>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center">
+                  <Coins size={16} className="mr-2 text-finance-green" />
+                  <span>{vesAccounts.length} cuenta{vesAccounts.length !== 1 ? 's' : ''} bancaria{vesAccounts.length !== 1 ? 's' : ''}</span>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setOpenModal('VES')}>
+                  Ver detalles
+                </Button>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setOpenModal('VES')}>
-                Ver detalles
-              </Button>
+              {vesAccounts.length > 0 && (
+                <div className="text-xs text-muted-foreground">
+                  Mayor saldo: Bs. {new Intl.NumberFormat('es-VE').format(Math.max(...vesAccounts.map(acc => acc.amount)))}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

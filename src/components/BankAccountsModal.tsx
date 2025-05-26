@@ -30,8 +30,11 @@ export function BankAccountsModal({ isOpen, onClose, currency, accounts }: BankA
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>
-            Cuentas en {currency === "USD" ? "Dólares" : "Bolívares"}
+          <DialogTitle className="flex items-center justify-between">
+            <span>Cuentas en {currency === "USD" ? "Dólares" : "Bolívares"}</span>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/accounts">Gestionar Cuentas</Link>
+            </Button>
           </DialogTitle>
         </DialogHeader>
         <Table>

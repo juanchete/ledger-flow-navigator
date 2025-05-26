@@ -57,6 +57,39 @@ export interface Transaction {
   receivableId?: string;
 }
 
+export interface Debt {
+  id: string;
+  creditor: string;
+  amount: number;
+  dueDate: Date;
+  status: "pending" | "paid" | "overdue";
+  category?: string;
+  notes?: string;
+  clientId?: string;
+  interestRate?: number; // Tasa de interés anual en porcentaje
+  commission?: number;
+  currency?: string;
+  installments?: number; // Número de cuotas
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Receivable {
+  id: string;
+  clientId: string;
+  amount: number;
+  dueDate: Date;
+  status: "pending" | "paid" | "overdue";
+  description?: string;
+  notes?: string;
+  interestRate?: number; // Tasa de interés anual en porcentaje
+  commission?: number;
+  currency?: string;
+  installments?: number; // Número de cuotas
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface CalendarEvent {
   id: string;
   title: string;

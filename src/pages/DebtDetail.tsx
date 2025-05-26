@@ -12,6 +12,7 @@ import { getClientById } from "@/integrations/supabase/clientService";
 import { formatCurrency } from '@/lib/utils';
 import { StatusBadge } from "@/components/operations/common/StatusBadge";
 import { PaymentsList } from "@/components/operations/payments/PaymentsList";
+import { PaymentFormModal } from "@/components/operations/modals/PaymentFormModal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Debt } from "@/integrations/supabase/debtService";
 import type { Transaction } from "@/integrations/supabase/transactionService";
@@ -30,6 +31,7 @@ const DebtDetail = () => {
   const [loading, setLoading] = useState(true);
   const [primaryClient, setPrimaryClient] = useState<Client | null>(null);
   const [payingClients, setPayingClients] = useState<Client[]>([]);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   
   useEffect(() => {
     const fetchData = async () => {
@@ -100,6 +102,20 @@ const DebtDetail = () => {
   
   const formatDate = (date: Date) => {
     return format(new Date(date), 'dd/MM/yyyy');
+  };
+
+  const handlePaymentAdded = (newPayment: { id: string; amount: number; date: Date; method: string; clientId?: string; clientName?: string; clientType?: 'direct' | 'indirect'; notes?: string; }) => {
+    // Recargar los pagos desde la base de datos para mantener consistencia
+    const fetchPayments = async () => {
+      try {
+        const updatedPayments = await getPaymentsByDebtId(debtId!);
+        setPayments(updatedPayments);
+      } catch (error) {
+        console.error('Error al recargar pagos:', error);
+      }
+    };
+    fetchPayments();
+    setShowPaymentModal(false);
   };
   
   return (
@@ -234,10 +250,23 @@ const DebtDetail = () => {
         {/* Tarjeta de Pagos */}
         <Card className="col-span-1 lg:col-span-3">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText size={20} />
-              Historial de Pagos
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <FileText size={20} />
+                Historial de Pagos
+              </CardTitle>
+              {remainingAmount > 0 && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowPaymentModal(true)}
+                  className="flex items-center gap-1"
+                >
+                  <BadgeDollarSign size={16} />
+                  Registrar Pago
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {payments.length > 0 ? (
@@ -286,12 +315,28 @@ const DebtDetail = () => {
             ) : (
               <div className="text-center py-8">
                 <p className="text-muted-foreground">No hay pagos registrados para esta deuda.</p>
-                <Button variant="outline" className="mt-4">Registrar Pago</Button>
+                <Button 
+                  variant="outline" 
+                  className="mt-4"
+                  onClick={() => setShowPaymentModal(true)}
+                >
+                  Registrar Pago
+                </Button>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal de registro de pago */}
+      <PaymentFormModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        onPaymentAdded={handlePaymentAdded}
+        debtId={debtId}
+        defaultClientId={primaryClient?.id}
+        maxAmount={remainingAmount > 0 ? remainingAmount : undefined}
+      />
     </div>
   );
 };

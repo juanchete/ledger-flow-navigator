@@ -94,7 +94,32 @@ export const DebtTable: React.FC<DebtTableProps> = ({
                   {formatCurrency(debt.amount)}
                 </TableCell>
                 <TableCell className="text-right">
-                  {formatCurrency(debt.totalPaid || 0)}
+                  <div className="flex flex-col items-end">
+                    {(() => {
+                      const paymentPercentage = debt.amount > 0 ? ((debt.totalPaid || 0) / debt.amount) * 100 : 0;
+                      let colorClass = "text-red-600"; // Rojo por defecto (0-24%)
+                      
+                      if (paymentPercentage >= 100) {
+                        colorClass = "text-green-600"; // Verde (100%)
+                      } else if (paymentPercentage >= 25) {
+                        colorClass = "text-yellow-600"; // Amarillo (25-99%)
+                      }
+                      
+                      return (
+                        <span className={`font-medium ${colorClass}`}>
+                          {formatCurrency(debt.totalPaid || 0)}
+                          <span className="text-xs ml-1">
+                            ({paymentPercentage.toFixed(1)}%)
+                          </span>
+                        </span>
+                      );
+                    })()}
+                    {(debt.totalPaid || 0) > 0 && (debt.totalPaid || 0) < debt.amount && (
+                      <span className="text-xs text-muted-foreground">
+                        Restante: {formatCurrency(Math.max(0, debt.amount - (debt.totalPaid || 0)))}
+                      </span>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>{formatDate(debt.dueDate)}</TableCell>
                 <TableCell>

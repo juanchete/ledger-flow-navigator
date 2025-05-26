@@ -14,7 +14,15 @@ import { getBankAccounts, BankAccount } from "@/integrations/supabase/bankAccoun
 import { getTransactions, Transaction } from "@/integrations/supabase/transactionService";
 import { getDebts, Debt } from "@/integrations/supabase/debtService";
 import { getReceivables, Receivable } from "@/integrations/supabase/receivableService";
-import { getFinancialStats, FinancialStat } from "@/integrations/supabase/financialStatsService";
+import { getClients } from "@/integrations/supabase/clientService";
+
+// Interface para estadísticas calculadas dinámicamente
+interface CalculatedFinancialStat {
+  date: string;
+  net_worth: number;
+  receivables: number;
+  debts: number;
+}
 
 const HistoricalBalance = () => {
   const [date, setDate] = useState<Date>(new Date());
@@ -23,33 +31,83 @@ const HistoricalBalance = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
   const [receivables, setReceivables] = useState<Receivable[]>([]);
-  const [financialStats, setFinancialStats] = useState<FinancialStat[]>([]);
+  const [calculatedStats, setCalculatedStats] = useState<CalculatedFinancialStat | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Función para calcular estadísticas financieras para una fecha específica
+  const calculateFinancialStatsForDate = (
+    debts: Debt[], 
+    receivables: Receivable[], 
+    transactions: Transaction[], 
+    targetDate: Date
+  ): CalculatedFinancialStat => {
+    // Filtrar deudas y cuentas por cobrar que existían en la fecha objetivo
+    const relevantDebts = debts.filter(debt => new Date(debt.due_date) <= targetDate);
+    const relevantReceivables = receivables.filter(receivable => new Date(receivable.due_date) <= targetDate);
+    
+    // Calcular pagos realizados hasta la fecha objetivo
+    const paymentsUntilDate = transactions.filter(t => 
+      t.type === 'payment' && 
+      t.status === 'completed' && 
+      new Date(t.date) <= targetDate
+    );
+    
+    // Calcular deudas pendientes (descontando pagos)
+    let totalDebts = 0;
+    relevantDebts.forEach(debt => {
+      const debtPayments = paymentsUntilDate
+        .filter(p => p.debt_id === debt.id)
+        .reduce((sum, p) => sum + p.amount, 0);
+      const remainingDebt = Math.max(0, debt.amount - debtPayments);
+      totalDebts += remainingDebt;
+    });
+    
+    // Calcular cuentas por cobrar pendientes (descontando pagos recibidos)
+    let totalReceivables = 0;
+    relevantReceivables.forEach(receivable => {
+      const receivablePayments = paymentsUntilDate
+        .filter(p => p.receivable_id === receivable.id)
+        .reduce((sum, p) => sum + p.amount, 0);
+      const remainingReceivable = Math.max(0, receivable.amount - receivablePayments);
+      totalReceivables += remainingReceivable;
+    });
+    
+    const netWorth = totalReceivables - totalDebts;
+    
+    return {
+      date: targetDate.toISOString(),
+      net_worth: netWorth,
+      receivables: totalReceivables,
+      debts: totalDebts
+    };
+  };
 
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
       try {
-        const [bks, txs, dbts, recs, stats] = await Promise.all([
+        const [bks, txs, dbts, recs] = await Promise.all([
           getBankAccounts(),
           getTransactions(),
           getDebts(),
-          getReceivables(),
-          getFinancialStats()
+          getReceivables()
         ]);
         setBankAccounts(bks);
         setTransactions(txs);
         setDebts(dbts);
         setReceivables(recs);
-        setFinancialStats(stats);
+        
+        // Calcular estadísticas para la fecha seleccionada
+        const stats = calculateFinancialStatsForDate(dbts, recs, txs, date);
+        setCalculatedStats(stats);
       } catch (e) {
-        // Manejo de error
+        console.error('Error cargando datos:', e);
       } finally {
         setLoading(false);
       }
     };
     fetchAll();
-  }, []);
+  }, [date]); // Agregar date como dependencia para recalcular cuando cambie
 
   // 1. Saldos históricos de cuentas
   const getHistoricalAccountBalances = () => {
@@ -96,21 +154,8 @@ const HistoricalBalance = () => {
   };
   const receivablesWithStatus = historicalReceivables.map(r => ({ ...r, status: getReceivableStatus(r) }));
 
-  // 4. Financial stats históricos: el más cercano anterior o igual a la fecha
-  const getClosestFinancialStat = () => {
-    if (financialStats.length === 0) return null;
-    let closest = financialStats[0];
-    let minDiff = Math.abs(new Date(closest.date).getTime() - date.getTime());
-    for (const stat of financialStats) {
-      const diff = Math.abs(new Date(stat.date).getTime() - date.getTime());
-      if (new Date(stat.date) <= date && diff < minDiff) {
-        closest = stat;
-        minDiff = diff;
-      }
-    }
-    return closest;
-  };
-  const stat = getClosestFinancialStat();
+  // 4. Estadísticas financieras calculadas para la fecha seleccionada
+  const stat = calculatedStats;
 
   if (loading) return <div className="p-8 text-center">Cargando historial...</div>;
 

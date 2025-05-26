@@ -41,6 +41,21 @@ const sidebarItems = [
     label: "Operaciones",
   },
   {
+    href: "/accounts",
+    icon: "creditCard",
+    label: "Cuentas Bancarias",
+  },
+  {
+    href: "/exchange-rates",
+    icon: "dollarSign",
+    label: "Tasas de Cambio",
+  },
+  {
+    href: "/interest-calculator",
+    icon: "calculator",
+    label: "Calculadora de Intereses",
+  },
+  {
     href: "/calendar",
     icon: "calendar",
     label: "Calendario",

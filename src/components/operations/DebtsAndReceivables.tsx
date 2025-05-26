@@ -11,7 +11,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { getReceivables } from "@/integrations/supabase/receivableService";
 import { getTransactions } from "@/integrations/supabase/transactionService";
 import { getDebts } from "@/integrations/supabase/debtService";
+import { getClients } from "@/integrations/supabase/clientService";
 import type { Tables } from "@/integrations/supabase/types";
+import type { Client } from "@/integrations/supabase/clientService";
 
 interface Debt {
   id: string;
@@ -21,6 +23,8 @@ interface Debt {
   status: string;
   category: string;
   notes: string;
+  clientId?: string;
+  clientName?: string;
 }
 
 interface Receivable {
@@ -37,6 +41,7 @@ interface Transaction {
   id: string;
   type: string;
   receivableId?: string;
+  debtId?: string;
   clientId?: string;
   amount: number;
   date: string | Date;
@@ -72,6 +77,7 @@ export const DebtsAndReceivables: React.FC = () => {
   const [receivables, setReceivables] = useState<Receivable[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
 
   const handleDebtClick = (debt: Debt) => {
@@ -94,44 +100,71 @@ export const DebtsAndReceivables: React.FC = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [receivablesData, transactionsData, debtsData] = await Promise.all([
+        const [receivablesData, transactionsData, debtsData, clientsData] = await Promise.all([
           getReceivables(),
           getTransactions(),
-          getDebts()
+          getDebts(),
+          getClients()
         ]);
-        setReceivables(
-          receivablesData.map((r: Tables<'receivables'>) => ({
+        
+        // Mapear transacciones primero
+        const mappedTransactions = transactionsData.map((t: Tables<'transactions'>) => ({
+          id: t.id,
+          type: t.type,
+          receivableId: t.receivable_id,
+          debtId: t.debt_id,
+          clientId: t.client_id,
+          amount: t.amount,
+          date: t.date,
+          status: t.status
+        }));
+        setTransactions(mappedTransactions);
+        
+        // Calcular estado real de receivables basado en pagos
+        const receivablesWithCalculatedStatus = receivablesData.map((r: Tables<'receivables'>) => {
+          const payments = mappedTransactions.filter(
+            t => t.type === 'payment' && t.receivableId === r.id && t.status === 'completed'
+          );
+          const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
+          const calculatedStatus = totalPaid >= r.amount ? 'paid' : (r.status || 'pending');
+          
+          return {
             id: r.id,
             clientId: r.client_id,
             amount: r.amount,
             dueDate: new Date(r.due_date),
-            status: r.status || 'pending',
+            status: calculatedStatus,
             description: r.description || '',
             notes: r.notes || ''
-          }))
-        );
-        setTransactions(
-          transactionsData.map((t: Tables<'transactions'>) => ({
-            id: t.id,
-            type: t.type,
-            receivableId: t.receivable_id,
-            clientId: t.client_id,
-            amount: t.amount,
-            date: t.date,
-            status: t.status
-          }))
-        );
-        setDebts(
-          debtsData.map((d: Tables<'debts'>) => ({
+          };
+        });
+        setReceivables(receivablesWithCalculatedStatus);
+        
+        setClients(clientsData);
+        
+        // Calcular estado real de deudas basado en pagos
+        const debtsWithCalculatedStatus = debtsData.map((d: Tables<'debts'>) => {
+          const client = clientsData.find(c => c.id === d.client_id);
+          const payments = mappedTransactions.filter(
+            t => t.type === 'payment' && t.debtId === d.id && t.status === 'completed'
+          );
+          const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
+          const calculatedStatus = totalPaid >= d.amount ? 'paid' : (d.status || 'pending');
+          
+          return {
             id: d.id,
             creditor: d.creditor,
             amount: d.amount,
             dueDate: new Date(d.due_date),
-            status: d.status || 'pending',
+            status: calculatedStatus,
             category: d.category || '',
-            notes: d.notes || ''
-          }))
-        );
+            notes: d.notes || '',
+            clientId: d.client_id || undefined,
+            clientName: client?.name || undefined
+          };
+        });
+        setDebts(debtsWithCalculatedStatus);
+        
       } catch (err) {
         console.error("Error al cargar datos de Supabase:", err);
       } finally {
@@ -151,7 +184,18 @@ export const DebtsAndReceivables: React.FC = () => {
           </div>
           <div className="flex items-center gap-2">
             <Badge className="bg-green-500 text-white px-4 py-1 text-base font-semibold rounded-full shadow-sm">
-              Total: {formatCurrency(receivables.reduce((sum, rec) => sum + rec.amount, 0))}
+              Total Pendiente: {formatCurrency(
+                receivables
+                  .filter(r => r.status === 'pending')
+                  .reduce((sum, rec) => {
+                    const payments = transactions.filter(
+                      t => t.type === 'payment' && t.receivableId === rec.id && t.status === 'completed'
+                    );
+                    const totalPaid = payments.reduce((paidSum, t) => paidSum + t.amount, 0);
+                    const remainingAmount = Math.max(0, rec.amount - totalPaid);
+                    return sum + remainingAmount;
+                  }, 0)
+              )}
             </Badge>
             <Button variant="outline" size="sm" asChild className="whitespace-nowrap">
               <Link to="/all-receivables">
@@ -163,11 +207,22 @@ export const DebtsAndReceivables: React.FC = () => {
         <CardContent>
           <div className="space-y-1">
             <TooltipProvider>
-              {receivables
-                .slice()
-                .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
-                .slice(0, 5)
-                .map((receivable: Receivable) => (
+              {(() => {
+                const pendingReceivables = receivables
+                  .filter(receivable => receivable.status === 'pending')
+                  .slice()
+                  .sort((a, b) => b.amount - a.amount)
+                  .slice(0, 5);
+                
+                if (pendingReceivables.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No hay cuentas por cobrar pendientes
+                    </div>
+                  );
+                }
+                
+                return pendingReceivables.map((receivable: Receivable) => (
                   <HoverCard key={receivable.id}>
                     <HoverCardTrigger asChild>
                       <div className="flex items-center justify-between py-2 px-3 border-b hover:bg-gray-50 cursor-pointer transition-colors rounded-sm">
@@ -232,7 +287,8 @@ export const DebtsAndReceivables: React.FC = () => {
                       </div>
                     </HoverCardContent>
                   </HoverCard>
-                ))}
+                ));
+              })()}
             </TooltipProvider>
           </div>
         </CardContent>
@@ -245,7 +301,18 @@ export const DebtsAndReceivables: React.FC = () => {
           </div>
           <div className="flex items-center gap-2">
             <Badge className="bg-red-500 text-white px-4 py-1 text-base font-semibold rounded-full shadow-sm">
-              Total: {formatCurrency(debts.reduce((sum, debt) => sum + debt.amount, 0))}
+              Total Pendiente: {formatCurrency(
+                debts
+                  .filter(d => d.status === 'pending')
+                  .reduce((sum, debt) => {
+                    const payments = transactions.filter(
+                      t => t.type === 'payment' && t.debtId === debt.id && t.status === 'completed'
+                    );
+                    const totalPaid = payments.reduce((paidSum, t) => paidSum + t.amount, 0);
+                    const remainingAmount = Math.max(0, debt.amount - totalPaid);
+                    return sum + remainingAmount;
+                  }, 0)
+              )}
             </Badge>
             <Button variant="outline" size="sm" asChild className="whitespace-nowrap">
               <Link to="/all-debts">
@@ -257,17 +324,28 @@ export const DebtsAndReceivables: React.FC = () => {
         <CardContent>
           <div className="space-y-1">
             <TooltipProvider>
-              {debts
-                .slice()
-                .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
-                .slice(0, 5)
-                .map((debt: Debt) => (
+              {(() => {
+                const pendingDebts = debts
+                  .filter(debt => debt.status === 'pending')
+                  .slice()
+                  .sort((a, b) => b.amount - a.amount)
+                  .slice(0, 5);
+                
+                if (pendingDebts.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No hay deudas pendientes
+                    </div>
+                  );
+                }
+                
+                return pendingDebts.map((debt: Debt) => (
                   <HoverCard key={debt.id}>
                     <HoverCardTrigger asChild>
                       <div className="flex items-center justify-between py-2 px-3 border-b hover:bg-gray-50 cursor-pointer transition-colors rounded-sm">
                         <div className="flex items-center gap-3">
                           <Badge className={`${getStatusColor(debt.status)} h-2 w-2 p-1 rounded-full`} />
-                          <span className="font-medium">{debt.creditor}</span>
+                          <span className="font-medium">{debt.clientName || 'Sin cliente'}</span>
                         </div>
                         <div className="flex items-center gap-4">
                           <span className="text-sm text-gray-500">{formatDate(debt.dueDate)}</span>
@@ -291,17 +369,17 @@ export const DebtsAndReceivables: React.FC = () => {
                     <HoverCardContent className="w-80 p-4">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <h4 className="font-semibold">{debt.creditor}</h4>
+                          <h4 className="font-semibold">{debt.clientName || 'Sin cliente'}</h4>
                           <Badge className={getStatusColor(debt.status)}>{debt.status}</Badge>
                         </div>
+                        {debt.creditor && (
+                          <p className="text-sm text-gray-600">Acreedor: {debt.creditor}</p>
+                        )}
                         <div className="mt-3">
                           <span className="font-semibold text-xs text-gray-700">Historial de pagos:</span>
                           {(() => {
-                            const isSupabaseTransaction = (t: Transaction | Tables<'transactions'>): t is Tables<'transactions'> => {
-                              return 'debt_id' in t;
-                            };
                             const pagos = transactions
-                              .filter(t => t.type === 'payment' && isSupabaseTransaction(t) && t.debt_id === debt.id)
+                              .filter(t => t.type === 'payment' && t.debtId === debt.id)
                               .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
                             let saldoAnterior = debt.amount;
                             if (pagos.length > 0) {
@@ -329,7 +407,8 @@ export const DebtsAndReceivables: React.FC = () => {
                       </div>
                     </HoverCardContent>
                   </HoverCard>
-                ))}
+                ));
+              })()}
             </TooltipProvider>
           </div>
         </CardContent>

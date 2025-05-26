@@ -9,6 +9,9 @@ import {
   Clock,
   ChevronDown,
   X,
+  CreditCard,
+  DollarSign,
+  Calculator,
   LucideIcon,
   LucideProps,
 } from "lucide-react";
@@ -27,6 +30,9 @@ type IconsType = {
   logo: LucideIcon;
   close: LucideIcon;
   chevronDown: LucideIcon;
+  creditCard: LucideIcon;
+  dollarSign: LucideIcon;
+  calculator: LucideIcon;
 };
 
 // Create a custom logo icon that matches the LucideIcon type
@@ -62,4 +68,7 @@ export const Icons: IconsType = {
   logo: LogoIcon,
   close: X,
   chevronDown: ChevronDown,
+  creditCard: CreditCard,
+  dollarSign: DollarSign,
+  calculator: Calculator,
 };

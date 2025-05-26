@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -25,6 +24,8 @@ const receivableSchema = z.object({
   status: z.enum(["pending", "overdue", "paid"], { required_error: "Estado es requerido" }).default("pending"),
   notes: z.string().optional(),
   currency: z.string().default("USD"),
+  interest_rate: z.coerce.number().min(0, "La tasa de interés debe ser positiva").max(100, "La tasa de interés no puede ser mayor a 100%").optional(),
+  installments: z.coerce.number().int().min(1, "El número de cuotas debe ser al menos 1").max(360, "El número de cuotas no puede ser mayor a 360").default(1),
 });
 
 type ReceivableFormValues = z.infer<typeof receivableSchema>;
@@ -57,6 +58,8 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
       status: (receivable?.status as "pending" | "overdue" | "paid") || "pending",
       notes: receivable?.notes || "",
       currency: receivable?.currency || "USD",
+      interest_rate: receivable?.interest_rate || undefined,
+      installments: receivable?.installments || 1,
     }
   });
 
@@ -70,6 +73,8 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
         status: (receivable.status as "pending" | "overdue" | "paid") || "pending",
         notes: receivable.notes || "",
         currency: receivable.currency || "USD",
+        interest_rate: receivable.interest_rate || undefined,
+        installments: receivable.installments || 1,
       });
     } else {
       form.reset({
@@ -80,6 +85,8 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
         status: "pending",
         notes: "",
         currency: "USD",
+        interest_rate: undefined,
+        installments: 1,
       });
     }
   }, [receivable, form]);
@@ -97,7 +104,9 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
           due_date: data.due_date.toISOString(),
           status: data.status,
           notes: data.notes,
-          currency: data.currency
+          currency: data.currency,
+          interest_rate: data.interest_rate || null,
+          installments: data.installments || 1
         };
         
         await updateReceivable(receivable.id, updatedData);
@@ -112,6 +121,8 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
           status: data.status,
           notes: data.notes,
           currency: data.currency,
+          interest_rate: data.interest_rate || null,
+          installments: data.installments || 1,
           id: crypto.randomUUID()
         };
         
@@ -176,6 +187,45 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
                   <FormLabel>Monto</FormLabel>
                   <FormControl>
                     <Input type="number" step="0.01" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="interest_rate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tasa de Interés Anual (%) - Opcional</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="number" 
+                      step="0.01" 
+                      placeholder="Ej: 12.5"
+                      {...field} 
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="installments"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Número de Cuotas</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="number" 
+                      min="1" 
+                      max="360"
+                      placeholder="1"
+                      {...field} 
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

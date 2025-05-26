@@ -5,23 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useTransactions } from "@/context/TransactionContext";
 import { useClients } from "@/context/ClientContext";
-import { Transaction, Client } from "@/types";
+import { type Transaction, type TransactionFilter } from "@/integrations/supabase/transactionService";
+import { Client } from "@/types";
 import { mockDetailedDebts, mockDetailedReceivables } from "@/data/mockData";
 
 interface TransactionsListProps {
   selectedType: string;
   searchQuery: string;
-}
-
-interface TransactionFilter {
-  type?: Transaction["type"];
-  status?: Transaction["status"];
-  clientId?: string;
-  startDate?: Date;
-  endDate?: Date;
-  minAmount?: number;
-  maxAmount?: number;
-  category?: string;
 }
 
 export const TransactionsList = ({ selectedType, searchQuery }: TransactionsListProps) => {
@@ -59,7 +49,7 @@ export const TransactionsList = ({ selectedType, searchQuery }: TransactionsList
           let results = await filterTransactions(filters);
           if (searchQuery) {
             results = results.filter(tx => 
-              tx.description.toLowerCase().includes(searchQuery.toLowerCase())
+              tx.description?.toLowerCase().includes(searchQuery.toLowerCase())
             );
           }
           
@@ -151,33 +141,33 @@ export const TransactionsList = ({ selectedType, searchQuery }: TransactionsList
           </div>
         ) : filteredTransactions.length > 0 ? (
           filteredTransactions.map((transaction) => {
-            const client = transaction.clientId ? clientsMap[transaction.clientId] : null;
+            const client = transaction.client_id ? clientsMap[transaction.client_id] : null;
             
             return (
               <div key={transaction.id} className="grid grid-cols-1 md:grid-cols-12 p-4 items-center">
                 <div className="md:col-span-1 mb-2 md:mb-0">
-                  <Badge className={getBadgeColor(transaction.type)}>
-                    {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
+                  <Badge className={getBadgeColor(transaction.type || '')}>
+                    {transaction.type ? transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1) : 'N/A'}
                   </Badge>
                 </div>
                 
                 <div className="md:col-span-4 mb-2 md:mb-0">
-                  <div className="font-medium">{transaction.description}</div>
+                  <div className="font-medium">{transaction.description || 'Sin descripción'}</div>
                   {client && (
                     <div className="text-sm text-muted-foreground">
                       Cliente: {client.name}
                     </div>
                   )}
-                  {transaction.type === 'payment' && transaction.debtId && (
-                    <span className="text-xs text-muted-foreground ml-2">Deuda: {mockDetailedDebts.find(d => d.id === transaction.debtId)?.creditor}</span>
+                  {transaction.type === 'payment' && transaction.debt_id && (
+                    <span className="text-xs text-muted-foreground ml-2">Deuda: {mockDetailedDebts.find(d => d.id === transaction.debt_id)?.creditor}</span>
                   )}
-                  {transaction.type === 'payment' && transaction.receivableId && (
-                    <span className="text-xs text-muted-foreground ml-2">Cuenta por Cobrar: {mockDetailedReceivables.find(r => r.id === transaction.receivableId)?.description}</span>
+                  {transaction.type === 'payment' && transaction.receivable_id && (
+                    <span className="text-xs text-muted-foreground ml-2">Cuenta por Cobrar: {mockDetailedReceivables.find(r => r.id === transaction.receivable_id)?.description}</span>
                   )}
                 </div>
                 
                 <div className="md:col-span-2 text-sm mb-2 md:mb-0">
-                  {format(new Date(transaction.date), 'MMM d, yyyy')}
+                  {transaction.date ? format(new Date(transaction.date), 'MMM d, yyyy') : 'Sin fecha'}
                 </div>
                 
                 <div className="md:col-span-2 font-medium mb-2 md:mb-0">
@@ -185,8 +175,8 @@ export const TransactionsList = ({ selectedType, searchQuery }: TransactionsList
                 </div>
                 
                 <div className="md:col-span-2 mb-2 md:mb-0">
-                  <Badge className={getStatusBadgeColor(transaction.status)}>
-                    {transaction.status}
+                  <Badge className={getStatusBadgeColor(transaction.status || '')}>
+                    {transaction.status || 'Sin estado'}
                   </Badge>
                 </div>
                 

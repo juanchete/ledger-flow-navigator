@@ -1,7 +1,13 @@
-
 import React from "react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+interface BankAccount {
+  id: string;
+  bank: string;
+  accountNumber: string;
+  currency: string;
+}
 
 interface BankAccountSectionProps {
   selectedBank: string;
@@ -9,7 +15,7 @@ interface BankAccountSectionProps {
   onBankChange: (bankId: string) => void;
   onAccountChange: (accountId: string) => void;
   availableBanks: string[];
-  bankAccounts: any[];
+  bankAccounts: BankAccount[];
 }
 
 export const BankAccountSection: React.FC<BankAccountSectionProps> = ({

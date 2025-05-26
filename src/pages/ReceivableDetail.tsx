@@ -9,10 +9,11 @@ import { format } from "date-fns";
 import { formatCurrency } from '@/lib/utils';
 import { StatusBadge } from "@/components/operations/common/StatusBadge";
 import { PaymentsList } from "@/components/operations/payments/PaymentsList";
+import { PaymentFormModal } from "@/components/operations/modals/PaymentFormModal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getReceivableById } from "@/integrations/supabase/receivableService";
-import { getTransactions } from "@/integrations/supabase/transactionService";
-import { getClients } from "@/integrations/supabase/clientService";
+import { getReceivableById, type Receivable as SupabaseReceivable } from "@/integrations/supabase/receivableService";
+import { getTransactions, type Transaction as SupabaseTransaction } from "@/integrations/supabase/transactionService";
+import { getClients, type Client as SupabaseClient } from "@/integrations/supabase/clientService";
 
 interface Receivable {
   id: string;
@@ -34,12 +35,17 @@ interface Transaction {
   status: string;
   clientName?: string;
   clientType?: string;
+  paymentMethod?: string;
+  notes?: string;
 }
 
 interface Client {
   id: string;
   name: string;
   clientType: string;
+  category?: string;
+  email?: string;
+  phone?: string;
 }
 
 const ReceivableDetail = () => {
@@ -48,6 +54,7 @@ const ReceivableDetail = () => {
   const [payments, setPayments] = useState<Transaction[]>([]);
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   
   useEffect(() => {
     const fetchData = async () => {
@@ -72,9 +79,9 @@ const ReceivableDetail = () => {
           setReceivable(mappedReceivable);
           // Pagos asociados
           const receivablePayments = transactionsData
-            .filter((t: any) => t.type === 'payment' && t.receivable_id === receivableData.id && t.status === 'completed')
-            .map((payment: any) => {
-              const client = payment.client_id ? clientsData.find((c: any) => c.id === payment.client_id) : null;
+            .filter((t: SupabaseTransaction) => t.type === 'payment' && t.receivable_id === receivableData.id && t.status === 'completed')
+            .map((payment: SupabaseTransaction) => {
+              const client = payment.client_id ? clientsData.find((c: SupabaseClient) => c.id === payment.client_id) : null;
               return {
                 id: payment.id,
                 type: payment.type,
@@ -89,7 +96,7 @@ const ReceivableDetail = () => {
             });
           setPayments(receivablePayments);
           // Cliente asociado
-          const associatedClient = clientsData.find((c: any) => c.id === receivableData.client_id);
+          const associatedClient = clientsData.find((c: SupabaseClient) => c.id === receivableData.client_id);
           if (associatedClient) {
             setClient({
               id: associatedClient.id,
@@ -137,6 +144,18 @@ const ReceivableDetail = () => {
   
   const formatDate = (date: Date) => {
     return format(new Date(date), 'dd/MM/yyyy');
+  };
+
+  const handlePaymentAdded = (newPayment: { id: string; amount: number; date: Date; method: string; clientId?: string; clientName?: string; clientType?: 'direct' | 'indirect'; notes?: string; }) => {
+    // Agregar el nuevo pago a la lista
+    const paymentWithDetails = {
+      ...newPayment,
+      receivableId: receivableId,
+      clientName: client?.name,
+      clientType: client?.clientType
+    };
+    setPayments(prev => [...prev, paymentWithDetails]);
+    setShowPaymentModal(false);
   };
   
   return (
@@ -248,10 +267,23 @@ const ReceivableDetail = () => {
         {/* Tarjeta de Pagos */}
         <Card className="col-span-1 lg:col-span-3">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText size={20} />
-              Historial de Pagos
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <FileText size={20} />
+                Historial de Pagos
+              </CardTitle>
+              {remainingAmount > 0 && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowPaymentModal(true)}
+                  className="flex items-center gap-1"
+                >
+                  <BadgeDollarSign size={16} />
+                  Registrar Pago
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {payments.length > 0 ? (
@@ -268,7 +300,7 @@ const ReceivableDetail = () => {
                 <TableBody>
                   {payments.map(payment => (
                     <TableRow key={payment.id}>
-                      <TableCell>{formatDate(payment.date)}</TableCell>
+                      <TableCell>{formatDate(new Date(payment.date))}</TableCell>
                       <TableCell className="font-medium">{formatCurrency(payment.amount)}</TableCell>
                       <TableCell>{payment.paymentMethod || 'No especificado'}</TableCell>
                       <TableCell>
@@ -300,12 +332,28 @@ const ReceivableDetail = () => {
             ) : (
               <div className="text-center py-8">
                 <p className="text-muted-foreground">No hay pagos registrados para esta cuenta por cobrar.</p>
-                <Button variant="outline" className="mt-4">Registrar Pago</Button>
+                <Button 
+                  variant="outline" 
+                  className="mt-4"
+                  onClick={() => setShowPaymentModal(true)}
+                >
+                  Registrar Pago
+                </Button>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal de registro de pago */}
+      <PaymentFormModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        onPaymentAdded={handlePaymentAdded}
+        receivableId={receivableId}
+        defaultClientId={receivable?.clientId}
+        maxAmount={remainingAmount > 0 ? remainingAmount : undefined}
+      />
     </div>
   );
 };

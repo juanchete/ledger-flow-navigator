@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -10,12 +10,14 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { format, isToday, parseISO, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth } from "date-fns";
 import { es } from "date-fns/locale";
-import { CalendarIcon, ChevronLeft, ChevronRight, PlusCircle, Search, Filter, X } from "lucide-react";
+import { CalendarIcon, ChevronLeft, ChevronRight, Search, Filter, X } from "lucide-react";
 import { cn, formatDateEs } from "@/lib/utils";
 import { EventCard } from "@/components/calendar/EventCard";
-import { EventForm } from "@/components/calendar/EventForm";
-import { getCalendarEvents, CalendarEvent as SupabaseCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from "@/integrations/supabase/calendarEventService";
+import { getCalendarEvents, CalendarEvent as SupabaseCalendarEvent, deleteCalendarEvent } from "@/integrations/supabase/calendarEventService";
 import { getClients, Client } from "@/integrations/supabase/clientService";
+import { getDebts } from "@/integrations/supabase/debtService";
+import { getReceivables } from "@/integrations/supabase/receivableService";
+import { getTransactions } from "@/integrations/supabase/transactionService";
 
 interface CalendarEvent {
   id: string;
@@ -32,7 +34,6 @@ interface CalendarEvent {
 const Calendar = () => {
   const [date, setDate] = useState<Date>(new Date());
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
-  const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState({
     payment: true,
@@ -45,15 +46,104 @@ const Calendar = () => {
   const [isEventDetailOpen, setIsEventDetailOpen] = useState(false);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isEditEventOpen, setIsEditEventOpen] = useState(false);
-  const [editEventData, setEditEventData] = useState<CalendarEvent | null>(null);
   
+  // Función para generar eventos automáticos desde datos financieros
+  const generateFinancialEvents = async () => {
+    try {
+      const [debts, receivables, transactions, clients] = await Promise.all([
+        getDebts(),
+        getReceivables(),
+        getTransactions(),
+        getClients()
+      ]);
+
+      const financialEvents: CalendarEvent[] = [];
+
+      // Generar eventos para vencimientos de deudas
+      debts.forEach(debt => {
+        if (debt.status === 'pending' && debt.due_date) {
+          const client = clients.find(c => c.id === debt.client_id);
+          financialEvents.push({
+            id: `debt-${debt.id}`,
+            title: `Vencimiento: ${client?.name || 'Deuda'}`,
+            description: `Deuda por ${debt.amount} - ${debt.creditor || 'Sin acreedor'}`,
+            startDate: new Date(debt.due_date),
+            endDate: new Date(debt.due_date),
+            category: 'payment',
+            completed: false,
+            amount: debt.amount,
+            currency: 'USD' as const
+          });
+        }
+      });
+
+      // Generar eventos para vencimientos de cuentas por cobrar
+      receivables.forEach(receivable => {
+        if (receivable.status === 'pending' && receivable.due_date) {
+          const client = clients.find(c => c.id === receivable.client_id);
+          financialEvents.push({
+            id: `receivable-${receivable.id}`,
+            title: `Cobrar: ${client?.name || 'Cliente'}`,
+            description: `Cuenta por cobrar: ${receivable.description || 'Sin descripción'}`,
+            startDate: new Date(receivable.due_date),
+            endDate: new Date(receivable.due_date),
+            category: 'invoice',
+            completed: false,
+            amount: receivable.amount,
+            currency: 'USD' as const
+          });
+        }
+      });
+
+      // Generar eventos para pagos realizados
+      transactions.forEach(transaction => {
+        if (transaction.type === 'payment' && transaction.status === 'completed') {
+          const client = clients.find(c => c.id === transaction.client_id);
+          const isDebtPayment = transaction.debt_id;
+          const isReceivablePayment = transaction.receivable_id;
+          
+          let title = 'Pago Realizado';
+          let description = `Pago de ${transaction.amount}`;
+          
+          if (isDebtPayment) {
+            title = `Pago de Deuda - ${client?.name || 'Cliente'}`;
+            description = `Pago realizado por ${transaction.amount} para deuda`;
+          } else if (isReceivablePayment) {
+            title = `Pago Recibido - ${client?.name || 'Cliente'}`;
+            description = `Pago recibido de ${transaction.amount}`;
+          }
+
+          financialEvents.push({
+            id: `payment-${transaction.id}`,
+            title,
+            description: `${description} - ${transaction.payment_method || 'Método no especificado'}`,
+            startDate: new Date(transaction.date),
+            endDate: new Date(transaction.date),
+            category: 'payment',
+            completed: true,
+            amount: transaction.amount,
+            currency: 'USD' as const
+          });
+        }
+      });
+
+      return financialEvents;
+    } catch (e) {
+      console.error('Error generando eventos financieros:', e);
+      return [];
+    }
+  };
+
   // Definir fetchEvents fuera del useEffect para poder reutilizarla
   const fetchEvents = async () => {
     setLoading(true);
     try {
-      const events = await getCalendarEvents();
-      setCalendarEvents(events.map(ev => ({
+      const [manualEvents, financialEvents] = await Promise.all([
+        getCalendarEvents(),
+        generateFinancialEvents()
+      ]);
+
+      const manualCalendarEvents = manualEvents.map(ev => ({
         id: ev.id,
         title: ev.title,
         description: ev.description || '',
@@ -62,8 +152,11 @@ const Calendar = () => {
         category: ev.category as CalendarEvent["category"],
         completed: ev.completed,
         amount: 0, // Si tienes un campo amount en la tabla, usa ev.amount
-        currency: 'USD', // Si tienes un campo currency en la tabla, usa ev.currency
-      })));
+        currency: 'USD' as const, // Si tienes un campo currency en la tabla, usa ev.currency
+      }));
+
+      // Combinar eventos manuales con eventos financieros automáticos
+      setCalendarEvents([...manualCalendarEvents, ...financialEvents]);
     } catch (e) {
       toast.error("Error al cargar eventos del calendario");
     }
@@ -90,12 +183,7 @@ const Calendar = () => {
   
   const eventsForSelectedDate = date ? getEventsForDate(date) : [];
   
-  const handleAddEvent = async () => {
-    await new Promise(r => setTimeout(r, 300)); // Espera breve para que Supabase procese
-    await fetchEvents();
-    toast.success("Evento creado exitosamente!");
-    setIsCreateEventOpen(false);
-  };
+
 
   const changeMonth = (direction: 'previous' | 'next') => {
     const newDate = new Date(date);
@@ -160,28 +248,7 @@ const Calendar = () => {
     }
   };
 
-  const handleEditEvent = (event: CalendarEvent) => {
-    setEditEventData(event);
-    setIsEditEventOpen(true);
-  };
 
-  const handleUpdateEvent = async (updated: Partial<CalendarEvent>) => {
-    if (!editEventData) return;
-    try {
-      await updateCalendarEvent(editEventData.id, {
-        ...updated,
-        start_date: updated.startDate?.toISOString() || editEventData.startDate.toISOString(),
-        end_date: updated.endDate?.toISOString() || editEventData.endDate.toISOString(),
-        updated_at: new Date().toISOString(),
-      });
-      toast.success("Evento actualizado");
-      setIsEditEventOpen(false);
-      setEditEventData(null);
-      await fetchEvents();
-    } catch (e) {
-      toast.error("Error al actualizar el evento");
-    }
-  };
 
   const handleDeleteEvent = async (id: string) => {
     try {
@@ -244,21 +311,7 @@ const Calendar = () => {
             <Filter size={18} />
           </Button>
           
-          <Dialog open={isCreateEventOpen} onOpenChange={setIsCreateEventOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <PlusCircle size={18} className="mr-2" />
-                Evento
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[550px]">
-              <EventForm 
-                onSave={handleAddEvent}
-                onCancel={() => setIsCreateEventOpen(false)}
-                selectedDate={date}
-              />
-            </DialogContent>
-          </Dialog>
+
         </div>
       </div>
       
@@ -432,14 +485,6 @@ const Calendar = () => {
               ) : (
                 <div className="text-center py-12">
                   <p className="text-muted-foreground">No hay eventos para este día.</p>
-                  <Button 
-                    variant="outline" 
-                    className="mt-4"
-                    onClick={() => setIsCreateEventOpen(true)}
-                  >
-                    <PlusCircle size={16} className="mr-2" />
-                    Añadir Evento
-                  </Button>
                 </div>
               )}
             </div>
@@ -502,23 +547,19 @@ const Calendar = () => {
               
               <div className="flex justify-end gap-2 pt-4">
                 <Button variant="outline" onClick={() => setIsEventDetailOpen(false)}>Cerrar</Button>
-                <Button onClick={() => handleEditEvent(selectedEvent)}>Editar</Button>
-                <Button variant="destructive" onClick={() => handleDeleteEvent(selectedEvent.id)}>Borrar</Button>
+                {/* Solo permitir borrar eventos manuales (no los automáticos financieros) */}
+                {!selectedEvent.id.startsWith('debt-') && 
+                 !selectedEvent.id.startsWith('receivable-') && 
+                 !selectedEvent.id.startsWith('payment-') && (
+                  <Button variant="destructive" onClick={() => handleDeleteEvent(selectedEvent.id)}>Borrar</Button>
+                )}
               </div>
             </div>
           </DialogContent>
         )}
       </Dialog>
       
-      <Dialog open={isEditEventOpen} onOpenChange={setIsEditEventOpen}>
-        <DialogContent className="sm:max-w-[550px]">
-          <EventForm
-            onSave={(data) => handleUpdateEvent(data)}
-            onCancel={() => setIsEditEventOpen(false)}
-            initialData={editEventData}
-          />
-        </DialogContent>
-      </Dialog>
+
     </div>
   );
 };

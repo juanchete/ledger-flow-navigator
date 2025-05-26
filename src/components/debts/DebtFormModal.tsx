@@ -24,6 +24,8 @@ const debtSchema = z.object({
   category: z.string().optional(),
   notes: z.string().optional(),
   currency: z.string().default("USD"),
+  interest_rate: z.coerce.number().min(0, "La tasa de interés debe ser positiva").max(100, "La tasa de interés no puede ser mayor a 100%").optional(),
+  installments: z.coerce.number().int().min(1, "El número de cuotas debe ser al menos 1").max(360, "El número de cuotas no puede ser mayor a 360").default(1),
 });
 
 type DebtFormValues = z.infer<typeof debtSchema>;
@@ -56,6 +58,8 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
       category: debt?.category || "",
       notes: debt?.notes || "",
       currency: debt?.currency || "USD",
+      interest_rate: debt?.interest_rate || undefined,
+      installments: debt?.installments || 1,
     }
   });
 
@@ -69,6 +73,8 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
         category: debt.category || "",
         notes: debt.notes || "",
         currency: debt.currency || "USD",
+        interest_rate: debt.interest_rate || undefined,
+        installments: debt.installments || 1,
       });
     } else {
       form.reset({
@@ -79,6 +85,8 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
         category: "",
         notes: "",
         currency: "USD",
+        interest_rate: undefined,
+        installments: 1,
       });
     }
   }, [debt, form]);
@@ -97,7 +105,9 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
           status: data.status,
           category: data.category || null,
           notes: data.notes || null,
-          currency: data.currency || null
+          currency: data.currency || null,
+          interest_rate: data.interest_rate || null,
+          installments: data.installments || 1
         };
         
         await updateDebt(debt.id, updatedData);
@@ -113,6 +123,8 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
           category: data.category || null,
           notes: data.notes || null,
           currency: data.currency || null,
+          interest_rate: data.interest_rate || null,
+          installments: data.installments || 1,
           id: crypto.randomUUID()
         };
         
@@ -178,6 +190,45 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
                   <FormLabel>Monto</FormLabel>
                   <FormControl>
                     <Input type="number" step="0.01" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="interest_rate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tasa de Interés Anual (%) - Opcional</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="number" 
+                      step="0.01" 
+                      placeholder="Ej: 12.5"
+                      {...field} 
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="installments"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Número de Cuotas</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="number" 
+                      min="1" 
+                      max="360"
+                      placeholder="1"
+                      {...field} 
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

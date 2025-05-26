@@ -8,6 +8,22 @@ export type Transaction = Tables<"transactions">;
 export type NewTransaction = TablesInsert<"transactions">;
 export type UpdatedTransaction = TablesUpdate<"transactions">;
 
+// Define filter interface for transactions
+export interface TransactionFilter {
+  type?: Transaction["type"];
+  status?: Transaction["status"];
+  client_id?: string;
+  indirect_for_client_id?: string;
+  debt_id?: string;
+  receivable_id?: string;
+  bank_account_id?: string;
+  category?: string;
+  start_date?: string;
+  end_date?: string;
+  min_amount?: number;
+  max_amount?: number;
+}
+
 const TRANSACTIONS_TABLE = "transactions";
 
 /**
@@ -55,38 +71,33 @@ export const getTransactionById = async (
 
 /**
  * Creates a new transaction in the database.
+ * Bank account balance is automatically updated by database trigger.
  * @param transactionData Data for the new transaction (must match NewTransaction).
- *                      Ensure date is in ISO string format if NewTransaction expects string.
  * @returns A promise that resolves to the created transaction object.
  */
 export const createTransaction = async (
   transactionData: NewTransaction
 ): Promise<Transaction> => {
-  // If NewTransaction expects date as string, ensure it is formatted, e.g.:
-  // const dataToInsert = {
-  //   ...transactionData,
-  //   date: typeof transactionData.date === 'string' ? transactionData.date : new Date(transactionData.date).toISOString(),
-  // };
-  // However, NewTransaction (TablesInsert<'transactions'>) should already expect string for date based on Supabase schema.
-
   const transactionWithId = { id: uuidv4(), ...transactionData };
 
   const { data, error } = await supabase
     .from(TRANSACTIONS_TABLE)
-    .insert(transactionWithId) // Use transactionWithId which includes the generated id
+    .insert(transactionWithId)
     .select()
     .single();
 
   if (error) {
     console.error("Error creating transaction:", error);
-    // Supabase might return more detailed error in error.details or error.message
     throw error;
   }
+
+  // Bank account balance is automatically updated by the database trigger
   return data;
 };
 
 /**
  * Updates an existing transaction in the database.
+ * Bank account balance is automatically updated by database trigger.
  * @param id The ID of the transaction to update.
  * @param updates The partial transaction object with updates (must match UpdatedTransaction).
  * @returns A promise that resolves to the updated transaction object.
@@ -106,11 +117,14 @@ export const updateTransaction = async (
     console.error(`Error updating transaction with id ${id}:`, error);
     throw error;
   }
+
+  // Bank account balance is automatically updated by the database trigger
   return data;
 };
 
 /**
  * Deletes a transaction from the database.
+ * Bank account balance is automatically updated by database trigger.
  * @param id The ID of the transaction to delete.
  * @returns A promise that resolves when the transaction is deleted.
  */
@@ -124,6 +138,8 @@ export const deleteTransaction = async (id: string): Promise<void> => {
     console.error(`Error deleting transaction with id ${id}:`, error);
     throw error;
   }
+
+  // Bank account balance is automatically updated by the database trigger
 };
 
 /**
@@ -173,12 +189,13 @@ export const getTransactionsByBankAccountId = async (
   return data || [];
 };
 
-// TODO: Complex functions like getTransactionsByClientId, searchTransactions, filterTransactions
-// from the original transactionService object need to be refactored here
-// to work with Supabase types directly and be exported as individual functions if needed.
-// For example, getTransactionsByClientId:
-/*
-export const getTransactionsByClientId = async (clientId: string): Promise<Transaction[]> => {
+/**
+ * Obtiene las transacciones asociadas a un cliente específico.
+ * Incluye transacciones directas e indirectas.
+ */
+export const getTransactionsByClientId = async (
+  clientId: string
+): Promise<Transaction[]> => {
   const { data, error } = await supabase
     .from(TRANSACTIONS_TABLE)
     .select("*")
@@ -191,7 +208,87 @@ export const getTransactionsByClientId = async (clientId: string): Promise<Trans
   }
   return data || [];
 };
-*/
 
-// The original exported object transactionService is removed.
-// If specific complex queries are needed, they should be added as separate exported functions.
+/**
+ * Busca transacciones por término de búsqueda en descripción, notas y categoría.
+ */
+export const searchTransactions = async (
+  searchTerm: string
+): Promise<Transaction[]> => {
+  if (!searchTerm.trim()) {
+    return getTransactions();
+  }
+
+  const { data, error } = await supabase
+    .from(TRANSACTIONS_TABLE)
+    .select("*")
+    .or(
+      `description.ilike.%${searchTerm}%,notes.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%`
+    )
+    .order("date", { ascending: false });
+
+  if (error) {
+    console.error("Error searching transactions:", error);
+    throw error;
+  }
+  return data || [];
+};
+
+/**
+ * Filtra transacciones según los criterios especificados.
+ */
+export const filterTransactions = async (
+  filters: TransactionFilter
+): Promise<Transaction[]> => {
+  let query = supabase.from(TRANSACTIONS_TABLE).select("*");
+
+  // Aplicar filtros
+  if (filters.type) {
+    query = query.eq("type", filters.type);
+  }
+  if (filters.status) {
+    query = query.eq("status", filters.status);
+  }
+  if (filters.client_id) {
+    query = query.eq("client_id", filters.client_id);
+  }
+  if (filters.indirect_for_client_id) {
+    query = query.eq("indirect_for_client_id", filters.indirect_for_client_id);
+  }
+  if (filters.debt_id) {
+    query = query.eq("debt_id", filters.debt_id);
+  }
+  if (filters.receivable_id) {
+    query = query.eq("receivable_id", filters.receivable_id);
+  }
+  if (filters.bank_account_id) {
+    query = query.eq("bank_account_id", filters.bank_account_id);
+  }
+  if (filters.category) {
+    query = query.eq("category", filters.category);
+  }
+  if (filters.start_date) {
+    query = query.gte("date", filters.start_date);
+  }
+  if (filters.end_date) {
+    query = query.lte("date", filters.end_date);
+  }
+  if (filters.min_amount !== undefined) {
+    query = query.gte("amount", filters.min_amount);
+  }
+  if (filters.max_amount !== undefined) {
+    query = query.lte("amount", filters.max_amount);
+  }
+
+  query = query.order("date", { ascending: false });
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Error filtering transactions:", error);
+    throw error;
+  }
+  return data || [];
+};
+
+// All transaction service functions are now implemented as individual exports.
