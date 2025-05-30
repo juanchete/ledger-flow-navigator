@@ -1,19 +1,18 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from './AuthProvider';
-import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth } from '@/context/AuthContext';
 import { userService } from '@/integrations/supabase/userService';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useToast } from '@/components/ui/use-toast';
-import type { UserProfile } from '@/integrations/supabase/types';
+import type { UserProfile } from '@/types/auth';
+import { toast } from 'sonner';
 
 export function UserProfileManager() {
   const { user, userProfile, isAdmin, refreshProfile } = useAuth();
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
 
   // Solo los administradores pueden cargar todos los usuarios
   useEffect(() => {
@@ -159,4 +158,4 @@ export function UserProfileManager() {
       )}
     </div>
   );
-} 
+}

@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { supabase } from '@/integrations/supabase/client';
 import { userService } from '@/integrations/supabase/userService';
 import type { Session } from '@supabase/supabase-js';
-import type { UserProfile } from '@/integrations/supabase/types';
+import type { UserProfile } from '@/types/auth';
 
 interface AuthContextProps {
   session: Session | null;
@@ -101,4 +101,4 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}; 
+};
