@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from '@/components/common/PageHeader';
@@ -198,26 +199,31 @@ const AllDebts: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in p-4 sm:p-6">
+      {/* Header responsive */}
+      <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
         <PageHeader title="Todas las Deudas" />
-        <Button onClick={handleAddDebt} className="flex items-center gap-2">
+        <Button onClick={handleAddDebt} className="flex items-center gap-2 w-full sm:w-auto">
           <Plus className="h-4 w-4" />
           <span>Agregar Deuda</span>
         </Button>
       </div>
       
-      <DebtSummaryMetrics 
-        totalAmount={totalAmount}
-        pendingAmount={pendingAmount}
-        overdueAmount={overdueAmount}
-        paidAmount={paidAmount}
-      />
+      {/* Métricas con diseño responsive mejorado */}
+      <div className="w-full">
+        <DebtSummaryMetrics 
+          totalAmount={totalAmount}
+          pendingAmount={pendingAmount}
+          overdueAmount={overdueAmount}
+          paidAmount={paidAmount}
+        />
+      </div>
       
-      <Card>
-        <CardHeader>
-          <CardTitle>Listado de Deudas</CardTitle>
-          <div className="flex flex-col sm:flex-row sm:justify-between gap-4">
+      {/* Card de listado con mejor responsive */}
+      <Card className="w-full">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg sm:text-xl">Listado de Deudas</CardTitle>
+          <div className="w-full">
             <DebtFilters 
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
@@ -230,13 +236,15 @@ const AllDebts: React.FC = () => {
             />
           </div>
         </CardHeader>
-        <CardContent>
-          <DebtTable 
-            debts={filteredDebts}
-            formatDate={formatDate}
-            onDebtClick={handleDebtClick}
-            onEditDebt={handleEditDebt}
-          />
+        <CardContent className="p-0 sm:p-6">
+          <div className="w-full">
+            <DebtTable 
+              debts={filteredDebts}
+              formatDate={formatDate}
+              onDebtClick={handleDebtClick}
+              onEditDebt={handleEditDebt}
+            />
+          </div>
         </CardContent>
       </Card>
 
