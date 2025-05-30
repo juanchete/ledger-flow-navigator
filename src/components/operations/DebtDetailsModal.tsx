@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -122,10 +121,10 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-[600px] w-full max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[600px] w-full max-h-[90vh] overflow-y-auto mx-4 sm:mx-auto">
+          <DialogHeader className="pb-2">
             <DialogTitle className="text-lg sm:text-xl font-bold">
-              {type === 'debt' ? 'Detalle de Deuda' : 'Detalle de Cuenta por Cobrar'}
+              {type === 'debt' ? 'Detalle de Deuda' : 'Detalle Cuenta Cobrar'}
             </DialogTitle>
           </DialogHeader>
 
@@ -157,11 +156,20 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
             />
           </div>
 
-          <DialogFooter className="mt-4 sm:mt-6 gap-2 sm:gap-0">
-            <Button variant="outline" onClick={onClose} size="sm" className="text-sm">
+          <DialogFooter className="mt-4 sm:mt-6 gap-2 sm:gap-0 pt-4 border-t">
+            <Button 
+              variant="outline" 
+              onClick={onClose} 
+              size="sm" 
+              className="text-sm w-full sm:w-auto"
+            >
               Cancelar
             </Button>
-            <Button onClick={handleSave} size="sm" className="text-sm">
+            <Button 
+              onClick={handleSave} 
+              size="sm" 
+              className="text-sm w-full sm:w-auto"
+            >
               Guardar Cambios
             </Button>
           </DialogFooter>

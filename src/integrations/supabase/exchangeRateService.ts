@@ -73,7 +73,7 @@ export async function getLatestUSDToVESRates(): Promise<{
   try {
     const [bcvRate, parallelRate] = await Promise.all([
       getLatestExchangeRate("USD", "VES_BCV"),
-      getLatestExchangeRate("USD", "VES_PARALLEL"),
+      getLatestExchangeRate("USD", "VES_PAR"),
     ]);
 
     return {
@@ -111,7 +111,7 @@ export async function saveUSDToVESRates(
       }),
       saveExchangeRate({
         from_currency: "USD",
-        to_currency: "VES_PARALLEL",
+        to_currency: "VES_PAR",
         rate: parallelRate,
         date: today,
       }),

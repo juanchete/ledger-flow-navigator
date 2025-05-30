@@ -14,6 +14,7 @@ import { getBankAccounts } from '@/integrations/supabase/bankAccountService';
 import { saveExchangeRate } from '@/integrations/supabase/exchangeRateService';
 import { useTransactions } from '@/context/TransactionContext';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
+import { formatCurrency } from '@/lib/utils';
 import type { Client } from '@/integrations/supabase/clientService';
 import type { BankAccount } from '@/integrations/supabase/bankAccountService';
 
@@ -100,10 +101,25 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
   }, [currency, rates]);
 
   const handleSubmit = async () => {
-    // Validar monto máximo si se proporciona
-    if (maxAmount && amount > maxAmount) {
-      toast.error(`El monto no puede exceder ${maxAmount.toFixed(2)}`);
-      return;
+    // Validar monto máximo considerando la conversión de moneda
+    if (maxAmount) {
+      let amountToValidate = amount;
+      
+      // Si el pago es en VES, convertir a USD para la validación
+      if (currency === 'VES') {
+        const finalRate = useCustomRate ? parseFloat(customRate) : exchangeRate;
+        if (finalRate && finalRate > 0) {
+          amountToValidate = amount / finalRate; // Convertir VES a USD
+        }
+      }
+      
+      if (amountToValidate > maxAmount) {
+        const maxAmountMessage = currency === 'VES' 
+          ? `Bs. ${(maxAmount * (useCustomRate ? parseFloat(customRate) : exchangeRate)).toLocaleString('es-VE')} (${formatCurrency(maxAmount)})`
+          : formatCurrency(maxAmount);
+        toast.error(`El monto no puede exceder ${maxAmountMessage}`);
+        return;
+      }
     }
 
     // Validar que se haya seleccionado una cuenta bancaria
@@ -131,7 +147,7 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
         
         const savedRate = await saveExchangeRate({
           from_currency: 'USD',
-          to_currency: 'VES_PAYMENT', // Indicar que es una tasa para pago
+          to_currency: 'VES_PAY', // Indicar que es una tasa para pago (máximo 8 caracteres)
           rate: finalRate,
           date: today
         });
@@ -213,8 +229,8 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
         onClose();
       }
     }}>
-      <DialogContent className="max-w-md w-full">
-        <DialogHeader>
+      <DialogContent className="max-w-md w-full max-h-[90vh] overflow-y-auto mx-4 sm:mx-auto">
+        <DialogHeader className="pb-2">
           <DialogTitle className="text-base sm:text-lg">
             {receivableId ? 'Registrar Pago para Cuenta por Cobrar' : 
              debtId ? 'Registrar Pago para Deuda' : 
@@ -222,7 +238,7 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
           </DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-3 sm:space-y-4">
+        <div className="space-y-3 sm:space-y-4 pt-2">
           <div className="grid gap-2">
             <Label htmlFor="amount" className="text-sm">Monto</Label>
             <Input 
@@ -231,13 +247,19 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
               step="0.01"
               value={amount}
               onChange={(e) => setAmount(Number(e.target.value))}
-              max={maxAmount}
               className="text-sm"
             />
             {maxAmount && (
-              <p className="text-xs text-muted-foreground">
-                Monto máximo: {maxAmount.toFixed(2)}
-              </p>
+              <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded-md">
+                {currency === 'VES' ? (
+                  <div className="space-y-1">
+                    <div>Monto máximo: Bs. {(maxAmount * (useCustomRate ? parseFloat(customRate) || 1 : exchangeRate || 1)).toLocaleString('es-VE')}</div>
+                    <div>Equivalente a: {formatCurrency(maxAmount)}</div>
+                  </div>
+                ) : (
+                  <div>Monto máximo: {formatCurrency(maxAmount)}</div>
+                )}
+              </div>
             )}
           </div>
 
@@ -257,10 +279,10 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
 
           {/* Sección de Tasa de Cambio (solo para VES) */}
           {currency === 'VES' && (
-            <div className="grid gap-2 p-3 border rounded-lg bg-muted/10">
+            <div className="grid gap-3 p-3 border rounded-lg bg-muted/10">
               <Label className="text-sm font-medium">Tasa de Cambio (USD/VES)</Label>
               
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -286,7 +308,7 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
                   }}
                   disabled={!useCustomRate}
                   placeholder="Tasa de cambio"
-                  className={!useCustomRate ? "bg-muted text-sm" : "text-sm"}
+                  className={`text-sm ${!useCustomRate ? "bg-muted" : ""}`}
                 />
                 
                 <div className="text-xs text-muted-foreground">
@@ -297,7 +319,7 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
                 </div>
 
                 {/* Mostrar equivalente en USD */}
-                <div className="text-xs text-blue-600 font-medium">
+                <div className="text-xs text-blue-600 font-medium p-2 bg-blue-50 rounded-md">
                   Equivalente: ${(amount / (useCustomRate ? parseFloat(customRate) || 1 : exchangeRate)).toFixed(2)} USD
                 </div>
               </div>
@@ -329,10 +351,10 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
               <SelectContent>
                 {bankAccounts.map((account) => (
                   <SelectItem key={account.id} value={account.id}>
-                    <div className="flex flex-col">
-                      <span>{account.bank} - {account.account_number}</span>
+                    <div className="flex flex-col text-left">
+                      <span className="font-medium">{account.bank}</span>
                       <span className="text-xs text-muted-foreground">
-                        {account.currency === 'USD' 
+                        {account.account_number} - {account.currency === 'USD' 
                           ? `$${account.amount.toLocaleString()}` 
                           : `Bs. ${account.amount.toLocaleString()}`}
                       </span>
@@ -358,16 +380,25 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Información adicional sobre el pago"
-              className="text-sm min-h-[60px]"
+              className="text-sm min-h-[60px] resize-none"
             />
           </div>
         </div>
         
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={onClose} disabled={loading} className="text-sm">
+        <DialogFooter className="mt-4 sm:mt-6 gap-2 sm:gap-0 pt-4 border-t">
+          <Button 
+            variant="outline" 
+            onClick={onClose} 
+            disabled={loading} 
+            className="text-sm w-full sm:w-auto"
+          >
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={loading} className="text-sm">
+          <Button 
+            onClick={handleSubmit} 
+            disabled={loading} 
+            className="text-sm w-full sm:w-auto"
+          >
             {loading ? 'Registrando...' : 'Registrar Pago'}
           </Button>
         </DialogFooter>

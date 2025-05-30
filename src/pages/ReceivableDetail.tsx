@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowLeft, Calendar, BadgeDollarSign, Info, User, FileText, Users } from "lucide-react";
 import { format } from "date-fns";
 import { formatCurrency } from '@/lib/utils';
@@ -221,53 +222,63 @@ const ReceivableDetail = () => {
   };
   
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" asChild className="gap-1">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in p-4 sm:p-0">
+      {/* Header with back button and title */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <Button variant="ghost" size="sm" asChild className="gap-1 self-start">
           <Link to="/all-receivables">
             <ArrowLeft size={16} />
-            Volver a Cuentas por Cobrar
+            <span className="hidden sm:inline">Volver a Cuentas por Cobrar</span>
+            <span className="sm:hidden">Volver</span>
           </Link>
         </Button>
-        <h1 className="text-3xl font-bold tracking-tight">Detalle de Cuenta por Cobrar</h1>
-        <StatusBadge status={calculatedStatus} />
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Detalle Cuenta Cobrar</h1>
+          <StatusBadge status={calculatedStatus} />
+        </div>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Tarjeta Principal */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        {/* Tarjeta Principal - Responsiva */}
         <Card className="col-span-1 lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <BadgeDollarSign size={20} />
               Información de la Cuenta por Cobrar
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Descripción:</span>
-              <span className="font-semibold">{receivable.description}</span>
-            </div>
-            
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Monto Total:</span>
-              <span className="text-xl font-bold">{formatCurrency(totalAmountUSD)}</span>
-            </div>
-            
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Monto Pagado:</span>
-              <span className="font-medium text-green-600">{formatCurrency(totalPaidUSD)}</span>
-            </div>
-            
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Monto Restante:</span>
-              <span className="font-medium text-amber-600">{formatCurrency(remainingAmount)}</span>
-            </div>
-            
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Fecha de Vencimiento:</span>
-              <div className="flex items-center gap-1">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span>{formatDate(receivable.dueDate)}</span>
+          <CardContent className="space-y-3 sm:space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
+                  <span className="text-sm text-muted-foreground">Descripción:</span>
+                  <span className="font-semibold text-sm sm:text-base break-words">{receivable.description}</span>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
+                  <span className="text-sm text-muted-foreground">Monto Total:</span>
+                  <span className="text-lg sm:text-xl font-bold">{formatCurrency(totalAmountUSD)}</span>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
+                  <span className="text-sm text-muted-foreground">Monto Pagado:</span>
+                  <span className="font-medium text-green-600">{formatCurrency(totalPaidUSD)}</span>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
+                  <span className="text-sm text-muted-foreground">Monto Restante:</span>
+                  <span className="font-medium text-amber-600">{formatCurrency(remainingAmount)}</span>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
+                  <span className="text-sm text-muted-foreground">Fecha de Vencimiento:</span>
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">{formatDate(receivable.dueDate)}</span>
+                  </div>
+                </div>
               </div>
             </div>
             
@@ -275,17 +286,21 @@ const ReceivableDetail = () => {
             
             {receivable.notes && (
               <div>
-                <h4 className="font-medium mb-2">Notas</h4>
-                <p className="text-muted-foreground bg-muted/50 p-3 rounded-md">{receivable.notes}</p>
+                <h4 className="font-medium mb-2 text-sm">Notas</h4>
+                <ScrollArea className="max-h-24 sm:max-h-none">
+                  <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md break-words">
+                    {receivable.notes}
+                  </p>
+                </ScrollArea>
               </div>
             )}
           </CardContent>
         </Card>
         
-        {/* Tarjeta de Cliente */}
+        {/* Tarjeta de Cliente - Responsiva */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <User size={20} />
               Información del Cliente
             </CardTitle>
@@ -293,44 +308,51 @@ const ReceivableDetail = () => {
           <CardContent className="space-y-4">
             {client ? (
               <div className="bg-muted/50 p-3 rounded-md">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mb-2">
                   {client.clientType === 'direct' ? (
-                    <User className="h-4 w-4" />
+                    <User className="h-4 w-4 flex-shrink-0" />
                   ) : (
-                    <Users className="h-4 w-4" />
+                    <Users className="h-4 w-4 flex-shrink-0" />
                   )}
-                  <Link to={`/clients/${client.id}`} className="font-medium hover:underline">
+                  <Link to={`/clients/${client.id}`} className="font-medium hover:underline text-sm break-words">
                     {client.name}
                   </Link>
                 </div>
-                <div className="mt-2 flex flex-col gap-2">
-                  <Badge variant="outline" className={client.clientType === 'direct' ? 'bg-slate-50' : 'bg-yellow-50'}>
-                    {client.clientType === 'direct' ? 'Cliente Directo' : 'Cliente Indirecto'}
-                  </Badge>
-                  <Badge variant="outline">
-                    {client.category}
-                  </Badge>
-                  <div className="text-sm text-muted-foreground mt-2">
-                    <span className="font-medium">Email:</span> {client.email}
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline" className={`text-xs ${client.clientType === 'direct' ? 'bg-slate-50' : 'bg-yellow-50'}`}>
+                      {client.clientType === 'direct' ? 'Cliente Directo' : 'Cliente Indirecto'}
+                    </Badge>
+                    {client.category && (
+                      <Badge variant="outline" className="text-xs">
+                        {client.category}
+                      </Badge>
+                    )}
                   </div>
+                  {client.email && (
+                    <div className="text-xs text-muted-foreground">
+                      <span className="font-medium">Email:</span>
+                      <div className="break-all">{client.email}</div>
+                    </div>
+                  )}
                   {client.phone && (
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-xs text-muted-foreground">
                       <span className="font-medium">Teléfono:</span> {client.phone}
                     </div>
                   )}
                 </div>
               </div>
             ) : (
-              <p className="text-muted-foreground">No hay cliente asociado.</p>
+              <p className="text-sm text-muted-foreground">No hay cliente asociado.</p>
             )}
           </CardContent>
         </Card>
         
-        {/* Tarjeta de Pagos */}
+        {/* Tarjeta de Pagos - Responsiva */}
         <Card className="col-span-1 lg:col-span-3">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
+          <CardHeader className="pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                 <FileText size={20} />
                 Historial de Pagos
               </CardTitle>
@@ -339,93 +361,178 @@ const ReceivableDetail = () => {
                   variant="outline" 
                   size="sm"
                   onClick={() => setShowPaymentModal(true)}
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-1 self-start sm:self-auto"
                 >
                   <BadgeDollarSign size={16} />
-                  Registrar Pago
+                  <span className="hidden sm:inline">Registrar Pago</span>
+                  <span className="sm:hidden">Pago</span>
                 </Button>
               )}
             </div>
           </CardHeader>
           <CardContent>
             {payments.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead>Monto</TableHead>
-                    <TableHead>Moneda</TableHead>
-                    <TableHead>Equivalente USD</TableHead>
-                    <TableHead>Método</TableHead>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Notas</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <div className="overflow-hidden">
+                {/* Tabla responsive para pantallas grandes */}
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fecha</TableHead>
+                        <TableHead>Monto</TableHead>
+                        <TableHead>Moneda</TableHead>
+                        <TableHead>Equivalente USD</TableHead>
+                        <TableHead>Método</TableHead>
+                        <TableHead>Cliente</TableHead>
+                        <TableHead>Notas</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {payments.map(payment => {
+                        const amountUSD = payment.currency === 'VES' ? 
+                          convertVESToUSDWithHistoricalRate(payment.amount, payment.id, convertVESToUSD ? convertVESToUSD(1, 'parallel') : undefined) :
+                          payment.amount;
+                        
+                        return (
+                          <TableRow key={payment.id}>
+                            <TableCell className="text-sm">{formatDate(new Date(payment.date))}</TableCell>
+                            <TableCell className="font-medium text-sm">
+                              {payment.currency === 'VES' ? 
+                                `Bs. ${new Intl.NumberFormat('es-VE').format(payment.amount)}` : 
+                                formatCurrency(payment.amount)
+                              }
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={payment.currency === 'VES' ? 'secondary' : 'default'} className="text-xs">
+                                {payment.currency || 'USD'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="font-medium text-green-600 text-sm">
+                              {formatCurrency(amountUSD)}
+                              {payment.currency === 'VES' && (
+                                <span className="text-xs text-muted-foreground block">
+                                  (Tasa histórica)
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-sm">{payment.paymentMethod || 'No especificado'}</TableCell>
+                            <TableCell>
+                              {payment.clientName ? (
+                                <div className="flex flex-col">
+                                  <div className="flex items-center gap-1">
+                                    {payment.clientType === 'indirect' ? (
+                                      <Users size={14} className="text-muted-foreground" />
+                                    ) : (
+                                      <User size={14} className="text-muted-foreground" />
+                                    )}
+                                    <Link to={`/clients/${payment.clientId}`} className="hover:underline text-sm">
+                                      {payment.clientName}
+                                    </Link>
+                                  </div>
+                                  <Badge variant="outline" className="mt-1 text-xs w-fit">
+                                    {payment.clientType === 'indirect' ? 'Indirecto' : 'Directo'}
+                                  </Badge>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">No especificado</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-sm">{payment.notes || '-'}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Vista de cards para pantallas pequeñas */}
+                <div className="md:hidden space-y-4">
                   {payments.map(payment => {
                     const amountUSD = payment.currency === 'VES' ? 
                       convertVESToUSDWithHistoricalRate(payment.amount, payment.id, convertVESToUSD ? convertVESToUSD(1, 'parallel') : undefined) :
                       payment.amount;
                     
                     return (
-                      <TableRow key={payment.id}>
-                        <TableCell>{formatDate(new Date(payment.date))}</TableCell>
-                        <TableCell className="font-medium">
-                          {payment.currency === 'VES' ? 
-                            `Bs. ${new Intl.NumberFormat('es-VE').format(payment.amount)}` : 
-                            formatCurrency(payment.amount)
-                          }
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={payment.currency === 'VES' ? 'secondary' : 'default'}>
-                            {payment.currency || 'USD'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-medium text-green-600">
-                          {formatCurrency(amountUSD)}
-                          {payment.currency === 'VES' && (
-                            <span className="text-xs text-muted-foreground block">
-                              {/* TODO: Check if payment has exchange_rate_id to determine if historical rate was used */}
-                              (Tasa histórica)
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell>{payment.paymentMethod || 'No especificado'}</TableCell>
-                        <TableCell>
-                          {payment.clientName ? (
-                            <div className="flex flex-col">
-                              <div className="flex items-center gap-1">
-                                {payment.clientType === 'indirect' ? (
-                                  <Users size={14} className="text-muted-foreground" />
-                                ) : (
-                                  <User size={14} className="text-muted-foreground" />
-                                )}
-                                <Link to={`/clients/${payment.clientId}`} className="hover:underline">
-                                  {payment.clientName}
-                                </Link>
+                      <Card key={payment.id} className="p-4">
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div className="font-medium text-sm">
+                                {payment.currency === 'VES' ? 
+                                  `Bs. ${new Intl.NumberFormat('es-VE').format(payment.amount)}` : 
+                                  formatCurrency(payment.amount)
+                                }
                               </div>
-                              <Badge variant="outline" className="mt-1 text-xs w-fit">
-                                {payment.clientType === 'indirect' ? 'Indirecto' : 'Directo'}
-                              </Badge>
+                              <div className="text-xs text-green-600 font-medium">
+                                {formatCurrency(amountUSD)}
+                                {payment.currency === 'VES' && " (Tasa histórica)"}
+                              </div>
                             </div>
-                          ) : (
-                            <span className="text-muted-foreground">No especificado</span>
+                            <div className="flex flex-col items-end gap-1">
+                              <Badge variant={payment.currency === 'VES' ? 'secondary' : 'default'} className="text-xs">
+                                {payment.currency || 'USD'}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {formatDate(new Date(payment.date))}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <Separator />
+                          
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <span className="text-muted-foreground">Método:</span>
+                              <div className="font-medium">{payment.paymentMethod || 'No especificado'}</div>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Cliente:</span>
+                              {payment.clientName ? (
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1">
+                                    {payment.clientType === 'indirect' ? (
+                                      <Users size={12} className="text-muted-foreground" />
+                                    ) : (
+                                      <User size={12} className="text-muted-foreground" />
+                                    )}
+                                    <Link to={`/clients/${payment.clientId}`} className="hover:underline font-medium break-words">
+                                      {payment.clientName}
+                                    </Link>
+                                  </div>
+                                  <Badge variant="outline" className="text-xs w-fit">
+                                    {payment.clientType === 'indirect' ? 'Indirecto' : 'Directo'}
+                                  </Badge>
+                                </div>
+                              ) : (
+                                <div className="text-muted-foreground">No especificado</div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {payment.notes && (
+                            <>
+                              <Separator />
+                              <div className="text-xs">
+                                <span className="text-muted-foreground">Notas:</span>
+                                <div className="mt-1 break-words">{payment.notes}</div>
+                              </div>
+                            </>
                           )}
-                        </TableCell>
-                        <TableCell>{payment.notes || '-'}</TableCell>
-                      </TableRow>
+                        </div>
+                      </Card>
                     );
                   })}
-                </TableBody>
-              </Table>
+                </div>
+              </div>
             ) : (
               <div className="text-center py-8">
-                <p className="text-muted-foreground">No hay pagos registrados para esta cuenta por cobrar.</p>
+                <p className="text-sm text-muted-foreground mb-4">No hay pagos registrados para esta cuenta por cobrar.</p>
                 <Button 
                   variant="outline" 
-                  className="mt-4"
+                  className="gap-1"
                   onClick={() => setShowPaymentModal(true)}
                 >
+                  <BadgeDollarSign size={16} />
                   Registrar Pago
                 </Button>
               </div>

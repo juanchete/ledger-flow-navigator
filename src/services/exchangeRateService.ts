@@ -170,13 +170,13 @@ class ExchangeRateService {
   ): Promise<void> {
     try {
       // Verificar si ya tenemos tasas para hoy
-      const [hasBcvToday, hasParallelToday] = await Promise.all([
+      const [hasBCVRate, hasParallelRate] = await Promise.all([
         hasRateForToday("USD", "VES_BCV"),
-        hasRateForToday("USD", "VES_PARALLEL"),
+        hasRateForToday("USD", "VES_PAR"),
       ]);
 
       // Solo guardar si no tenemos tasas para hoy
-      if (!hasBcvToday || !hasParallelToday) {
+      if (!hasBCVRate || !hasParallelRate) {
         await saveUSDToVESRates(bcvRate, parallelRate);
         console.log("Exchange rates saved to database");
       } else {

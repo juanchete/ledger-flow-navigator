@@ -36,7 +36,7 @@ export default function AccountDetail() {
   return (
     <div className="space-y-6 p-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Detalle de Cuenta</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Detalle Cuenta</h1>
       </div>
 
       <Card>
