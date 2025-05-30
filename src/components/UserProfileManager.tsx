@@ -1,19 +1,19 @@
-
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { useAuth } from '@/context/AuthContext';
-import { userService } from '@/integrations/supabase/userService';
+import { useAuth } from './AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
-import type { UserProfile } from '@/types/auth';
-import { toast } from 'sonner';
+import { userService } from '@/integrations/supabase/userService';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useToast } from '@/components/ui/use-toast';
+import type { UserProfile } from '@/integrations/supabase/types';
 
 export function UserProfileManager() {
-  const { user, isAdmin, refreshProfile } = useAuth();
+  const { user, userProfile, isAdmin, refreshProfile } = useAuth();
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
   // Solo los administradores pueden cargar todos los usuarios
   useEffect(() => {
@@ -37,7 +37,11 @@ export function UserProfileManager() {
       setAllUsers(data || []);
     } catch (error) {
       console.error('Error loading users:', error);
-      toast.error('No se pudieron cargar los usuarios');
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No se pudieron cargar los usuarios',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -56,14 +60,21 @@ export function UserProfileManager() {
       // Refrescar la lista de usuarios
       await loadAllUsers();
       
-      toast.success('El rol del usuario ha sido actualizado correctamente');
+      toast({
+        title: 'Rol actualizado',
+        description: 'El rol del usuario ha sido actualizado correctamente',
+      });
     } catch (error) {
       console.error('Error updating role:', error);
-      toast.error('No se pudo actualizar el rol del usuario');
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No se pudo actualizar el rol del usuario',
+      });
     }
   };
 
-  if (!user) {
+  if (!user || !userProfile) {
     return <div>No hay usuario autenticado</div>;
   }
 
@@ -80,17 +91,17 @@ export function UserProfileManager() {
         <CardContent>
           <div className="flex items-center space-x-4">
             <Avatar>
-              <AvatarImage src={user.avatar_url || ''} />
+              <AvatarImage src={userProfile.avatar_url || ''} />
               <AvatarFallback>
-                {user.full_name?.[0]?.toUpperCase() || user.email[0]?.toUpperCase()}
+                {userProfile.full_name?.[0]?.toUpperCase() || userProfile.email[0]?.toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div>
               <div className="font-medium">
-                {user.full_name || user.email}
-                <Badge className="ml-2">{user.role}</Badge>
+                {userProfile.full_name || user.email}
+                <Badge className="ml-2">{userProfile.role}</Badge>
               </div>
-              <div className="text-sm text-muted-foreground">{user.email}</div>
+              <div className="text-sm text-muted-foreground">{userProfile.email}</div>
             </div>
           </div>
         </CardContent>
@@ -148,4 +159,4 @@ export function UserProfileManager() {
       )}
     </div>
   );
-}
+} 
