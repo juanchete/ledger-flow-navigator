@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,24 +29,26 @@ export const DebtFilters: React.FC<DebtFiltersProps> = ({
   formatDate
 }) => {
   return (
-    <div className="flex flex-col sm:flex-row gap-4 mt-4">
-      <div className="relative flex-grow">
+    <div className="space-y-3">
+      {/* Search */}
+      <div className="relative">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Buscar por acreedor o categoría..."
-          className="pl-8"
+          className="pl-8 text-sm sm:text-base"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
       </div>
       
-      <div className="flex items-center gap-2">
+      {/* Filter row */}
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filtrar por estado" />
+          <SelectTrigger className="w-full sm:w-[180px] text-sm">
+            <SelectValue placeholder="Estado" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos los estados</SelectItem>
+            <SelectItem value="all">Todos</SelectItem>
             <SelectItem value="pending">Pendiente</SelectItem>
             <SelectItem value="overdue">Vencido</SelectItem>
             <SelectItem value="paid">Pagado</SelectItem>
@@ -56,9 +57,11 @@ export const DebtFilters: React.FC<DebtFiltersProps> = ({
         
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" className="w-[180px]">
+            <Button variant="outline" className="w-full sm:w-[180px] justify-start text-sm">
               <CalendarIcon className="mr-2 h-4 w-4" />
-              {dateRange ? formatDate(dateRange) : "Filtrar por fecha"}
+              <span className="truncate">
+                {dateRange ? formatDate(dateRange) : "Fecha de vencimiento"}
+              </span>
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
@@ -72,9 +75,14 @@ export const DebtFilters: React.FC<DebtFiltersProps> = ({
           </PopoverContent>
         </Popover>
         
-        <Button variant="ghost" size="sm" onClick={clearFilters}>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={clearFilters}
+          className="w-full sm:w-auto"
+        >
           <Filter className="h-4 w-4" />
-          <span className="ml-1">Limpiar</span>
+          <span className="ml-1">Limpiar Filtros</span>
         </Button>
       </div>
     </div>

@@ -411,27 +411,33 @@ const ClientDetail = () => {
   
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" asChild className="gap-1">
-          <Link to="/clients">
-            <ChevronLeft size={16} />
-            Volver
-          </Link>
-        </Button>
-        <h1 className="text-3xl font-bold tracking-tight">{client.name}</h1>
-        <Badge variant="outline" className="capitalize ml-2">{client.category}</Badge>
-        <Badge variant="outline" className={client.clientType === "indirect" ? "bg-yellow-50" : "bg-slate-50"}>
-          {client.clientType === "indirect" ? "Indirecto" : "Directo"}
-        </Badge>
-        {alertStatus !== 'none' && (
-          <Badge className={
-            alertStatus === 'red' ? 'bg-finance-red text-white' : 
-            'bg-finance-yellow text-finance-gray-dark'
-          }>
-            <AlertTriangle size={12} className="mr-1" />
-            {alertStatus === 'red' ? 'Roja' : alertStatus === 'yellow' ? 'Amarilla' : alertStatus}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 mb-4">
+        <div className="flex items-center gap-2 min-w-0">
+          <Button variant="ghost" size="sm" asChild className="gap-1 flex-shrink-0">
+            <Link to="/clients">
+              <ChevronLeft size={16} />
+              Volver
+            </Link>
+          </Button>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight" title={client.name}>
+            {client.name}
+          </h1>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge variant="outline" className="capitalize">{client.category}</Badge>
+          <Badge variant="outline" className={client.clientType === "indirect" ? "bg-yellow-50" : "bg-slate-50"}>
+            {client.clientType === "indirect" ? "Indirecto" : "Directo"}
           </Badge>
-        )}
+          {alertStatus !== 'none' && (
+            <Badge className={
+              alertStatus === 'red' ? 'bg-finance-red text-white' : 
+              'bg-finance-yellow text-finance-gray-dark'
+            }>
+              <AlertTriangle size={12} className="mr-1" />
+              {alertStatus === 'red' ? 'Roja' : alertStatus === 'yellow' ? 'Amarilla' : alertStatus}
+            </Badge>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -441,37 +447,37 @@ const ClientDetail = () => {
               <CardTitle>Información del Cliente</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-[100px_1fr] gap-1">
+              <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-2 sm:gap-1">
                 <span className="font-medium text-muted-foreground">Correo:</span>
-                <span>{client.email}</span>
+                <span className="break-all">{client.email}</span>
               </div>
               
-              <div className="grid grid-cols-[100px_1fr] gap-1">
+              <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-2 sm:gap-1">
                 <span className="font-medium text-muted-foreground">Teléfono:</span>
                 <span>{client.phone}</span>
               </div>
               
-              <div className="grid grid-cols-[100px_1fr] gap-1">
+              <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-2 sm:gap-1">
                 <span className="font-medium text-muted-foreground">Dirección:</span>
-                <span>{client.address}</span>
+                <span className="break-words">{client.address}</span>
               </div>
               
               {client.contactPerson && (
-                <div className="grid grid-cols-[100px_1fr] gap-1">
+                <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-2 sm:gap-1">
                   <span className="font-medium text-muted-foreground">Contacto:</span>
                   <span>{client.contactPerson}</span>
                 </div>
               )}
               
-              <div className="grid grid-cols-[100px_1fr] gap-1">
+              <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-2 sm:gap-1">
                 <span className="font-medium text-muted-foreground">Agregado:</span>
                 <span>{client.createdAt ? format(client.createdAt, 'MMM d, yyyy') : 'Sin fecha'}</span>
               </div>
               
               {client.clientType === "indirect" && relatedClient && (
-                <div className="grid grid-cols-[100px_1fr] gap-1">
+                <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-2 sm:gap-1">
                   <span className="font-medium text-muted-foreground">Asociado a:</span>
-                  <Link to={`/clients/${relatedClient.id}`} className="text-primary hover:underline">
+                  <Link to={`/clients/${relatedClient.id}`} className="text-primary hover:underline break-words">
                     {relatedClient.name}
                   </Link>
                 </div>
@@ -618,11 +624,11 @@ const ClientDetail = () => {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="transactions" className="w-full">
-                <TabsList>
-                  <TabsTrigger value="overview">Resumen</TabsTrigger>
-                  <TabsTrigger value="transactions">Transacciones</TabsTrigger>
-                  <TabsTrigger value="debts">Deudas</TabsTrigger>
-                  <TabsTrigger value="receivables">Cuentas por Cobrar</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 min-h-[70px] items-center">
+                  <TabsTrigger value="overview" className="text-xs sm:text-sm">Resumen</TabsTrigger>
+                  <TabsTrigger value="transactions" className="text-xs sm:text-sm">Transacciones</TabsTrigger>
+                  <TabsTrigger value="debts" className="text-xs sm:text-sm">Deudas</TabsTrigger>
+                  <TabsTrigger value="receivables" className="text-xs sm:text-sm">Cuentas por Cobrar</TabsTrigger>
                 </TabsList>
                 <TabsContent value="overview">
                   <div className="space-y-4 mt-4">
@@ -632,50 +638,110 @@ const ClientDetail = () => {
                 </TabsContent>
                 <TabsContent value="transactions">
                   {allRelevantTransactions.length > 0 ? (
-                    <div className="rounded-md border">
-                      <div className="grid grid-cols-12 p-3 bg-muted/50 text-sm font-medium">
-                        <div className="col-span-5">Descripción</div>
-                        <div className="col-span-2">Fecha</div>
-                        <div className="col-span-2">Monto</div>
-                        <div className="col-span-2">Estado</div>
-                        <div className="col-span-1">Acción</div>
-                      </div>
-                      <div className="divide-y">
+                    <>
+                      {/* Mobile Cards View */}
+                      <div className="block lg:hidden space-y-4 mt-4">
                         {allRelevantTransactions.map((transaction) => (
-                          <div key={transaction.id} className="grid grid-cols-12 p-3 items-center text-sm">
-                            <div className="col-span-5">
-                              <span className="capitalize">{transaction.description}</span>
-                              <span className="inline-block text-xs bg-muted rounded px-1 ml-2 capitalize">
-                                {transaction.type}
-                              </span>
-                              {isIndirectPayment(transaction) && (
-                                <span className="ml-2 text-xs text-finance-blue">Pago indirecto</span>
-                              )}
-                            </div>
-                            <div className="col-span-2">
-                              {transaction.date ? format(new Date(transaction.date), 'MMM d, yyyy') : 'Sin fecha'}
-                            </div>
-                            <div className="col-span-2 font-medium">
-                              {formatCurrency(transaction.amount)}
-                            </div>
-                            <div className="col-span-2">
-                              <Badge variant="outline" className={
-                                transaction.status === 'completed' ? 'bg-finance-green text-white border-finance-green' :
-                                transaction.status === 'pending' ? 'bg-finance-yellow text-finance-gray-dark border-finance-yellow' : 
-                                'bg-muted'
-                              }>
-                                {transaction.status}
-                              </Badge>
-                            </div>
-                            <div className="col-span-1">
-                              <Button size="sm" variant="ghost" asChild>
-                                <Link to={`/operations/transaction/${transaction.id}`}>Ver</Link>
-                              </Button>
-                            </div>
-                          </div>
+                          <Card key={transaction.id} className="border shadow-sm">
+                            <CardContent className="p-4">
+                              <div className="space-y-3">
+                                <div className="flex justify-between items-start gap-3">
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-semibold text-base truncate text-gray-900">{transaction.description}</h4>
+                                    <div className="flex items-center gap-2 mt-2">
+                                      <Badge variant="outline" className="text-xs font-medium bg-blue-50 text-blue-700 border-blue-200">
+                                        {transaction.type}
+                                      </Badge>
+                                      {isIndirectPayment(transaction) && (
+                                        <Badge variant="outline" className="text-xs font-medium bg-purple-50 text-purple-700 border-purple-200">
+                                          Pago indirecto
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <Badge variant="outline" className={`shrink-0 text-xs font-medium ${
+                                    transaction.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' :
+                                    transaction.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200' : 
+                                    'bg-gray-50 text-gray-700 border-gray-200'
+                                  }`}>
+                                    {transaction.status === 'completed' ? 'Completada' : 
+                                     transaction.status === 'pending' ? 'Pendiente' : transaction.status}
+                                  </Badge>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-1">
+                                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Fecha</span>
+                                    <p className="text-sm font-medium text-gray-700">
+                                      {transaction.date ? format(new Date(transaction.date), 'dd MMM yyyy') : 'Sin fecha'}
+                                    </p>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Monto</span>
+                                    <p className="text-lg font-bold text-gray-900">{formatCurrency(transaction.amount)}</p>
+                                  </div>
+                                </div>
+                                
+                                <div className="pt-2 border-t border-gray-100">
+                                  <Button size="sm" variant="outline" asChild className="w-full">
+                                    <Link to={`/operations/transaction/${transaction.id}`}>
+                                      Ver Detalle Completo
+                                    </Link>
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
                         ))}
                       </div>
-                    </div>
+
+                      {/* Desktop Table View */}
+                      <div className="hidden lg:block rounded-md border">
+                        <div className="grid grid-cols-12 p-3 bg-muted/50 text-sm font-medium">
+                          <div className="col-span-5">Descripción</div>
+                          <div className="col-span-2">Fecha</div>
+                          <div className="col-span-2">Monto</div>
+                          <div className="col-span-2">Estado</div>
+                          <div className="col-span-1">Acción</div>
+                        </div>
+                        <div className="divide-y">
+                          {allRelevantTransactions.map((transaction) => (
+                            <div key={transaction.id} className="grid grid-cols-12 p-3 items-center text-sm">
+                              <div className="col-span-5">
+                                <span className="capitalize">{transaction.description}</span>
+                                <span className="inline-block text-xs bg-muted rounded px-1 ml-2 capitalize">
+                                  {transaction.type}
+                                </span>
+                                {isIndirectPayment(transaction) && (
+                                  <span className="ml-2 text-xs text-finance-blue">Pago indirecto</span>
+                                )}
+                              </div>
+                              <div className="col-span-2">
+                                {transaction.date ? format(new Date(transaction.date), 'MMM d, yyyy') : 'Sin fecha'}
+                              </div>
+                              <div className="col-span-2 font-medium">
+                                {formatCurrency(transaction.amount)}
+                              </div>
+                              <div className="col-span-2">
+                                <Badge variant="outline" className={
+                                  transaction.status === 'completed' ? 'bg-finance-green text-white border-finance-green' :
+                                  transaction.status === 'pending' ? 'bg-finance-yellow text-finance-gray-dark border-finance-yellow' : 
+                                  'bg-muted'
+                                }>
+                                  {transaction.status === 'completed' ? 'Completada' : 
+                                   transaction.status === 'pending' ? 'Pendiente' : transaction.status}
+                                </Badge>
+                              </div>
+                              <div className="col-span-1">
+                                <Button size="sm" variant="ghost" asChild>
+                                  <Link to={`/operations/transaction/${transaction.id}`}>Ver</Link>
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
                   ) : (
                     <div className="text-center py-8">
                       <p className="text-muted-foreground">No hay transacciones para este cliente.</p>
@@ -687,34 +753,99 @@ const ClientDetail = () => {
                 </TabsContent>
                 <TabsContent value="debts">
                   {clientDebts.length > 0 ? (
-                    <div className="rounded-md border">
-                      <div className="grid grid-cols-6 p-3 bg-muted/50 text-sm font-medium">
-                        <div className="col-span-2">Acreedor</div>
-                        <div className="col-span-1">Monto</div>
-                        <div className="col-span-1">Pagado</div>
-                        <div className="col-span-1">Vence</div>
-                        <div className="col-span-1">Estado</div>
-                      </div>
-                      <div className="divide-y">
+                    <>
+                      {/* Mobile Cards View */}
+                      <div className="block lg:hidden space-y-4 mt-4">
                         {clientDebts.map((debt) => (
-                          <div key={debt.id} className="grid grid-cols-6 p-3 items-center text-sm">
-                            <div className="col-span-2">{debt.creditor}</div>
-                            <div className="col-span-1 font-medium">{formatCurrency(debt.amount)}</div>
-                            <div className="col-span-1 font-medium">{formatCurrency(debt.totalPaid)}</div>
-                            <div className="col-span-1">{debt.due_date ? format(new Date(debt.due_date), 'MMM d, yyyy') : 'Sin fecha'}</div>
-                            <div className="col-span-1">
-                              <Badge variant="outline" className={
-                                debt.status === 'pending' ? 'bg-finance-yellow text-finance-gray-dark border-finance-yellow' :
-                                debt.status === 'paid' ? 'bg-finance-green text-white border-finance-green' :
-                                'bg-muted'
-                              }>
-                                {debt.status === 'pending' ? 'Pendiente' : 'Pagada'}
-                              </Badge>
-                            </div>
-                          </div>
+                          <Card key={debt.id} className="border shadow-sm">
+                            <CardContent className="p-4">
+                              <div className="space-y-3">
+                                <div className="flex justify-between items-start gap-3">
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-semibold text-base truncate text-gray-900">{debt.creditor}</h4>
+                                  </div>
+                                  <Badge variant="outline" className={`shrink-0 text-xs font-medium ${
+                                    debt.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                    debt.status === 'paid' ? 'bg-green-50 text-green-700 border-green-200' :
+                                    'bg-gray-50 text-gray-700 border-gray-200'
+                                  }`}>
+                                    {debt.status === 'pending' ? 'Pendiente' : 'Pagada'}
+                                  </Badge>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-1">
+                                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Monto Total</span>
+                                    <p className="text-lg font-bold text-gray-900">{formatCurrency(debt.amount)}</p>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Pagado</span>
+                                    <p className="text-lg font-bold text-green-600">{formatCurrency(debt.totalPaid)}</p>
+                                  </div>
+                                </div>
+                                
+                                <div className="pt-2 border-t border-gray-100">
+                                  <div className="space-y-1">
+                                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Fecha de Vencimiento</span>
+                                    <p className="text-sm font-medium text-gray-700">
+                                      {debt.due_date ? format(new Date(debt.due_date), 'dd MMM yyyy') : 'Sin fecha'}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {/* Progress bar if partially paid */}
+                                {debt.totalPaid > 0 && debt.totalPaid < debt.amount && (
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between text-xs text-gray-500">
+                                      <span>Progreso de pago</span>
+                                      <span>{((debt.totalPaid / debt.amount) * 100).toFixed(1)}%</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                      <div 
+                                        className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                                        style={{
+                                          width: `${Math.min(100, (debt.totalPaid / debt.amount) * 100)}%`
+                                        }}
+                                      ></div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
                         ))}
                       </div>
-                    </div>
+
+                      {/* Desktop Table View */}
+                      <div className="hidden lg:block rounded-md border">
+                        <div className="grid grid-cols-6 p-3 bg-muted/50 text-sm font-medium">
+                          <div className="col-span-2">Acreedor</div>
+                          <div className="col-span-1">Monto</div>
+                          <div className="col-span-1">Pagado</div>
+                          <div className="col-span-1">Vence</div>
+                          <div className="col-span-1">Estado</div>
+                        </div>
+                        <div className="divide-y">
+                          {clientDebts.map((debt) => (
+                            <div key={debt.id} className="grid grid-cols-6 p-3 items-center text-sm">
+                              <div className="col-span-2">{debt.creditor}</div>
+                              <div className="col-span-1 font-medium">{formatCurrency(debt.amount)}</div>
+                              <div className="col-span-1 font-medium">{formatCurrency(debt.totalPaid)}</div>
+                              <div className="col-span-1">{debt.due_date ? format(new Date(debt.due_date), 'MMM d, yyyy') : 'Sin fecha'}</div>
+                              <div className="col-span-1">
+                                <Badge variant="outline" className={
+                                  debt.status === 'pending' ? 'bg-finance-yellow text-finance-gray-dark border-finance-yellow' :
+                                  debt.status === 'paid' ? 'bg-finance-green text-white border-finance-green' :
+                                  'bg-muted'
+                                }>
+                                  {debt.status === 'pending' ? 'Pendiente' : 'Pagada'}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
                   ) : (
                     <div className="text-center py-8">
                       <p className="text-muted-foreground">No hay deudas para este cliente.</p>
@@ -723,34 +854,99 @@ const ClientDetail = () => {
                 </TabsContent>
                 <TabsContent value="receivables">
                   {clientReceivables.length > 0 ? (
-                    <div className="rounded-md border">
-                      <div className="grid grid-cols-6 p-3 bg-muted/50 text-sm font-medium">
-                        <div className="col-span-2">Descripción</div>
-                        <div className="col-span-1">Monto</div>
-                        <div className="col-span-1">Pagado</div>
-                        <div className="col-span-1">Vence</div>
-                        <div className="col-span-1">Estado</div>
-                      </div>
-                      <div className="divide-y">
+                    <>
+                      {/* Mobile Cards View */}
+                      <div className="block lg:hidden space-y-4 mt-4">
                         {clientReceivables.map((rec) => (
-                          <div key={rec.id} className="grid grid-cols-6 p-3 items-center text-sm">
-                            <div className="col-span-2">{rec.description}</div>
-                            <div className="col-span-1 font-medium">{formatCurrency(rec.amount)}</div>
-                            <div className="col-span-1 font-medium">{formatCurrency(rec.totalPaid)}</div>
-                            <div className="col-span-1">{rec.due_date ? format(new Date(rec.due_date), 'MMM d, yyyy') : 'Sin fecha'}</div>
-                            <div className="col-span-1">
-                              <Badge variant="outline" className={
-                                rec.status === 'pending' ? 'bg-finance-yellow text-finance-gray-dark border-finance-yellow' :
-                                rec.status === 'paid' ? 'bg-finance-green text-white border-finance-green' :
-                                'bg-muted'
-                              }>
-                                {rec.status === 'pending' ? 'Pendiente' : 'Pagada'}
-                              </Badge>
-                            </div>
-                          </div>
+                          <Card key={rec.id} className="border shadow-sm">
+                            <CardContent className="p-4">
+                              <div className="space-y-3">
+                                <div className="flex justify-between items-start gap-3">
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-semibold text-base truncate text-gray-900">{rec.description}</h4>
+                                  </div>
+                                  <Badge variant="outline" className={`shrink-0 text-xs font-medium ${
+                                    rec.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                    rec.status === 'paid' ? 'bg-green-50 text-green-700 border-green-200' :
+                                    'bg-gray-50 text-gray-700 border-gray-200'
+                                  }`}>
+                                    {rec.status === 'pending' ? 'Pendiente' : 'Pagada'}
+                                  </Badge>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-1">
+                                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Monto Total</span>
+                                    <p className="text-lg font-bold text-gray-900">{formatCurrency(rec.amount)}</p>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Pagado</span>
+                                    <p className="text-lg font-bold text-green-600">{formatCurrency(rec.totalPaid)}</p>
+                                  </div>
+                                </div>
+                                
+                                <div className="pt-2 border-t border-gray-100">
+                                  <div className="space-y-1">
+                                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Fecha de Vencimiento</span>
+                                    <p className="text-sm font-medium text-gray-700">
+                                      {rec.due_date ? format(new Date(rec.due_date), 'dd MMM yyyy') : 'Sin fecha'}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {/* Progress bar if partially paid */}
+                                {rec.totalPaid > 0 && rec.totalPaid < rec.amount && (
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between text-xs text-gray-500">
+                                      <span>Progreso de pago</span>
+                                      <span>{((rec.totalPaid / rec.amount) * 100).toFixed(1)}%</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                      <div 
+                                        className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                                        style={{
+                                          width: `${Math.min(100, (rec.totalPaid / rec.amount) * 100)}%`
+                                        }}
+                                      ></div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
                         ))}
                       </div>
-                    </div>
+
+                      {/* Desktop Table View */}
+                      <div className="hidden lg:block rounded-md border">
+                        <div className="grid grid-cols-6 p-3 bg-muted/50 text-sm font-medium">
+                          <div className="col-span-2">Descripción</div>
+                          <div className="col-span-1">Monto</div>
+                          <div className="col-span-1">Pagado</div>
+                          <div className="col-span-1">Vence</div>
+                          <div className="col-span-1">Estado</div>
+                        </div>
+                        <div className="divide-y">
+                          {clientReceivables.map((rec) => (
+                            <div key={rec.id} className="grid grid-cols-6 p-3 items-center text-sm">
+                              <div className="col-span-2">{rec.description}</div>
+                              <div className="col-span-1 font-medium">{formatCurrency(rec.amount)}</div>
+                              <div className="col-span-1 font-medium">{formatCurrency(rec.totalPaid)}</div>
+                              <div className="col-span-1">{rec.due_date ? format(new Date(rec.due_date), 'MMM d, yyyy') : 'Sin fecha'}</div>
+                              <div className="col-span-1">
+                                <Badge variant="outline" className={
+                                  rec.status === 'pending' ? 'bg-finance-yellow text-finance-gray-dark border-finance-yellow' :
+                                  rec.status === 'paid' ? 'bg-finance-green text-white border-finance-green' :
+                                  'bg-muted'
+                                }>
+                                  {rec.status === 'pending' ? 'Pendiente' : 'Pagada'}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
                   ) : (
                     <div className="text-center py-8">
                       <p className="text-muted-foreground">No hay cuentas por cobrar para este cliente.</p>

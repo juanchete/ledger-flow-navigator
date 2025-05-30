@@ -15,21 +15,22 @@ const Operations = () => {
   const { isLoading } = useTransactions();
   
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-3xl font-bold tracking-tight">Operaciones</h1>
+    <div className="space-y-4 sm:space-y-6 animate-fade-in p-4 sm:p-6">
+      <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:justify-between sm:items-center">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Operaciones</h1>
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="gap-2 w-full sm:w-auto min-w-fit">
               <PlusCircle size={18} />
-              Agregar Transacción
+              <span className="hidden sm:inline">Agregar Transacción</span>
+              <span className="sm:hidden">Agregar</span>
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className="w-[95vw] max-w-3xl max-h-[90vh] sm:max-h-[80vh] overflow-y-auto mx-4">
             <DialogHeader>
-              <DialogTitle>Crear Nueva Transacción</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-lg sm:text-xl">Crear Nueva Transacción</DialogTitle>
+              <DialogDescription className="text-sm sm:text-base">
                 Ingresa los detalles para tu nueva transacción.
               </DialogDescription>
             </DialogHeader>
@@ -39,26 +40,30 @@ const Operations = () => {
         </Dialog>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Transacciones</CardTitle>
-          <TransactionsFilter
-            selectedType={selectedType}
-            setSelectedType={setSelectedType}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-          />
+      <Card className="shadow-sm">
+        <CardHeader className="space-y-4 sm:space-y-0 sm:flex sm:flex-row sm:justify-between sm:items-center pb-4">
+          <CardTitle className="text-lg sm:text-xl">Transacciones</CardTitle>
+          <div className="w-full sm:w-auto">
+            <TransactionsFilter
+              selectedType={selectedType}
+              setSelectedType={setSelectedType}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+            />
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 sm:px-6">
           {isLoading ? (
-            <div className="flex items-center justify-center p-8">
-              <div className="text-muted-foreground">Cargando transacciones...</div>
+            <div className="flex items-center justify-center p-8 sm:p-12">
+              <div className="text-muted-foreground text-sm sm:text-base">Cargando transacciones...</div>
             </div>
           ) : (
-          <TransactionsList
-            selectedType={selectedType}
-            searchQuery={searchQuery}
-          />
+          <div className="w-full overflow-x-auto">
+            <TransactionsList
+              selectedType={selectedType}
+              searchQuery={searchQuery}
+            />
+          </div>
           )}
         </CardContent>
       </Card>

@@ -1,4 +1,3 @@
-
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -16,23 +15,27 @@ export const TransactionsFilter = ({
   setSearchQuery 
 }: TransactionsFilterProps) => {
   return (
-    <div className="flex flex-col sm:flex-row justify-between gap-4 mt-4">
-      <Tabs defaultValue="all" value={selectedType} onValueChange={setSelectedType}>
-        <TabsList>
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="purchase">Purchases</TabsTrigger>
-          <TabsTrigger value="sale">Sales</TabsTrigger>
-          <TabsTrigger value="expense">Expenses</TabsTrigger>
-          <TabsTrigger value="banking">Banking</TabsTrigger>
-        </TabsList>
-      </Tabs>
+    <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:justify-between sm:items-center gap-0 sm:gap-4">
+      <div className="w-full sm:w-auto">
+        <Tabs defaultValue="all" value={selectedType} onValueChange={setSelectedType}>
+          <TabsList className="grid w-full grid-cols-5 sm:w-auto sm:flex">
+            <TabsTrigger value="all" className="text-xs sm:text-sm px-2 sm:px-3">Todo</TabsTrigger>
+            <TabsTrigger value="purchase" className="text-xs sm:text-sm px-2 sm:px-3">Compras</TabsTrigger>
+            <TabsTrigger value="sale" className="text-xs sm:text-sm px-2 sm:px-3">Ventas</TabsTrigger>
+            <TabsTrigger value="expense" className="text-xs sm:text-sm px-2 sm:px-3">Gastos</TabsTrigger>
+            <TabsTrigger value="banking" className="text-xs sm:text-sm px-2 sm:px-3">Banco</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
       
-      <Input 
-        placeholder="Search transactions..." 
-        className="max-w-[300px]"
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-      />
+      <div className="w-full sm:w-auto sm:max-w-[300px]">
+        <Input 
+          placeholder="Buscar transacciones..." 
+          className="w-full"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
     </div>
   );
 };

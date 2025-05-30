@@ -264,29 +264,29 @@ const Calendar = () => {
   if (loading) return <div className="p-8 text-center">Cargando eventos...</div>;
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setDate(new Date())}>
+    <div className="space-y-4 animate-fade-in p-4 sm:p-6">
+      <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:justify-between sm:items-center pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+          <Button variant="ghost" size="sm" onClick={() => setDate(new Date())} className="w-fit">
             Hoy
           </Button>
-          <div className="flex items-center">
+          <div className="flex items-center justify-center sm:justify-start">
             <Button variant="outline" size="icon" onClick={() => changeMonth('previous')}>
               <ChevronLeft size={16} />
             </Button>
-            <h1 className="text-2xl font-bold mx-4">{currentMonth}</h1>
+            <h1 className="text-lg sm:text-2xl font-bold mx-2 sm:mx-4 min-w-0 text-center">{currentMonth}</h1>
             <Button variant="outline" size="icon" onClick={() => changeMonth('next')}>
               <ChevronRight size={16} />
             </Button>
           </div>
         </div>
         
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
           <div className="relative flex-1 sm:max-w-[300px]">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar eventos..."
-              className="pl-8"
+              className="pl-8 text-sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -305,27 +305,25 @@ const Calendar = () => {
           <Button 
             variant="outline" 
             size="icon" 
-            className={cn(showFilters && "bg-accent")}
+            className={cn(showFilters && "bg-accent", "shrink-0")}
             onClick={() => setShowFilters(!showFilters)}
           >
             <Filter size={18} />
           </Button>
-          
-
         </div>
       </div>
       
       {showFilters && (
         <Card className="mb-4">
           <CardContent className="pt-4">
-            <div className="flex flex-wrap gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="flex items-center space-x-2">
                 <Checkbox 
                   id="filter-payment" 
                   checked={filters.payment} 
                   onCheckedChange={() => toggleFilter('payment')} 
                 />
-                <Label htmlFor="filter-payment" className="flex items-center">
+                <Label htmlFor="filter-payment" className="flex items-center text-sm">
                   <span className="w-3 h-3 rounded-full bg-red-500 mr-2"></span>
                   Pagos
                 </Label>
@@ -336,7 +334,7 @@ const Calendar = () => {
                   checked={filters.invoice} 
                   onCheckedChange={() => toggleFilter('invoice')} 
                 />
-                <Label htmlFor="filter-invoice" className="flex items-center">
+                <Label htmlFor="filter-invoice" className="flex items-center text-sm">
                   <span className="w-3 h-3 rounded-full bg-green-500 mr-2"></span>
                   Recibos
                 </Label>
@@ -347,7 +345,7 @@ const Calendar = () => {
                   checked={filters.meeting} 
                   onCheckedChange={() => toggleFilter('meeting')} 
                 />
-                <Label htmlFor="filter-meeting" className="flex items-center">
+                <Label htmlFor="filter-meeting" className="flex items-center text-sm">
                   <span className="w-3 h-3 rounded-full bg-blue-500 mr-2"></span>
                   Reuniones
                 </Label>
@@ -358,7 +356,7 @@ const Calendar = () => {
                   checked={filters.task} 
                   onCheckedChange={() => toggleFilter('task')} 
                 />
-                <Label htmlFor="filter-task" className="flex items-center">
+                <Label htmlFor="filter-task" className="flex items-center text-sm">
                   <span className="w-3 h-3 rounded-full bg-yellow-500 mr-2"></span>
                   Tareas
                 </Label>
@@ -371,111 +369,138 @@ const Calendar = () => {
       <Card className="border shadow-sm">
         <CardContent className="p-0">
           {view === 'month' && (
-            <div className="w-full">
-              <div className="grid grid-cols-7 border-b">
-                {daysOfWeek.map((day, i) => (
-                  <div key={i} className="p-3 text-center font-medium text-sm">
-                    {day}
-                  </div>
-                ))}
-              </div>
-              
-              <div className="grid grid-cols-7">
-                {Array(42).fill(null).map((_, i) => {
-                  const currentDate = new Date(monthStart);
-                  currentDate.setDate(currentDate.getDate() - monthStart.getDay() + i);
-                  
-                  const dayEvents = getDayEvents(currentDate);
-                  const isCurrentMonth = isSameMonth(currentDate, date);
-                  const isSelectedDay = isSameDay(currentDate, date);
-                  const formattedDate = format(currentDate, 'd');
-                  
-                  return (
-                    <div 
-                      key={i}
-                      className={cn(
-                        "min-h-[110px] p-1 border cursor-pointer hover:bg-gray-50 relative",
-                        isToday(currentDate) && "bg-blue-50",
-                        isSelectedDay && "ring-2 ring-inset ring-primary",
-                        !isCurrentMonth && "text-gray-400 bg-gray-50/50"
-                      )}
-                      onClick={() => setDate(currentDate)}
-                    >
-                      <div className={cn(
-                        "h-7 w-7 rounded-full flex items-center justify-center mb-1 text-sm",
-                        isToday(currentDate) && "bg-primary text-white font-medium",
-                        !isToday(currentDate) && isSelectedDay && "font-medium"
-                      )}>
-                        {formattedDate}
-                      </div>
-                      
-                      <div className="space-y-1">
-                        {dayEvents.slice(0, 3).map((event, idx) => (
-                          <div
-                            key={idx}
-                            className={cn(
-                              "text-xs rounded px-1.5 py-1 truncate cursor-pointer hover:opacity-80",
-                              getCategoryColor(event.category)
-                            )}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEventClick(event);
-                            }}
-                          >
-                            <span className="mr-1">{getCategoryIcon(event.category)}</span>
-                            {event.title}
-                          </div>
-                        ))}
-                        
-                        {dayEvents.length > 3 && (
-                          <div 
-                            className="text-xs text-primary font-medium pl-1 hover:underline cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDate(currentDate);
-                              setView('day');
-                            }}
-                          >
-                            + {dayEvents.length - 3} más
-                          </div>
-                        )}
-                      </div>
+            <div className="w-full overflow-x-auto">
+              <div className="min-w-[300px]">
+                <div className="grid grid-cols-7 border-b">
+                  {daysOfWeek.map((day, i) => (
+                    <div key={i} className="p-2 sm:p-3 text-center font-medium text-xs sm:text-sm">
+                      <span className="hidden sm:inline">{day}</span>
+                      <span className="sm:hidden">{day.slice(0, 3)}</span>
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
+                
+                <div className="grid grid-cols-7">
+                  {Array(42).fill(null).map((_, i) => {
+                    const currentDate = new Date(monthStart);
+                    currentDate.setDate(currentDate.getDate() - monthStart.getDay() + i);
+                    
+                    const dayEvents = getDayEvents(currentDate);
+                    const isCurrentMonth = isSameMonth(currentDate, date);
+                    const isSelectedDay = isSameDay(currentDate, date);
+                    const formattedDate = format(currentDate, 'd');
+                    
+                    return (
+                      <div 
+                        key={i}
+                        className={cn(
+                          "min-h-[80px] sm:min-h-[110px] p-1 border cursor-pointer hover:bg-gray-50 relative",
+                          isToday(currentDate) && "bg-blue-50",
+                          isSelectedDay && "ring-2 ring-inset ring-primary",
+                          !isCurrentMonth && "text-gray-400 bg-gray-50/50"
+                        )}
+                        onClick={() => setDate(currentDate)}
+                      >
+                        <div className={cn(
+                          "h-6 w-6 sm:h-7 sm:w-7 rounded-full flex items-center justify-center mb-1 text-xs sm:text-sm",
+                          isToday(currentDate) && "bg-primary text-white font-medium",
+                          !isToday(currentDate) && isSelectedDay && "font-medium"
+                        )}>
+                          {formattedDate}
+                        </div>
+                        
+                        <div className="space-y-0.5 sm:space-y-1">
+                          {dayEvents.slice(0, 3).map((event, idx) => (
+                            <div
+                              key={idx}
+                              className={cn(
+                                "text-xs rounded px-1 sm:px-1.5 py-0.5 sm:py-1 truncate cursor-pointer hover:opacity-80",
+                                getCategoryColor(event.category),
+                                idx >= 2 && "hidden sm:block"
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEventClick(event);
+                              }}
+                            >
+                              <span className="mr-1 hidden sm:inline">{getCategoryIcon(event.category)}</span>
+                              <span className="text-[10px] sm:text-xs">{event.title}</span>
+                            </div>
+                          ))}
+                          
+                          {dayEvents.length > 3 && (
+                            <div 
+                              className="text-[10px] sm:text-xs text-primary font-medium pl-1 hover:underline cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDate(currentDate);
+                                setView('day');
+                              }}
+                            >
+                              <span className="hidden sm:inline">+ {dayEvents.length - 3} más</span>
+                              <span className="sm:hidden">+ {dayEvents.length - 2} más</span>
+                            </div>
+                          )}
+                          
+                          {dayEvents.length > 2 && dayEvents.length <= 3 && (
+                            <div 
+                              className="text-[10px] text-primary font-medium pl-1 hover:underline cursor-pointer sm:hidden"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDate(currentDate);
+                                setView('day');
+                              }}
+                            >
+                              + {dayEvents.length - 2} más
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
           
           {view === 'day' && (
-            <div className="p-6">
-              <h3 className="text-xl font-semibold mb-6">
-                {formatDateEs(date, 'EEEE, d MMMM yyyy')}
-              </h3>
+            <div className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-6 gap-2">
+                <h3 className="text-lg sm:text-xl font-semibold">
+                  {formatDateEs(date, 'EEEE, d MMMM yyyy')}
+                </h3>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setView('month')}
+                  className="w-fit"
+                >
+                  Volver al mes
+                </Button>
+              </div>
               
               {eventsForSelectedDate.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {eventsForSelectedDate.map((event) => (
                     <div 
                       key={event.id} 
                       className={cn(
-                        "px-4 py-3 rounded-lg border cursor-pointer hover:shadow-md transition-shadow",
+                        "px-3 sm:px-4 py-3 rounded-lg border cursor-pointer hover:shadow-md transition-shadow",
                         getCategoryColor(event.category)
                       )}
                       onClick={() => handleEventClick(event)}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xl">{getCategoryIcon(event.category)}</span>
-                          <h4 className="font-medium">{event.title}</h4>
+                      <div className="flex items-start sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="text-lg sm:text-xl">{getCategoryIcon(event.category)}</span>
+                          <h4 className="font-medium text-sm sm:text-base truncate">{event.title}</h4>
                         </div>
-                        <Badge variant="outline">
+                        <Badge variant="outline" className="text-xs shrink-0">
                           {format(new Date(event.startDate), 'HH:mm')}
                         </Badge>
                       </div>
-                      <p className="text-sm mt-1">{event.description}</p>
+                      <p className="text-xs sm:text-sm mt-2 pl-6 sm:pl-8">{event.description}</p>
                       {event.amount > 0 && (
-                        <p className="text-sm font-medium mt-2">
+                        <p className="text-xs sm:text-sm font-medium mt-2 pl-6 sm:pl-8">
                           Monto: {event.currency} {event.amount.toFixed(2)}
                         </p>
                       )}
@@ -483,18 +508,18 @@ const Calendar = () => {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-12">
-                  <p className="text-muted-foreground">No hay eventos para este día.</p>
+                <div className="text-center py-8 sm:py-12">
+                  <p className="text-muted-foreground text-sm sm:text-base">No hay eventos para este día.</p>
                 </div>
               )}
             </div>
           )}
           
           {view === 'week' && (
-            <div className="p-6">
-              <h3 className="text-xl font-semibold mb-6">Vista semanal (en desarrollo)</h3>
-              <div className="text-center py-12">
-                <p className="text-muted-foreground">Vista semanal próximamente</p>
+            <div className="p-4 sm:p-6">
+              <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6">Vista semanal (en desarrollo)</h3>
+              <div className="text-center py-8 sm:py-12">
+                <p className="text-muted-foreground text-sm sm:text-base">Vista semanal próximamente</p>
               </div>
             </div>
           )}
@@ -503,63 +528,93 @@ const Calendar = () => {
       
       <Dialog open={isEventDetailOpen} onOpenChange={setIsEventDetailOpen}>
         {selectedEvent && (
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-xl">
-                <span>{getCategoryIcon(selectedEvent.category)}</span>
-                {selectedEvent.title}
+          <DialogContent className="w-[95vw] max-w-[500px] max-h-[90vh] overflow-y-auto mx-2 sm:mx-4">
+            <DialogHeader className="pb-2 sm:pb-4">
+              <DialogTitle className="flex items-start sm:items-center gap-2 text-base sm:text-lg lg:text-xl pr-6">
+                <span className="text-lg sm:text-xl flex-shrink-0">{getCategoryIcon(selectedEvent.category)}</span>
+                <span className="truncate leading-tight">{selectedEvent.title}</span>
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 pt-2">
-              <div>
-                <Badge className={getCategoryColor(selectedEvent.category)}>
+            <div className="space-y-3 sm:space-y-4 pt-1 sm:pt-2">
+              <div className="space-y-3">
+                <Badge className={cn(getCategoryColor(selectedEvent.category), "text-xs sm:text-sm")}>
                   {getCategoryLabel(selectedEvent.category)}
                 </Badge>
-                <p className="mt-4">{selectedEvent.description}</p>
+                {selectedEvent.description && (
+                  <p className="text-sm sm:text-base leading-relaxed text-muted-foreground">
+                    {selectedEvent.description}
+                  </p>
+                )}
               </div>
               
-              <div className="bg-muted/50 p-3 rounded-lg space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <CalendarIcon size={16} className="text-muted-foreground" />
-                  <span>
-                    {formatDateEs(selectedEvent.startDate, 'EEEE, d MMMM yyyy')}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-4 h-4 flex items-center justify-center">
-                    <div className="w-1 h-1 rounded-full bg-current"></div>
+              <div className="bg-muted/50 p-3 sm:p-4 rounded-lg space-y-2 sm:space-y-3">
+                <div className="flex items-start sm:items-center gap-2 sm:gap-3">
+                  <CalendarIcon size={16} className="text-muted-foreground shrink-0 mt-0.5 sm:mt-0" />
+                  <div className="min-w-0 flex-1">
+                    <span className="text-xs sm:text-sm font-medium block">
+                      {formatDateEs(selectedEvent.startDate, 'EEEE, d MMMM yyyy')}
+                    </span>
                   </div>
-                  <span>
+                </div>
+                <div className="flex items-start sm:items-center gap-2 sm:gap-3">
+                  <div className="w-4 h-4 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
+                    <div className="w-1.5 h-1.5 rounded-full bg-current"></div>
+                  </div>
+                  <span className="text-xs sm:text-sm text-muted-foreground">
                     {format(new Date(selectedEvent.startDate), 'HH:mm')} - {format(new Date(selectedEvent.endDate), 'HH:mm')}
                   </span>
                 </div>
+                {selectedEvent.completed && (
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="w-4 h-4 flex items-center justify-center shrink-0">
+                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    </div>
+                    <span className="text-xs sm:text-sm text-green-600 font-medium">Completado</span>
+                  </div>
+                )}
               </div>
               
               {selectedEvent.amount > 0 && (
-                <div className="border-t pt-4">
-                  <h4 className="font-medium mb-2">Detalles financieros</h4>
-                  <div className="flex justify-between">
-                    <span>Monto:</span>
-                    <span className="font-medium">{selectedEvent.currency} {selectedEvent.amount.toFixed(2)}</span>
+                <div className="border-t pt-3 sm:pt-4 space-y-2">
+                  <h4 className="font-medium text-sm sm:text-base">Detalles financieros</h4>
+                  <div className="bg-muted/30 p-3 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm sm:text-base text-muted-foreground">Monto:</span>
+                      <span className="font-semibold text-sm sm:text-base">
+                        {selectedEvent.currency} {selectedEvent.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
               
-              <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" onClick={() => setIsEventDetailOpen(false)}>Cerrar</Button>
+              <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-4 sm:pt-6 border-t">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsEventDetailOpen(false)} 
+                  className="w-full sm:w-auto order-2 sm:order-1"
+                  size="sm"
+                >
+                  Cerrar
+                </Button>
                 {/* Solo permitir borrar eventos manuales (no los automáticos financieros) */}
                 {!selectedEvent.id.startsWith('debt-') && 
                  !selectedEvent.id.startsWith('receivable-') && 
                  !selectedEvent.id.startsWith('payment-') && (
-                  <Button variant="destructive" onClick={() => handleDeleteEvent(selectedEvent.id)}>Borrar</Button>
+                  <Button 
+                    variant="destructive" 
+                    onClick={() => handleDeleteEvent(selectedEvent.id)} 
+                    className="w-full sm:w-auto order-1 sm:order-2"
+                    size="sm"
+                  >
+                    Eliminar evento
+                  </Button>
                 )}
               </div>
             </div>
           </DialogContent>
         )}
       </Dialog>
-      
-
     </div>
   );
 };

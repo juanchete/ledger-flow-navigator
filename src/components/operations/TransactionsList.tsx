@@ -124,17 +124,82 @@ export const TransactionsList = ({ selectedType, searchQuery }: TransactionsList
   }
 
   return (
-    <div className="rounded-md border">
-      <div className="grid grid-cols-1 md:grid-cols-12 p-4 bg-muted/50">
-        <div className="hidden md:block md:col-span-1 font-medium">Tipo</div>
-        <div className="hidden md:block md:col-span-4 font-medium">Descripción</div>
-        <div className="hidden md:block md:col-span-2 font-medium">Fecha</div>
-        <div className="hidden md:block md:col-span-2 font-medium">Monto</div>
-        <div className="hidden md:block md:col-span-2 font-medium">Estado</div>
-        <div className="hidden md:block md:col-span-1 font-medium text-right">Acciones</div>
+    <div className="space-y-4">
+      {/* Vista de tabla para pantallas medianas y grandes */}
+      <div className="hidden md:block rounded-md border">
+        <div className="grid grid-cols-12 p-4 bg-muted/50 text-sm font-medium">
+          <div className="col-span-1">Tipo</div>
+          <div className="col-span-4">Descripción</div>
+          <div className="col-span-2">Fecha</div>
+          <div className="col-span-2">Monto</div>
+          <div className="col-span-2">Estado</div>
+          <div className="col-span-1 text-right">Acciones</div>
+        </div>
+        
+        <div className="divide-y">
+          {isFiltering ? (
+            <div className="p-4 text-center text-muted-foreground">
+              Aplicando filtros...
+            </div>
+          ) : filteredTransactions.length > 0 ? (
+            filteredTransactions.map((transaction) => {
+              const client = transaction.client_id ? clientsMap[transaction.client_id] : null;
+              
+              return (
+                <div key={transaction.id} className="grid grid-cols-12 p-4 items-center hover:bg-muted/25 transition-colors">
+                  <div className="col-span-1">
+                    <Badge className={getBadgeColor(transaction.type || '')}>
+                      {transaction.type ? transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1) : 'N/A'}
+                    </Badge>
+                  </div>
+                  
+                  <div className="col-span-4">
+                    <div className="font-medium truncate">{transaction.description || 'Sin descripción'}</div>
+                    {client && (
+                      <div className="text-sm text-muted-foreground truncate">
+                        Cliente: {client.name}
+                      </div>
+                    )}
+                    {transaction.type === 'payment' && transaction.debt_id && (
+                      <span className="text-xs text-muted-foreground">Deuda: {mockDetailedDebts.find(d => d.id === transaction.debt_id)?.creditor}</span>
+                    )}
+                    {transaction.type === 'payment' && transaction.receivable_id && (
+                      <span className="text-xs text-muted-foreground">Cuenta por Cobrar: {mockDetailedReceivables.find(r => r.id === transaction.receivable_id)?.description}</span>
+                    )}
+                  </div>
+                  
+                  <div className="col-span-2 text-sm">
+                    {transaction.date ? format(new Date(transaction.date), 'MMM d, yyyy') : 'Sin fecha'}
+                  </div>
+                  
+                  <div className="col-span-2 font-medium">
+                    {formatCurrency(transaction.amount)}
+                  </div>
+                  
+                  <div className="col-span-2">
+                    <Badge className={getStatusBadgeColor(transaction.status || '')}>
+                      {transaction.status || 'Sin estado'}
+                    </Badge>
+                  </div>
+                  
+                  <div className="col-span-1 flex justify-end">
+                    <Button size="sm" variant="ghost" asChild>
+                      <Link to={`/operations/transaction/${transaction.id}`}>Ver</Link>
+                    </Button>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="p-4 text-center text-muted-foreground">
+              No se encontraron transacciones.
+            </div>
+          )}
+        </div>
       </div>
-      
-      <div className="divide-y">
+
+      {/* Vista de tarjetas para pantallas pequeñas */}
+      <div className="md:hidden space-y-3">
         {isFiltering ? (
           <div className="p-4 text-center text-muted-foreground">
             Aplicando filtros...
@@ -144,52 +209,49 @@ export const TransactionsList = ({ selectedType, searchQuery }: TransactionsList
             const client = transaction.client_id ? clientsMap[transaction.client_id] : null;
             
             return (
-              <div key={transaction.id} className="grid grid-cols-1 md:grid-cols-12 p-4 items-center">
-                <div className="md:col-span-1 mb-2 md:mb-0">
-                  <Badge className={getBadgeColor(transaction.type || '')}>
-                    {transaction.type ? transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1) : 'N/A'}
-                  </Badge>
+              <div key={transaction.id} className="bg-card border rounded-lg p-4 space-y-3 shadow-sm">
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-2">
+                    <Badge className={getBadgeColor(transaction.type || '')} variant="secondary">
+                      {transaction.type ? transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1) : 'N/A'}
+                    </Badge>
+                    <Badge className={getStatusBadgeColor(transaction.status || '')} variant="outline">
+                      {transaction.status || 'Sin estado'}
+                    </Badge>
+                  </div>
+                  <Button size="sm" variant="ghost" asChild>
+                    <Link to={`/operations/transaction/${transaction.id}`}>Ver</Link>
+                  </Button>
                 </div>
                 
-                <div className="md:col-span-4 mb-2 md:mb-0">
-                  <div className="font-medium">{transaction.description || 'Sin descripción'}</div>
+                <div>
+                  <div className="font-medium text-sm mb-1">{transaction.description || 'Sin descripción'}</div>
                   {client && (
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-xs text-muted-foreground mb-1">
                       Cliente: {client.name}
                     </div>
                   )}
                   {transaction.type === 'payment' && transaction.debt_id && (
-                    <span className="text-xs text-muted-foreground ml-2">Deuda: {mockDetailedDebts.find(d => d.id === transaction.debt_id)?.creditor}</span>
+                    <div className="text-xs text-muted-foreground">Deuda: {mockDetailedDebts.find(d => d.id === transaction.debt_id)?.creditor}</div>
                   )}
                   {transaction.type === 'payment' && transaction.receivable_id && (
-                    <span className="text-xs text-muted-foreground ml-2">Cuenta por Cobrar: {mockDetailedReceivables.find(r => r.id === transaction.receivable_id)?.description}</span>
+                    <div className="text-xs text-muted-foreground">Cuenta por Cobrar: {mockDetailedReceivables.find(r => r.id === transaction.receivable_id)?.description}</div>
                   )}
                 </div>
                 
-                <div className="md:col-span-2 text-sm mb-2 md:mb-0">
-                  {transaction.date ? format(new Date(transaction.date), 'MMM d, yyyy') : 'Sin fecha'}
-                </div>
-                
-                <div className="md:col-span-2 font-medium mb-2 md:mb-0">
-                  {formatCurrency(transaction.amount)}
-                </div>
-                
-                <div className="md:col-span-2 mb-2 md:mb-0">
-                  <Badge className={getStatusBadgeColor(transaction.status || '')}>
-                    {transaction.status || 'Sin estado'}
-                  </Badge>
-                </div>
-                
-                <div className="md:col-span-1 flex justify-end">
-                  <Button size="sm" variant="ghost" asChild>
-                    <Link to={`/operations/transaction/${transaction.id}`}>Ver</Link>
-                  </Button>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">
+                    {transaction.date ? format(new Date(transaction.date), 'MMM d, yyyy') : 'Sin fecha'}
+                  </span>
+                  <span className="font-medium text-lg">
+                    {formatCurrency(transaction.amount)}
+                  </span>
                 </div>
               </div>
             );
           })
         ) : (
-          <div className="p-4 text-center text-muted-foreground">
+          <div className="p-8 text-center text-muted-foreground border rounded-lg">
             No se encontraron transacciones.
           </div>
         )}

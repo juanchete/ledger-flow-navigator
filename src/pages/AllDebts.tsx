@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from '@/components/common/PageHeader';
@@ -6,9 +5,10 @@ import { DebtSummaryMetrics } from '@/components/debts/DebtSummaryMetrics';
 import { DebtFilters } from '@/components/debts/DebtFilters';
 import { DebtTable } from '@/components/debts/DebtTable';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Terminal, Loader2, Plus, Pencil } from 'lucide-react';
+import { Terminal, Loader2, Plus, Pencil, ArrowLeft } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { DebtFormModal } from '@/components/debts/DebtFormModal';
+import { Link } from 'react-router-dom';
 
 import { useDebts } from '../contexts/DebtContext';
 import { useTransactions } from '../context/TransactionContext';
@@ -200,16 +200,27 @@ const AllDebts: React.FC = () => {
 
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in p-4 sm:p-6">
-      {/* Header responsive */}
+      {/* Header */}
       <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-        <PageHeader title="Todas las Deudas" />
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" asChild className="shrink-0">
+            <Link to="/">
+              <ArrowLeft className="h-4 w-4" />
+              <span className="ml-2 hidden sm:inline">Volver</span>
+            </Link>
+          </Button>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">
+            Todas las Deudas
+          </h1>
+        </div>
         <Button onClick={handleAddDebt} className="flex items-center gap-2 w-full sm:w-auto">
           <Plus className="h-4 w-4" />
-          <span>Agregar Deuda</span>
+          <span className="sm:hidden">Agregar</span>
+          <span className="hidden sm:inline">Agregar Deuda</span>
         </Button>
       </div>
       
-      {/* Métricas con diseño responsive mejorado */}
+      {/* Summary Cards */}
       <div className="w-full">
         <DebtSummaryMetrics 
           totalAmount={totalAmount}
@@ -219,7 +230,7 @@ const AllDebts: React.FC = () => {
         />
       </div>
       
-      {/* Card de listado con mejor responsive */}
+      {/* Main Content */}
       <Card className="w-full">
         <CardHeader className="pb-4">
           <CardTitle className="text-lg sm:text-xl">Listado de Deudas</CardTitle>
@@ -236,7 +247,7 @@ const AllDebts: React.FC = () => {
             />
           </div>
         </CardHeader>
-        <CardContent className="p-0 sm:p-6">
+        <CardContent className="p-0">
           <div className="w-full">
             <DebtTable 
               debts={filteredDebts}
