@@ -12,6 +12,7 @@ import { FileText, Loader2 } from "lucide-react";
 import { clientService } from "@/integrations/supabase/clientService";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
+import { mapSupabaseClientToClient } from "@/types/client";
 
 interface ClientFormModalProps {
   open: boolean;
@@ -111,8 +112,9 @@ const ClientFormModal = ({
         };
         const created = await clientService.createClient(clientToCreate);
         if (created) {
+          const mappedClient = mapSupabaseClientToClient(created);
           toast.success("Cliente creado con éxito");
-          if (onSuccess) onSuccess(created);
+          if (onSuccess) onSuccess(mappedClient);
           onOpenChange(false);
           setFormData(defaultClientData);
         }
@@ -139,8 +141,9 @@ const ClientFormModal = ({
         };
         const updated = await clientService.updateClient(client.id, updateData);
         if (updated) {
+          const mappedClient = mapSupabaseClientToClient(updated);
           toast.success("Cliente actualizado con éxito");
-          if (onSuccess) onSuccess(updated);
+          if (onSuccess) onSuccess(mappedClient);
           onOpenChange(false);
         }
       }
@@ -435,4 +438,4 @@ const ClientFormModal = ({
   );
 };
 
-export default ClientFormModal; 
+export default ClientFormModal;

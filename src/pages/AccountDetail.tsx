@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +27,10 @@ interface Account {
   notes: string;
 }
 
+interface TransactionWithBalance extends Transaction {
+  balance?: number;
+}
+
 const AccountDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [searchQuery, setSearchQuery] = useState("");
@@ -33,7 +38,7 @@ const AccountDetail: React.FC = () => {
   const [selectedDebt, setSelectedDebt] = useState<Account | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [dateRange, setDateRange] = useState<Date | undefined>(undefined);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactions, setTransactions] = useState<TransactionWithBalance[]>([]);
   const [account, setAccount] = useState<Account | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -59,11 +64,11 @@ const AccountDetail: React.FC = () => {
         setTransactions(
           transactionsData.map((t) => ({
             id: t.id,
-            type: t.type,
+            type: t.type as Transaction["type"],
             clientId: t.client_id,
             amount: t.amount,
             date: new Date(t.date),
-            status: t.status,
+            status: t.status as Transaction["status"],
             description: t.description || '',
             paymentMethod: t.payment_method || '',
             category: t.category || '',
@@ -98,7 +103,7 @@ const AccountDetail: React.FC = () => {
     };
   });
 
-  const filteredTransactions = transactions.filter((transaction) => {
+  const filteredTransactions = balanceHistory.filter((transaction) => {
     const matchesSearch = transaction.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || transaction.status === statusFilter;
     const matchesDate = !dateRange || 
