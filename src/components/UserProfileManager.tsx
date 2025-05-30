@@ -1,16 +1,17 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from '@/context/AuthContext';
 import { userService } from '@/integrations/supabase/userService';
+import { supabase } from '@/integrations/supabase/client';
 import type { UserProfile } from '@/types/auth';
 import { toast } from 'sonner';
 
 export function UserProfileManager() {
-  const { user, userProfile, isAdmin, refreshProfile } = useAuth();
+  const { user, isAdmin, refreshProfile } = useAuth();
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -36,11 +37,7 @@ export function UserProfileManager() {
       setAllUsers(data || []);
     } catch (error) {
       console.error('Error loading users:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'No se pudieron cargar los usuarios',
-      });
+      toast.error('No se pudieron cargar los usuarios');
     } finally {
       setIsLoading(false);
     }
@@ -59,21 +56,14 @@ export function UserProfileManager() {
       // Refrescar la lista de usuarios
       await loadAllUsers();
       
-      toast({
-        title: 'Rol actualizado',
-        description: 'El rol del usuario ha sido actualizado correctamente',
-      });
+      toast.success('El rol del usuario ha sido actualizado correctamente');
     } catch (error) {
       console.error('Error updating role:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'No se pudo actualizar el rol del usuario',
-      });
+      toast.error('No se pudo actualizar el rol del usuario');
     }
   };
 
-  if (!user || !userProfile) {
+  if (!user) {
     return <div>No hay usuario autenticado</div>;
   }
 
@@ -90,17 +80,17 @@ export function UserProfileManager() {
         <CardContent>
           <div className="flex items-center space-x-4">
             <Avatar>
-              <AvatarImage src={userProfile.avatar_url || ''} />
+              <AvatarImage src={user.avatar_url || ''} />
               <AvatarFallback>
-                {userProfile.full_name?.[0]?.toUpperCase() || userProfile.email[0]?.toUpperCase()}
+                {user.full_name?.[0]?.toUpperCase() || user.email[0]?.toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div>
               <div className="font-medium">
-                {userProfile.full_name || user.email}
-                <Badge className="ml-2">{userProfile.role}</Badge>
+                {user.full_name || user.email}
+                <Badge className="ml-2">{user.role}</Badge>
               </div>
-              <div className="text-sm text-muted-foreground">{userProfile.email}</div>
+              <div className="text-sm text-muted-foreground">{user.email}</div>
             </div>
           </div>
         </CardContent>

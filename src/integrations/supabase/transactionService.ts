@@ -1,3 +1,4 @@
+
 import { supabase } from "./client";
 // import type { Transaction } from "@/types"; // Remove old local type import
 import type { Database, Tables, TablesInsert, TablesUpdate } from "./types"; // Supabase types
@@ -170,6 +171,21 @@ export const getPaymentsByReceivableId = async (
     .eq("receivable_id", receivableId)
     .eq("type", "payment")
     .eq("status", "completed");
+  if (error) throw error;
+  return data || [];
+};
+
+/**
+ * Obtiene las transacciones asociadas a una cuenta por cobrar específica.
+ */
+export const getTransactionsByReceivableId = async (
+  receivableId: string
+): Promise<Transaction[]> => {
+  const { data, error } = await supabase
+    .from(TRANSACTIONS_TABLE)
+    .select("*")
+    .eq("receivable_id", receivableId)
+    .order("date", { ascending: false });
   if (error) throw error;
   return data || [];
 };

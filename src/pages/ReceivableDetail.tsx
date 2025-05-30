@@ -1,31 +1,21 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Calendar, CheckCircle, Copy, Loader2, Plus, Wallet } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ArrowLeft, Loader2, Plus } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { DebtDetailsModal } from '@/components/operations/DebtDetailsModal';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { cn } from "@/lib/utils";
 import { ReceivableFormModal } from '@/components/receivables/ReceivableFormModal';
 import { toast } from 'sonner';
 import { getReceivableById, type Receivable as SupabaseReceivableType } from "@/integrations/supabase/receivableService";
-import { getTransactionsByReceivableId, createTransaction, type Transaction as SupabaseTransactionType } from "@/integrations/supabase/transactionService";
+import { getTransactionsByReceivableId, type Transaction as SupabaseTransactionType } from "@/integrations/supabase/transactionService";
 import { getClientById, type Client as SupabaseClientType } from "@/integrations/supabase/clientService";
 import { PaymentForm } from '@/components/payments/PaymentForm';
 import { Transaction } from '@/types';
-
-interface Payment {
-  id: string;
-  amount: number;
-  date: Date;
-  method: string;
-  notes?: string;
-}
 
 const ReceivableDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -36,10 +26,6 @@ const ReceivableDetail: React.FC = () => {
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [client, setClient] = useState<SupabaseClientType | null>(null);
-  const [paymentDate, setPaymentDate] = useState<Date | undefined>(undefined);
-  const [paymentMethod, setPaymentMethod] = useState("");
-  const [paymentAmount, setPaymentAmount] = useState<number>(0);
-  const [paymentNotes, setPaymentNotes] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -52,12 +38,12 @@ const ReceivableDetail: React.FC = () => {
           const transactionsData = await getTransactionsByReceivableId(id);
           setTransactions(transactionsData.map(t => ({
             id: t.id,
-            type: t.type,
+            type: t.type as Transaction["type"],
             amount: t.amount,
             description: t.description || '',
             date: new Date(t.date),
             clientId: t.client_id,
-            status: t.status || 'pending',
+            status: (t.status || 'pending') as Transaction["status"],
             receipt: t.receipt || '',
             invoice: t.invoice || '',
             deliveryNote: t.delivery_note || '',
@@ -257,15 +243,6 @@ const ReceivableDetail: React.FC = () => {
             No se encontró la cuenta por cobrar.
           </CardContent>
         </Card>
-      )}
-
-      {selectedReceivable && (
-        <DebtDetailsModal
-          isOpen={isDetailsModalOpen}
-          onClose={handleCloseModal}
-          item={selectedReceivable}
-          type="receivable"
-        />
       )}
 
       <ReceivableFormModal
