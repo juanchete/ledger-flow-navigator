@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -144,25 +145,27 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="w-full max-w-[95vw] sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Editar cuenta por cobrar" : "Agregar cuenta por cobrar"}</DialogTitle>
+          <DialogTitle className="text-lg sm:text-xl">
+            {isEditing ? "Editar cuenta por cobrar" : "Agregar cuenta por cobrar"}
+          </DialogTitle>
         </DialogHeader>
         
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
             <FormField
               control={form.control}
               name="client_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Cliente</FormLabel>
+                  <FormLabel className="text-sm sm:text-base">Cliente</FormLabel>
                   <Select 
                     onValueChange={field.onChange} 
                     defaultValue={field.value}
                   >
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-10 sm:h-11">
                         <SelectValue placeholder="Seleccionar cliente" />
                       </SelectTrigger>
                     </FormControl>
@@ -184,9 +187,14 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
               name="amount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Monto</FormLabel>
+                  <FormLabel className="text-sm sm:text-base">Monto</FormLabel>
                   <FormControl>
-                    <Input type="number" step="0.01" {...field} />
+                    <Input 
+                      type="number" 
+                      step="0.01" 
+                      {...field} 
+                      className="h-10 sm:h-11 text-base"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -198,13 +206,14 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
               name="interest_rate"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Tasa de Interés Anual (%) - Opcional</FormLabel>
+                  <FormLabel className="text-sm sm:text-base">Tasa de Interés Anual (%) - Opcional</FormLabel>
                   <FormControl>
                     <Input 
                       type="number" 
                       step="0.01" 
                       placeholder="Ej: 12.5"
                       {...field} 
+                      className="h-10 sm:h-11 text-base"
                     />
                   </FormControl>
                   <FormMessage />
@@ -217,7 +226,7 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
               name="installments"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Número de Cuotas</FormLabel>
+                  <FormLabel className="text-sm sm:text-base">Número de Cuotas</FormLabel>
                   <FormControl>
                     <Input 
                       type="number" 
@@ -225,6 +234,7 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
                       max="360"
                       placeholder="1"
                       {...field} 
+                      className="h-10 sm:h-11 text-base"
                     />
                   </FormControl>
                   <FormMessage />
@@ -237,9 +247,12 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Descripción</FormLabel>
+                  <FormLabel className="text-sm sm:text-base">Descripción</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Input 
+                      {...field} 
+                      className="h-10 sm:h-11 text-base"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -251,14 +264,14 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
               name="due_date"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Fecha de vencimiento</FormLabel>
+                  <FormLabel className="text-sm sm:text-base">Fecha de vencimiento</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
                         <Button
                           variant="outline"
                           className={cn(
-                            "w-full pl-3 text-left font-normal",
+                            "w-full pl-3 text-left font-normal h-10 sm:h-11 text-base",
                             !field.value && "text-muted-foreground"
                           )}
                         >
@@ -290,13 +303,13 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
               name="status"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Estado</FormLabel>
+                  <FormLabel className="text-sm sm:text-base">Estado</FormLabel>
                   <Select 
                     onValueChange={field.onChange} 
                     defaultValue={field.value}
                   >
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-10 sm:h-11">
                         <SelectValue placeholder="Seleccionar estado" />
                       </SelectTrigger>
                     </FormControl>
@@ -316,9 +329,13 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
               name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Notas (Opcional)</FormLabel>
+                  <FormLabel className="text-sm sm:text-base">Notas (Opcional)</FormLabel>
                   <FormControl>
-                    <Textarea {...field} />
+                    <Textarea 
+                      {...field} 
+                      className="min-h-[80px] sm:min-h-[100px] text-base resize-none"
+                      placeholder="Información adicional..."
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -330,13 +347,13 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
               name="currency"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Moneda</FormLabel>
+                  <FormLabel className="text-sm sm:text-base">Moneda</FormLabel>
                   <Select 
                     onValueChange={field.onChange} 
                     defaultValue={field.value}
                   >
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-10 sm:h-11">
                         <SelectValue placeholder="Seleccionar moneda" />
                       </SelectTrigger>
                     </FormControl>
@@ -350,11 +367,20 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
               )}
             />
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose}>
+            <DialogFooter className="pt-4 sm:pt-6">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={onClose}
+                className="h-10 sm:h-11 text-sm sm:text-base"
+              >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button 
+                type="submit" 
+                disabled={isSubmitting}
+                className="h-10 sm:h-11 text-sm sm:text-base"
+              >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
