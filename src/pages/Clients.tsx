@@ -206,7 +206,7 @@ const Clients = () => {
               <div className="flex items-center gap-2">
                 <Filter size={16} className="text-muted-foreground" />
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="w-40 h-9">
+                  <SelectTrigger className="w-full h-9">
                     <SelectValue placeholder="Todas las Categorías" />
                   </SelectTrigger>
                   <SelectContent>
@@ -222,7 +222,7 @@ const Clients = () => {
               <div className="flex items-center gap-2">
                 <Users size={16} className="text-muted-foreground" />
                 <Select value={clientTypeFilter} onValueChange={(value) => setClientTypeFilter(value as "all" | "direct" | "indirect")}>
-                  <SelectTrigger className="w-40 h-9">
+                  <SelectTrigger className="w-full h-9">
                     <SelectValue placeholder="Tipo de Cliente" />
                   </SelectTrigger>
                   <SelectContent>

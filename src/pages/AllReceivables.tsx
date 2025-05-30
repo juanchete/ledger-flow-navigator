@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +16,8 @@ import { getReceivables, type Receivable as SupabaseReceivableType } from "@/int
 import { getTransactions } from "@/integrations/supabase/transactionService";
 import { getClients } from '@/integrations/supabase/clientService';
 import { ReceivableFormModal } from '@/components/receivables/ReceivableFormModal';
+import { useExchangeRates } from '@/hooks/useExchangeRates';
+import { useHistoricalExchangeRates } from '@/hooks/useHistoricalExchangeRates';
 
 interface Receivable {
   id: string;
@@ -26,6 +27,9 @@ interface Receivable {
   status: string;
   description: string;
   notes: string;
+  totalPaid: number;
+  totalPaidUSD: number;
+  payments: Transaction[];
 }
 
 interface Transaction {
@@ -36,6 +40,7 @@ interface Transaction {
   amount: number;
   date: string | Date;
   status: string;
+  currency?: string;
 }
 
 const AllReceivables: React.FC = () => {
@@ -51,6 +56,18 @@ const AllReceivables: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [editingReceivable, setEditingReceivable] = useState<SupabaseReceivableType | null>(null);
 
+  const { convertVESToUSD } = useExchangeRates();
+
+  // Obtener IDs de todas las transacciones de pago en VES para cargar tasas históricas
+  const vesPaymentIds = useMemo(() => {
+    if (!transactions) return [];
+    return transactions
+      .filter(t => t.type === 'payment' && t.currency === 'VES' && t.status === 'completed')
+      .map(t => t.id);
+  }, [transactions]);
+
+  const { convertVESToUSDWithHistoricalRate } = useHistoricalExchangeRates(vesPaymentIds);
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -64,11 +81,16 @@ const AllReceivables: React.FC = () => {
           receivablesData.map((r) => ({
             id: r.id,
             clientId: r.client_id,
-            amount: r.amount,
+            amount: r.currency === 'VES' && convertVESToUSD ? 
+              convertVESToUSD(r.amount, 'parallel') || r.amount : 
+              r.amount, // Convertir a USD si es necesario
             dueDate: new Date(r.due_date),
             status: r.status || 'pending',
             description: r.description || '',
-            notes: r.notes || ''
+            notes: r.notes || '',
+            totalPaid: 0,
+            totalPaidUSD: 0,
+            payments: []
           }))
         );
         setTransactions(
@@ -79,7 +101,8 @@ const AllReceivables: React.FC = () => {
             clientId: t.client_id,
             amount: t.amount,
             date: t.date,
-            status: t.status
+            status: t.status,
+            currency: t.currency
           }))
         );
         setClients(
@@ -95,20 +118,40 @@ const AllReceivables: React.FC = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [convertVESToUSD]);
 
-  // Calcular el estado real de cada cuenta por cobrar en base a los pagos asociados
-  const receivablesWithPayments = receivables.map(receivable => {
-    const payments = transactions.filter(t => t.type === 'payment' && t.receivableId === receivable.id && t.status === 'completed');
-    const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
-    const isPaid = totalPaid >= receivable.amount;
-    return {
-      ...receivable,
-      status: isPaid ? 'paid' : receivable.status,
-      totalPaid,
-      payments
-    };
-  });
+  // Calcular el estado real de cada cuenta por cobrar en base a los pagos asociados (usando tasas históricas)
+  const receivablesWithPayments = useMemo(() => {
+    return receivables.map(receivable => {
+      const payments = transactions.filter(t => t.type === 'payment' && t.receivableId === receivable.id && t.status === 'completed');
+      
+      let totalPaidUSD = 0;
+      const totalPaid = payments.reduce((sum, t) => {
+        sum += t.amount;
+        
+        // Convertir a USD usando tasa histórica si el pago fue en VES
+        if (t.currency === 'VES') {
+          const fallbackRate = convertVESToUSD ? convertVESToUSD(1, 'parallel') : undefined;
+          totalPaidUSD += convertVESToUSDWithHistoricalRate(t.amount, t.id, fallbackRate);
+        } else {
+          // Asumir que es USD si no se especifica moneda o si es USD
+          totalPaidUSD += t.amount;
+        }
+        
+        return sum;
+      }, 0);
+      
+      const isPaid = totalPaidUSD >= receivable.amount; // Comparar en USD
+      
+      return {
+        ...receivable,
+        status: isPaid ? 'paid' : receivable.status,
+        totalPaid,
+        totalPaidUSD,
+        payments
+      };
+    });
+  }, [receivables, transactions, convertVESToUSD, convertVESToUSDWithHistoricalRate]);
 
   // Función para obtener el nombre del cliente
   const getClientName = (clientId: string) => {
@@ -128,27 +171,27 @@ const AllReceivables: React.FC = () => {
     return matchesSearch && matchesStatus && matchesDate;
   });
 
-  // Calculate totals
+  // Calculate totals (all in USD)
   const totalAmount = filteredReceivables.reduce((sum, receivable) => sum + receivable.amount, 0);
   
-  // Calculate pending, overdue, and paid amounts (considering actual payments)
+  // Calculate pending, overdue, and paid amounts (considering actual payments in USD)
   const pendingAmount = filteredReceivables
     .filter(receivable => receivable.status === 'pending')
     .reduce((sum, receivable) => {
-      const remainingAmount = Math.max(0, receivable.amount - receivable.totalPaid);
+      const remainingAmount = Math.max(0, receivable.amount - receivable.totalPaidUSD);
       return sum + remainingAmount;
     }, 0);
   
   const overdueAmount = filteredReceivables
     .filter(receivable => receivable.status === 'overdue')
     .reduce((sum, receivable) => {
-      const remainingAmount = Math.max(0, receivable.amount - receivable.totalPaid);
+      const remainingAmount = Math.max(0, receivable.amount - receivable.totalPaidUSD);
       return sum + remainingAmount;
     }, 0);
   
   const paidAmount = filteredReceivables
     .filter(receivable => receivable.status === 'paid')
-    .reduce((sum, receivable) => sum + receivable.totalPaid, 0);
+    .reduce((sum, receivable) => sum + receivable.totalPaidUSD, 0);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -222,11 +265,16 @@ const AllReceivables: React.FC = () => {
         data.map((r) => ({
           id: r.id,
           clientId: r.client_id,
-          amount: r.amount,
+          amount: r.currency === 'VES' && convertVESToUSD ? 
+            convertVESToUSD(r.amount, 'parallel') || r.amount : 
+            r.amount, // Convertir a USD si es necesario
           dueDate: new Date(r.due_date),
           status: r.status || 'pending',
           description: r.description || '',
-          notes: r.notes || ''
+          notes: r.notes || '',
+          totalPaid: 0,
+          totalPaidUSD: 0,
+          payments: []
         }))
       );
     }).catch((err) => {
@@ -388,8 +436,11 @@ const AllReceivables: React.FC = () => {
                             <div>
                               <span className="text-muted-foreground">Pagado:</span>
                               <p className="font-medium text-green-600">
-                                {formatCurrency(receivable.totalPaid)}
+                                {formatCurrency(receivable.totalPaidUSD)}
                               </p>
+                              {receivable.totalPaid !== receivable.totalPaidUSD && (
+                                <p className="text-xs text-blue-600">Pagos mixtos</p>
+                              )}
                             </div>
                           </div>
                           
@@ -456,7 +507,7 @@ const AllReceivables: React.FC = () => {
                               <TableCell>
                                 <div className="flex flex-col">
                                   {(() => {
-                                    const paymentPercentage = receivable.amount > 0 ? (receivable.totalPaid / receivable.amount) * 100 : 0;
+                                    const paymentPercentage = receivable.amount > 0 ? (receivable.totalPaidUSD / receivable.amount) * 100 : 0;
                                     let colorClass = "text-red-600"; // Rojo por defecto (0-24%)
                                     
                                     if (paymentPercentage >= 100) {
@@ -467,16 +518,21 @@ const AllReceivables: React.FC = () => {
                                     
                                     return (
                                       <span className={`font-medium ${colorClass}`}>
-                                        {formatCurrency(receivable.totalPaid)}
+                                        {formatCurrency(receivable.totalPaidUSD)}
                                         <span className="text-xs ml-1">
                                           ({paymentPercentage.toFixed(1)}%)
                                         </span>
                                       </span>
                                     );
                                   })()}
-                                  {receivable.totalPaid > 0 && receivable.totalPaid < receivable.amount && (
+                                  {receivable.totalPaidUSD > 0 && receivable.totalPaidUSD < receivable.amount && (
                                     <span className="text-xs text-muted-foreground">
-                                      Restante: {formatCurrency(Math.max(0, receivable.amount - receivable.totalPaid))}
+                                      Restante: {formatCurrency(Math.max(0, receivable.amount - receivable.totalPaidUSD))}
+                                    </span>
+                                  )}
+                                  {receivable.totalPaid !== receivable.totalPaidUSD && (
+                                    <span className="text-xs text-blue-600">
+                                      Pagos mixtos (USD/VES)
                                     </span>
                                   )}
                                 </div>

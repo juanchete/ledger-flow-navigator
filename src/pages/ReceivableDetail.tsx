@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getReceivableById, type Receivable as SupabaseReceivable } from "@/integrations/supabase/receivableService";
 import { getTransactions, type Transaction as SupabaseTransaction } from "@/integrations/supabase/transactionService";
 import { getClients, type Client as SupabaseClient } from "@/integrations/supabase/clientService";
+import { useExchangeRates } from '@/hooks/useExchangeRates';
+import { useHistoricalExchangeRates } from '@/hooks/useHistoricalExchangeRates';
 
 interface Receivable {
   id: string;
@@ -23,6 +25,7 @@ interface Receivable {
   status: string;
   description: string;
   notes: string;
+  currency?: string;
 }
 
 interface Transaction {
@@ -37,6 +40,7 @@ interface Transaction {
   clientType?: string;
   paymentMethod?: string;
   notes?: string;
+  currency?: string;
 }
 
 interface Client {
@@ -56,6 +60,17 @@ const ReceivableDetail = () => {
   const [loading, setLoading] = useState(true);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   
+  const { convertVESToUSD } = useExchangeRates();
+
+  // Obtener IDs de pagos en VES para cargar tasas históricas
+  const vesPaymentIds = useMemo(() => {
+    return payments
+      .filter(p => p.currency === 'VES')
+      .map(p => p.id);
+  }, [payments]);
+
+  const { convertVESToUSDWithHistoricalRate } = useHistoricalExchangeRates(vesPaymentIds);
+  
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -74,7 +89,8 @@ const ReceivableDetail = () => {
             dueDate: new Date(receivableData.due_date),
             status: receivableData.status || 'pending',
             description: receivableData.description || '',
-            notes: receivableData.notes || ''
+            notes: receivableData.notes || '',
+            currency: receivableData.currency
           };
           setReceivable(mappedReceivable);
           // Pagos asociados
@@ -91,7 +107,8 @@ const ReceivableDetail = () => {
                 date: payment.date,
                 status: payment.status,
                 clientName: client?.name,
-                clientType: client?.client_type
+                clientType: client?.client_type,
+                currency: payment.currency
               };
             });
           setPayments(receivablePayments);
@@ -114,6 +131,36 @@ const ReceivableDetail = () => {
     fetchData();
   }, [receivableId]);
   
+  // Calcular totales usando tasas históricas (antes de early returns)
+  const { totalAmountUSD, totalPaidUSD, remainingAmount, calculatedStatus } = useMemo(() => {
+    if (!receivable) return { totalAmountUSD: 0, totalPaidUSD: 0, remainingAmount: 0, calculatedStatus: 'pending' };
+    
+    const totalAmountUSD = receivable.currency === 'VES' && convertVESToUSD ? 
+      convertVESToUSD(receivable.amount, 'parallel') || receivable.amount : 
+      receivable.amount;
+      
+    let totalPaidUSD = 0;
+    payments.reduce((sum, payment) => {
+      sum += payment.amount;
+      
+      // Convertir a USD usando tasa histórica si el pago fue en VES
+      if (payment.currency === 'VES') {
+        const fallbackRate = convertVESToUSD ? convertVESToUSD(1, 'parallel') : undefined;
+        totalPaidUSD += convertVESToUSDWithHistoricalRate(payment.amount, payment.id, fallbackRate);
+      } else {
+        // Asumir que es USD si no se especifica moneda o si es USD
+        totalPaidUSD += payment.amount;
+      }
+      
+      return sum;
+    }, 0);
+    
+    const remainingAmount = Math.max(0, totalAmountUSD - totalPaidUSD);
+    const calculatedStatus = totalPaidUSD >= totalAmountUSD ? 'paid' : receivable.status;
+
+    return { totalAmountUSD, totalPaidUSD, remainingAmount, calculatedStatus };
+  }, [receivable, payments, convertVESToUSD, convertVESToUSDWithHistoricalRate]);
+  
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -134,27 +181,42 @@ const ReceivableDetail = () => {
     );
   }
   
-  // Calcular totales
-  const totalAmount = receivable.amount;
-  const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0);
-  const remainingAmount = totalAmount - totalPaid;
-  
-  // Estado calculado
-  const calculatedStatus = totalPaid >= totalAmount ? 'paid' : receivable.status;
-  
   const formatDate = (date: Date) => {
     return format(new Date(date), 'dd/MM/yyyy');
   };
 
   const handlePaymentAdded = (newPayment: { id: string; amount: number; date: Date; method: string; clientId?: string; clientName?: string; clientType?: 'direct' | 'indirect'; notes?: string; }) => {
-    // Agregar el nuevo pago a la lista
-    const paymentWithDetails = {
-      ...newPayment,
-      receivableId: receivableId,
-      clientName: client?.name,
-      clientType: client?.clientType
+    // Recargar los datos completos para mantener consistencia
+    const fetchData = async () => {
+      try {
+        const [transactionsData, clientsData] = await Promise.all([
+          getTransactions(),
+          getClients()
+        ]);
+        
+        const receivablePayments = transactionsData
+          .filter((t: SupabaseTransaction) => t.type === 'payment' && t.receivable_id === receivableId && t.status === 'completed')
+          .map((payment: SupabaseTransaction) => {
+            const client = payment.client_id ? clientsData.find((c: SupabaseClient) => c.id === payment.client_id) : null;
+            return {
+              id: payment.id,
+              type: payment.type,
+              receivableId: payment.receivable_id,
+              clientId: payment.client_id,
+              amount: payment.amount,
+              date: payment.date,
+              status: payment.status,
+              clientName: client?.name,
+              clientType: client?.client_type,
+              currency: payment.currency
+            };
+          });
+        setPayments(receivablePayments);
+      } catch (error) {
+        console.error('Error al recargar pagos:', error);
+      }
     };
-    setPayments(prev => [...prev, paymentWithDetails]);
+    fetchData();
     setShowPaymentModal(false);
   };
   
@@ -188,12 +250,12 @@ const ReceivableDetail = () => {
             
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Monto Total:</span>
-              <span className="text-xl font-bold">{formatCurrency(totalAmount)}</span>
+              <span className="text-xl font-bold">{formatCurrency(totalAmountUSD)}</span>
             </div>
             
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Monto Pagado:</span>
-              <span className="font-medium text-green-600">{formatCurrency(totalPaid)}</span>
+              <span className="font-medium text-green-600">{formatCurrency(totalPaidUSD)}</span>
             </div>
             
             <div className="flex justify-between items-center">
@@ -292,41 +354,68 @@ const ReceivableDetail = () => {
                   <TableRow>
                     <TableHead>Fecha</TableHead>
                     <TableHead>Monto</TableHead>
+                    <TableHead>Moneda</TableHead>
+                    <TableHead>Equivalente USD</TableHead>
                     <TableHead>Método</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Notas</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {payments.map(payment => (
-                    <TableRow key={payment.id}>
-                      <TableCell>{formatDate(new Date(payment.date))}</TableCell>
-                      <TableCell className="font-medium">{formatCurrency(payment.amount)}</TableCell>
-                      <TableCell>{payment.paymentMethod || 'No especificado'}</TableCell>
-                      <TableCell>
-                        {payment.clientName ? (
-                          <div className="flex flex-col">
-                            <div className="flex items-center gap-1">
-                              {payment.clientType === 'indirect' ? (
-                                <Users size={14} className="text-muted-foreground" />
-                              ) : (
-                                <User size={14} className="text-muted-foreground" />
-                              )}
-                              <Link to={`/clients/${payment.clientId}`} className="hover:underline">
-                                {payment.clientName}
-                              </Link>
+                  {payments.map(payment => {
+                    const amountUSD = payment.currency === 'VES' ? 
+                      convertVESToUSDWithHistoricalRate(payment.amount, payment.id, convertVESToUSD ? convertVESToUSD(1, 'parallel') : undefined) :
+                      payment.amount;
+                    
+                    return (
+                      <TableRow key={payment.id}>
+                        <TableCell>{formatDate(new Date(payment.date))}</TableCell>
+                        <TableCell className="font-medium">
+                          {payment.currency === 'VES' ? 
+                            `Bs. ${new Intl.NumberFormat('es-VE').format(payment.amount)}` : 
+                            formatCurrency(payment.amount)
+                          }
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={payment.currency === 'VES' ? 'secondary' : 'default'}>
+                            {payment.currency || 'USD'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-medium text-green-600">
+                          {formatCurrency(amountUSD)}
+                          {payment.currency === 'VES' && (
+                            <span className="text-xs text-muted-foreground block">
+                              {/* TODO: Check if payment has exchange_rate_id to determine if historical rate was used */}
+                              (Tasa histórica)
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>{payment.paymentMethod || 'No especificado'}</TableCell>
+                        <TableCell>
+                          {payment.clientName ? (
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-1">
+                                {payment.clientType === 'indirect' ? (
+                                  <Users size={14} className="text-muted-foreground" />
+                                ) : (
+                                  <User size={14} className="text-muted-foreground" />
+                                )}
+                                <Link to={`/clients/${payment.clientId}`} className="hover:underline">
+                                  {payment.clientName}
+                                </Link>
+                              </div>
+                              <Badge variant="outline" className="mt-1 text-xs w-fit">
+                                {payment.clientType === 'indirect' ? 'Indirecto' : 'Directo'}
+                              </Badge>
                             </div>
-                            <Badge variant="outline" className="mt-1 text-xs w-fit">
-                              {payment.clientType === 'indirect' ? 'Indirecto' : 'Directo'}
-                            </Badge>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">No especificado</span>
-                        )}
-                      </TableCell>
-                      <TableCell>{payment.notes || '-'}</TableCell>
-                    </TableRow>
-                  ))}
+                          ) : (
+                            <span className="text-muted-foreground">No especificado</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{payment.notes || '-'}</TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             ) : (

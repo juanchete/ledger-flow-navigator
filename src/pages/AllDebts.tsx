@@ -13,12 +13,15 @@ import { Link } from 'react-router-dom';
 import { useDebts } from '../contexts/DebtContext';
 import { useTransactions } from '../context/TransactionContext';
 import { getClients, type Client as SupabaseClient } from '@/integrations/supabase/clientService';
+import { useExchangeRates } from '@/hooks/useExchangeRates';
+import { useHistoricalExchangeRates } from '@/hooks/useHistoricalExchangeRates';
 
 import type { Debt as SupabaseDebt } from '../integrations/supabase/debtService';
 import type { Transaction as SupabaseTransaction } from '../integrations/supabase/transactionService';
 
 interface EnrichedDebt extends SupabaseDebt {
   totalPaid: number;
+  totalPaidUSD: number;
   calculatedStatus: string;
   payments: SupabaseTransaction[];
   primaryClient?: SupabaseClient;
@@ -27,6 +30,7 @@ interface EnrichedDebt extends SupabaseDebt {
 
 export interface EnrichedDebtForTable extends SupabaseDebt {
   totalPaid: number;
+  totalPaidUSD: number;
   calculatedStatus: string; 
   payments: SupabaseTransaction[];
   primaryClient?: SupabaseClient;
@@ -45,6 +49,17 @@ const AllDebts: React.FC = () => {
 
   const { debts: allDebtsFromContext, isLoading: isLoadingDebts, error: errorDebts, fetchDebts } = useDebts();
   const { transactions: allTransactionsFromContext, isLoading: isLoadingTransactions, error: errorTransactions } = useTransactions();
+  const { convertVESToUSD } = useExchangeRates();
+
+  // Obtener IDs de todas las transacciones de pago en VES para cargar tasas históricas
+  const vesPaymentIds = useMemo(() => {
+    if (!allTransactionsFromContext) return [];
+    return allTransactionsFromContext
+      .filter(t => t.type === 'payment' && t.currency === 'VES' && t.status === 'completed')
+      .map(t => t.id);
+  }, [allTransactionsFromContext]);
+
+  const { convertVESToUSDWithHistoricalRate } = useHistoricalExchangeRates(vesPaymentIds);
 
   useEffect(() => {
     const loadClients = async () => {
@@ -68,25 +83,50 @@ const AllDebts: React.FC = () => {
       const paymentsForDebt = allTransactionsFromContext.filter(
         t => t.type === 'payment' && t.debt_id === debt.id && t.status === 'completed'
       );
-      const totalPaid = paymentsForDebt.reduce((sum, t) => sum + t.amount, 0);
-      const calculatedStatus = totalPaid >= debt.amount ? 'paid' : debt.status;
+      
+      // Calcular total pagado usando tasas históricas
+      let totalPaidUSD = 0;
+      const totalPaid = paymentsForDebt.reduce((sum, t) => {
+        const paymentAmount = t.amount;
+        sum += paymentAmount;
+        
+        // Convertir a USD usando tasa histórica si el pago fue en VES
+        if (t.currency === 'VES') {
+          const fallbackRate = convertVESToUSD ? convertVESToUSD(1, 'parallel') : undefined;
+          totalPaidUSD += convertVESToUSDWithHistoricalRate(paymentAmount, t.id, fallbackRate);
+        } else {
+          // Asumir que es USD si no se especifica moneda o si es USD
+          totalPaidUSD += paymentAmount;
+        }
+        
+        return sum;
+      }, 0);
+      
+      // Asegurar que la deuda esté en USD
+      const debtAmountUSD = debt.currency === 'VES' && convertVESToUSD ? 
+        convertVESToUSD(debt.amount, 'parallel') || debt.amount : 
+        debt.amount;
+      
+      const calculatedStatus = totalPaidUSD >= debtAmountUSD ? 'paid' : debt.status;
 
-      // Buscar el cliente asociado a la deuda
       const primaryClient = debt.client_id ? 
         clients.find(client => client.id === debt.client_id) : 
         undefined;
 
       return {
         ...debt,
+        amount: debtAmountUSD,
+        currency: 'USD',
         dueDate: new Date(debt.due_date || 0),
         totalPaid,
+        totalPaidUSD,
         calculatedStatus,
         payments: paymentsForDebt,
         primaryClient,
         payingClients: [],
       };
     });
-  }, [allDebtsFromContext, allTransactionsFromContext, clients]);
+  }, [allDebtsFromContext, allTransactionsFromContext, clients, convertVESToUSD, convertVESToUSDWithHistoricalRate]);
 
   const filteredDebts = useMemo(() => {
     return enrichedDebts.filter((debt) => {
@@ -105,23 +145,23 @@ const AllDebts: React.FC = () => {
     });
   }, [enrichedDebts, searchQuery, statusFilter, dateRange]);
 
-  // Calculate totals from filteredDebts (considering actual payments)
+  // Calculate totals from filteredDebts (considering actual payments in USD)
   const totalAmount = filteredDebts.reduce((sum, debt) => sum + debt.amount, 0);
   const pendingAmount = filteredDebts
     .filter(debt => debt.calculatedStatus === 'pending')
     .reduce((sum, debt) => {
-      const remainingAmount = Math.max(0, debt.amount - debt.totalPaid);
+      const remainingAmount = Math.max(0, debt.amount - debt.totalPaidUSD);
       return sum + remainingAmount;
     }, 0);
   const overdueAmount = filteredDebts
     .filter(debt => debt.calculatedStatus === 'overdue')
     .reduce((sum, debt) => {
-      const remainingAmount = Math.max(0, debt.amount - debt.totalPaid);
+      const remainingAmount = Math.max(0, debt.amount - debt.totalPaidUSD);
       return sum + remainingAmount;
     }, 0);
   const paidAmount = filteredDebts
     .filter(debt => debt.calculatedStatus === 'paid')
-    .reduce((sum, debt) => sum + debt.totalPaid, 0);
+    .reduce((sum, debt) => sum + debt.totalPaidUSD, 0);
 
   const formatDate = useCallback((dateString: string | null | undefined | Date): string => {
     if (!dateString) return 'N/A';

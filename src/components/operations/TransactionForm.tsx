@@ -8,10 +8,12 @@ import { BankAccountSection } from "./transaction/BankAccountSection";
 import { useTransactions } from "@/context/TransactionContext";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RefreshCw } from "lucide-react";
 import type { Transaction } from "@/types";
 import { v4 as uuidv4 } from "uuid";
-
-const EXCHANGE_RATE = 35.75; // Mock exchange rate USD to VES
+import { exchangeRateService } from "@/services/exchangeRateService";
 
 // Define interface for bank accounts to resolve the TypeScript error
 interface BankAccount {
@@ -42,6 +44,113 @@ export const TransactionForm = ({ onSuccess, showCancelButton = true }: Transact
   const [paymentMethod, setPaymentMethod] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [exchangeRate, setExchangeRate] = useState<number>(0);
+  const [isLoadingRate, setIsLoadingRate] = useState(true);
+  const [customRate, setCustomRate] = useState<string>("");
+  const [useCustomRate, setUseCustomRate] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<string>("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Cargar tasa de cambio al inicializar el componente
+  useEffect(() => {
+    const loadExchangeRate = async () => {
+      setIsLoadingRate(true);
+      try {
+        const response = await exchangeRateService.getExchangeRates();
+        if (response.success && response.data) {
+          // Usar tasa paralelo por defecto
+          const parallelRate = response.data.usd_to_ves_parallel;
+          setExchangeRate(parallelRate);
+          setCustomRate(parallelRate.toString());
+          setLastUpdated(response.data.last_updated);
+        } else {
+          // Fallback a una tasa más actualizada que la anterior
+          setExchangeRate(36.5);
+          setCustomRate("36.5");
+          setLastUpdated("Sin datos recientes");
+        }
+      } catch (error) {
+        console.error("Error al cargar tasa de cambio:", error);
+        setExchangeRate(36.5);
+        setCustomRate("36.5");
+        setLastUpdated("Error al cargar");
+      } finally {
+        setIsLoadingRate(false);
+      }
+    };
+
+    loadExchangeRate();
+  }, []);
+
+  // Función para refrescar la tasa de cambio
+  const refreshExchangeRate = async () => {
+    setIsRefreshing(true);
+    try {
+      const response = await exchangeRateService.forceRefresh();
+      if (response.success && response.data) {
+        const parallelRate = response.data.usd_to_ves_parallel;
+        if (!useCustomRate) {
+          setExchangeRate(parallelRate);
+        }
+        setCustomRate(parallelRate.toString());
+        setLastUpdated(response.data.last_updated);
+        toast({
+          title: "Tasa actualizada",
+          description: `Nueva tasa paralelo: Bs. ${parallelRate.toFixed(2)}`,
+        });
+      } else {
+        throw new Error("No se pudo actualizar la tasa");
+      }
+    } catch (error) {
+      console.error("Error al refrescar tasa:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar la tasa de cambio",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Actualizar tasa cuando el usuario cambia el valor personalizado
+  const handleCustomRateChange = (value: string) => {
+    setCustomRate(value);
+    if (useCustomRate) {
+      const numericValue = parseFloat(value);
+      if (!isNaN(numericValue) && numericValue > 0) {
+        setExchangeRate(numericValue);
+      }
+    }
+  };
+
+  // Manejar el cambio del checkbox de tasa personalizada
+  const handleUseCustomRateChange = (checked: boolean) => {
+    setUseCustomRate(checked);
+    if (checked) {
+      // Si activa la tasa personalizada, usar el valor del input
+      const numericValue = parseFloat(customRate);
+      if (!isNaN(numericValue) && numericValue > 0) {
+        setExchangeRate(numericValue);
+      }
+    } else {
+      // Si desactiva la tasa personalizada, recargar la tasa automática
+      const reloadAutomaticRate = async () => {
+        try {
+          const response = await exchangeRateService.getExchangeRates();
+          if (response.success && response.data) {
+            const parallelRate = response.data.usd_to_ves_parallel;
+            setExchangeRate(parallelRate);
+            setCustomRate(parallelRate.toString());
+            setLastUpdated(response.data.last_updated);
+          }
+        } catch (error) {
+          console.error("Error al recargar tasa automática:", error);
+        }
+      };
+      reloadAutomaticRate();
+    }
+  };
 
   useEffect(() => {
     const fetchBankAccounts = async () => {
@@ -148,8 +257,78 @@ export const TransactionForm = ({ onSuccess, showCancelButton = true }: Transact
         isUSD={isUSD}
         onAmountChange={setAmount}
         onCurrencyChange={setIsUSD}
-        exchangeRate={EXCHANGE_RATE}
+        exchangeRate={exchangeRate}
       />
+
+      {/* Sección de Tasa de Cambio */}
+      <div className="grid gap-4 p-4 border rounded-lg bg-muted/10">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium">Tasa de Cambio (USD/VES)</Label>
+          <div className="flex items-center gap-2">
+            {isLoadingRate && (
+              <span className="text-xs text-muted-foreground">Cargando...</span>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={refreshExchangeRate}
+              disabled={isLoadingRate || isRefreshing}
+              className="h-8 w-8 p-0"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="useCustomRate"
+                checked={useCustomRate}
+                onChange={(e) => handleUseCustomRateChange(e.target.checked)}
+                className="rounded"
+              />
+              <Label htmlFor="useCustomRate" className="text-sm">
+                Usar tasa personalizada
+              </Label>
+            </div>
+            
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={customRate}
+              onChange={(e) => handleCustomRateChange(e.target.value)}
+              disabled={!useCustomRate}
+              placeholder="Ingresa tasa personalizada"
+              className={!useCustomRate ? "bg-muted" : ""}
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label className="text-sm text-muted-foreground">
+              {useCustomRate ? "Tasa actual:" : "Tasa paralelo actual:"}
+            </Label>
+            <div className="text-lg font-medium">
+              {isLoadingRate ? "..." : `Bs. ${exchangeRate.toFixed(2)}`}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {useCustomRate ? "Personalizada" : "Obtenida automáticamente"}
+            </div>
+            {lastUpdated && !useCustomRate && (
+              <div className="text-xs text-muted-foreground">
+                Actualizada: {new Date(lastUpdated).toLocaleString('es-VE', {
+                  dateStyle: 'short',
+                  timeStyle: 'short'
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       <ClientSelectionSection 
         selectedClient={selectedClient}

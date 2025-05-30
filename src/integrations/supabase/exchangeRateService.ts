@@ -179,3 +179,71 @@ export async function hasRateForToday(
 
   return (data && data.length > 0) || false;
 }
+
+/**
+ * Obtiene la tasa de cambio histórica utilizada en una transacción específica
+ */
+export async function getTransactionExchangeRate(
+  transactionId: string
+): Promise<ExchangeRateDB | null> {
+  try {
+    const { data: transaction, error: txError } = await supabase
+      .from("transactions")
+      .select("exchange_rate_id")
+      .eq("id", transactionId)
+      .single();
+
+    if (txError || !transaction?.exchange_rate_id) {
+      return null;
+    }
+
+    const { data: exchangeRate, error: rateError } = await supabase
+      .from("exchange_rates")
+      .select("*")
+      .eq("id", transaction.exchange_rate_id)
+      .single();
+
+    if (rateError) {
+      console.error("Error getting exchange rate:", rateError);
+      return null;
+    }
+
+    return exchangeRate;
+  } catch (error) {
+    console.error("Error getting transaction exchange rate:", error);
+    return null;
+  }
+}
+
+/**
+ * Obtiene la tasa de cambio utilizada en una transacción o null si no tiene
+ */
+export async function getTransactionExchangeRateValue(
+  transactionId: string
+): Promise<number | null> {
+  try {
+    const exchangeRate = await getTransactionExchangeRate(transactionId);
+    return exchangeRate?.rate || null;
+  } catch (error) {
+    console.error("Error getting transaction exchange rate value:", error);
+    return null;
+  }
+}
+
+/**
+ * Convierte un monto de VES a USD usando la tasa histórica de una transacción
+ */
+export async function convertVESToUSDWithHistoricalRate(
+  vesAmount: number,
+  transactionId: string
+): Promise<number | null> {
+  try {
+    const rate = await getTransactionExchangeRateValue(transactionId);
+    if (!rate) return null;
+
+    return vesAmount / rate;
+  } catch (error) {
+    console.error("Error converting VES to USD with historical rate:", error);
+    return null;
+  }
+}

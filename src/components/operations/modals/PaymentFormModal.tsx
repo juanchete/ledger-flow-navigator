@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -12,7 +11,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { getClients } from '@/integrations/supabase/clientService';
 import { createTransaction } from '@/integrations/supabase/transactionService';
 import { getBankAccounts } from '@/integrations/supabase/bankAccountService';
+import { saveExchangeRate } from '@/integrations/supabase/exchangeRateService';
 import { useTransactions } from '@/context/TransactionContext';
+import { useExchangeRates } from '@/hooks/useExchangeRates';
 import type { Client } from '@/integrations/supabase/clientService';
 import type { BankAccount } from '@/integrations/supabase/bankAccountService';
 
@@ -51,12 +52,17 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
   const [notes, setNotes] = useState('');
   const [selectedClient, setSelectedClient] = useState('');
   const [selectedBankAccount, setSelectedBankAccount] = useState('');
+  const [currency, setCurrency] = useState<'USD' | 'VES'>('USD');
+  const [exchangeRate, setExchangeRate] = useState<number>(0);
+  const [useCustomRate, setUseCustomRate] = useState(false);
+  const [customRate, setCustomRate] = useState('');
   const [clients, setClients] = useState<Client[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(false);
   
   // Usar el contexto de transacciones para actualizar automáticamente la lista
   const { refetchTransactions } = useTransactions();
+  const { rates } = useExchangeRates();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -84,6 +90,15 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
     }
   }, [maxAmount, isOpen]);
 
+  // Cargar tasa de cambio cuando se selecciona VES
+  useEffect(() => {
+    if (currency === 'VES' && rates) {
+      const parallelRate = rates.usd_to_ves_parallel;
+      setExchangeRate(parallelRate);
+      setCustomRate(parallelRate.toString());
+    }
+  }, [currency, rates]);
+
   const handleSubmit = async () => {
     // Validar monto máximo si se proporciona
     if (maxAmount && amount > maxAmount) {
@@ -97,35 +112,58 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
       return;
     }
 
+    // Validar tasa de cambio para pagos en VES
+    if (currency === 'VES' && (!exchangeRate || exchangeRate <= 0)) {
+      toast.error('Debe establecer una tasa de cambio válida para pagos en VES');
+      return;
+    }
+
     setLoading(true);
     const selectedClientData = clients.find(c => c.id === selectedClient);
+    
     try {
+      let exchangeRateId: number | null = null;
+      
+      // Si el pago es en VES, guardar la tasa de cambio utilizada
+      if (currency === 'VES') {
+        const finalRate = useCustomRate ? parseFloat(customRate) : exchangeRate;
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        
+        const savedRate = await saveExchangeRate({
+          from_currency: 'USD',
+          to_currency: 'VES_PAYMENT', // Indicar que es una tasa para pago
+          rate: finalRate,
+          date: today
+        });
+        
+        exchangeRateId = savedRate.id;
+      }
+
       // Registrar el pago en Supabase
       const newTx = await createTransaction({
         id: uuidv4(),
         amount,
         date: new Date().toISOString(),
-        description: notes || `Pago ${receivableId ? 'para cuenta por cobrar' : debtId ? 'para deuda' : ''}`,
+        description: notes || `Pago ${receivableId ? 'para cuenta por cobrar' : debtId ? 'para deuda' : ''} en ${currency}`,
         type: 'payment',
         client_id: selectedClient || null,
         payment_method: method,
         status: 'completed',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        currency: currency,
+        exchange_rate_id: exchangeRateId,
         // Asociar con la cuenta por cobrar o deuda si se proporciona
         receivable_id: receivableId || null,
         debt_id: debtId || null,
-        // Asociar con la cuenta bancaria seleccionada
         bank_account_id: selectedBankAccount,
         // Otros campos opcionales en null
         category: null,
-        currency: null,
         indirect_for_client_id: null,
         invoice: null,
         notes,
         receipt: null,
         delivery_note: null,
-        exchange_rate_id: null,
       });
       
       // Llamar callback con el pago creado (adaptado al tipo Payment)
@@ -159,6 +197,10 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
     setMethod('credit_card');
     setNotes('');
     setSelectedBankAccount('');
+    setCurrency('USD');
+    setExchangeRate(0);
+    setUseCustomRate(false);
+    setCustomRate('');
     if (!defaultClientId) {
       setSelectedClient('');
     }
@@ -198,6 +240,69 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
               </p>
             )}
           </div>
+
+          {/* Selector de Moneda */}
+          <div className="grid gap-2">
+            <Label htmlFor="currency" className="text-sm">Moneda</Label>
+            <Select value={currency} onValueChange={(value) => setCurrency(value as 'USD' | 'VES')}>
+              <SelectTrigger id="currency" className="text-sm">
+                <SelectValue placeholder="Selecciona la moneda" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="USD">Dólares (USD)</SelectItem>
+                <SelectItem value="VES">Bolívares (VES)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Sección de Tasa de Cambio (solo para VES) */}
+          {currency === 'VES' && (
+            <div className="grid gap-2 p-3 border rounded-lg bg-muted/10">
+              <Label className="text-sm font-medium">Tasa de Cambio (USD/VES)</Label>
+              
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="useCustomRatePayment"
+                    checked={useCustomRate}
+                    onChange={(e) => setUseCustomRate(e.target.checked)}
+                    className="rounded"
+                  />
+                  <Label htmlFor="useCustomRatePayment" className="text-sm">
+                    Usar tasa personalizada
+                  </Label>
+                </div>
+                
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={useCustomRate ? customRate : exchangeRate.toString()}
+                  onChange={(e) => {
+                    if (useCustomRate) {
+                      setCustomRate(e.target.value);
+                    }
+                  }}
+                  disabled={!useCustomRate}
+                  placeholder="Tasa de cambio"
+                  className={!useCustomRate ? "bg-muted text-sm" : "text-sm"}
+                />
+                
+                <div className="text-xs text-muted-foreground">
+                  {useCustomRate ? 
+                    "Usando tasa personalizada" : 
+                    `Tasa paralelo actual: Bs. ${exchangeRate.toFixed(2)}`
+                  }
+                </div>
+
+                {/* Mostrar equivalente en USD */}
+                <div className="text-xs text-blue-600 font-medium">
+                  Equivalente: ${(amount / (useCustomRate ? parseFloat(customRate) || 1 : exchangeRate)).toFixed(2)} USD
+                </div>
+              </div>
+            </div>
+          )}
           
           <div className="grid gap-2">
             <Label htmlFor="method" className="text-sm">Método de Pago</Label>

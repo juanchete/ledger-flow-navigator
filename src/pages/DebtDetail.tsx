@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,8 @@ import { StatusBadge } from "@/components/operations/common/StatusBadge";
 import { PaymentsList } from "@/components/operations/payments/PaymentsList";
 import { PaymentFormModal } from "@/components/operations/modals/PaymentFormModal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useExchangeRates } from '@/hooks/useExchangeRates';
+import { useHistoricalExchangeRates } from '@/hooks/useHistoricalExchangeRates';
 import type { Debt } from "@/integrations/supabase/debtService";
 import type { Transaction } from "@/integrations/supabase/transactionService";
 import type { Client } from "@/integrations/supabase/clientService";
@@ -22,6 +24,7 @@ import type { Client } from "@/integrations/supabase/clientService";
 interface PaymentWithClientInfo extends Transaction {
   clientName?: string;
   clientType?: 'direct' | 'indirect';
+  amountUSD?: number; // Monto convertido a USD si el pago fue en VES
 }
 
 const DebtDetail = () => {
@@ -32,6 +35,17 @@ const DebtDetail = () => {
   const [primaryClient, setPrimaryClient] = useState<Client | null>(null);
   const [payingClients, setPayingClients] = useState<Client[]>([]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  
+  const { convertVESToUSD } = useExchangeRates();
+
+  // Obtener IDs de pagos en VES para cargar tasas históricas
+  const vesPaymentIds = useMemo(() => {
+    return payments
+      .filter(p => p.currency === 'VES')
+      .map(p => p.id);
+  }, [payments]);
+
+  const { convertVESToUSDWithHistoricalRate } = useHistoricalExchangeRates(vesPaymentIds);
   
   useEffect(() => {
     const fetchData = async () => {
@@ -71,6 +85,36 @@ const DebtDetail = () => {
     };
     fetchData();
   }, [debtId]);
+
+  // Calcular totales usando tasas históricas (antes de early returns)
+  const { totalAmountUSD, totalPaidUSD, remainingAmount, calculatedStatus } = useMemo(() => {
+    if (!debt) return { totalAmountUSD: 0, totalPaidUSD: 0, remainingAmount: 0, calculatedStatus: 'pending' };
+    
+    const totalAmountUSD = debt.currency === 'VES' && convertVESToUSD ? 
+      convertVESToUSD(debt.amount, 'parallel') || debt.amount : 
+      debt.amount;
+      
+    let totalPaidUSD = 0;
+    payments.reduce((sum, payment) => {
+      sum += payment.amount;
+      
+      // Convertir a USD usando tasa histórica si el pago fue en VES
+      if (payment.currency === 'VES') {
+        const fallbackRate = convertVESToUSD ? convertVESToUSD(1, 'parallel') : undefined;
+        totalPaidUSD += convertVESToUSDWithHistoricalRate(payment.amount, payment.id, fallbackRate);
+      } else {
+        // Asumir que es USD si no se especifica moneda o si es USD
+        totalPaidUSD += payment.amount;
+      }
+      
+      return sum;
+    }, 0);
+    
+    const remainingAmount = Math.max(0, totalAmountUSD - totalPaidUSD);
+    const calculatedStatus = totalPaidUSD >= totalAmountUSD ? 'paid' : debt.status;
+
+    return { totalAmountUSD, totalPaidUSD, remainingAmount, calculatedStatus };
+  }, [debt, payments, convertVESToUSD, convertVESToUSDWithHistoricalRate]);
   
   if (loading) {
     return (
@@ -91,14 +135,6 @@ const DebtDetail = () => {
       </div>
     );
   }
-  
-  // Calcular totales
-  const totalAmount = debt.amount;
-  const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0);
-  const remainingAmount = Math.max(0, totalAmount - totalPaid);
-  
-  // Estado calculado
-  const calculatedStatus = totalPaid >= totalAmount ? 'paid' : debt.status;
   
   const formatDate = (date: Date) => {
     return format(new Date(date), 'dd/MM/yyyy');
@@ -153,12 +189,12 @@ const DebtDetail = () => {
             
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Monto Total:</span>
-              <span className="text-xl font-bold">{formatCurrency(totalAmount)}</span>
+              <span className="text-xl font-bold">{formatCurrency(totalAmountUSD)}</span>
             </div>
             
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Monto Pagado:</span>
-              <span className="font-medium text-green-600">{formatCurrency(totalPaid)}</span>
+              <span className="font-medium text-green-600">{formatCurrency(totalPaidUSD)}</span>
             </div>
             
             <div className="flex justify-between items-center">
@@ -275,41 +311,67 @@ const DebtDetail = () => {
                   <TableRow>
                     <TableHead>Fecha</TableHead>
                     <TableHead>Monto</TableHead>
+                    <TableHead>Moneda</TableHead>
+                    <TableHead>Equivalente USD</TableHead>
                     <TableHead>Método</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Notas</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {payments.map(payment => (
-                    <TableRow key={payment.id}>
-                      <TableCell>{formatDate(new Date(payment.date))}</TableCell>
-                      <TableCell className="font-medium">{formatCurrency(payment.amount)}</TableCell>
-                      <TableCell>{payment.payment_method || 'No especificado'}</TableCell>
-                      <TableCell>
-                        {payment.client_id && payingClients.find(c => c.id === payment.client_id) ? (
-                          <div className="flex flex-col">
-                            <div className="flex items-center gap-1">
-                              {payingClients.find(c => c.id === payment.client_id)?.client_type === 'indirect' ? (
-                                <Users size={14} className="text-muted-foreground" />
-                              ) : (
-                                <User size={14} className="text-muted-foreground" />
-                              )}
-                              <Link to={`/clients/${payment.client_id}`} className="hover:underline">
-                                {payingClients.find(c => c.id === payment.client_id)?.name}
-                              </Link>
+                  {payments.map(payment => {
+                    const amountUSD = payment.currency === 'VES' ? 
+                      convertVESToUSDWithHistoricalRate(payment.amount, payment.id, convertVESToUSD ? convertVESToUSD(1, 'parallel') : undefined) :
+                      payment.amount;
+                    
+                    return (
+                      <TableRow key={payment.id}>
+                        <TableCell>{formatDate(new Date(payment.date))}</TableCell>
+                        <TableCell className="font-medium">
+                          {payment.currency === 'VES' ? 
+                            `Bs. ${new Intl.NumberFormat('es-VE').format(payment.amount)}` : 
+                            formatCurrency(payment.amount)
+                          }
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={payment.currency === 'VES' ? 'secondary' : 'default'}>
+                            {payment.currency || 'USD'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-medium text-green-600">
+                          {formatCurrency(amountUSD)}
+                          {payment.currency === 'VES' && (
+                            <span className="text-xs text-muted-foreground block">
+                              {payment.exchange_rate_id ? '(Tasa histórica)' : '(Tasa actual)'}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>{payment.payment_method || 'No especificado'}</TableCell>
+                        <TableCell>
+                          {payment.client_id && payingClients.find(c => c.id === payment.client_id) ? (
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-1">
+                                {payingClients.find(c => c.id === payment.client_id)?.client_type === 'indirect' ? (
+                                  <Users size={14} className="text-muted-foreground" />
+                                ) : (
+                                  <User size={14} className="text-muted-foreground" />
+                                )}
+                                <Link to={`/clients/${payment.client_id}`} className="hover:underline">
+                                  {payingClients.find(c => c.id === payment.client_id)?.name}
+                                </Link>
+                              </div>
+                              <Badge variant="outline" className="mt-1 text-xs w-fit">
+                                {payingClients.find(c => c.id === payment.client_id)?.client_type === 'indirect' ? 'Indirecto' : 'Directo'}
+                              </Badge>
                             </div>
-                            <Badge variant="outline" className="mt-1 text-xs w-fit">
-                              {payingClients.find(c => c.id === payment.client_id)?.client_type === 'indirect' ? 'Indirecto' : 'Directo'}
-                            </Badge>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">No especificado</span>
-                        )}
-                      </TableCell>
-                      <TableCell>{payment.notes || '-'}</TableCell>
-                    </TableRow>
-                  ))}
+                          ) : (
+                            <span className="text-muted-foreground">No especificado</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{payment.notes || '-'}</TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             ) : (
