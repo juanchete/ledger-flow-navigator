@@ -122,14 +122,14 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px] w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">
+            <DialogTitle className="text-lg sm:text-xl font-bold">
               {type === 'debt' ? 'Detalle de Deuda' : 'Detalle de Cuenta por Cobrar'}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 pt-4">
+          <div className="space-y-3 sm:space-y-4 pt-2 sm:pt-4">
             {/* Summary component with name, status, and amounts */}
             <DebtSummary
               name={summaryName}
@@ -157,9 +157,13 @@ export const DebtDetailsModal: React.FC<DebtDetailsModalProps> = ({
             />
           </div>
 
-          <DialogFooter className="mt-6">
-            <Button variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button onClick={handleSave}>Guardar Cambios</Button>
+          <DialogFooter className="mt-4 sm:mt-6 gap-2 sm:gap-0">
+            <Button variant="outline" onClick={onClose} size="sm" className="text-sm">
+              Cancelar
+            </Button>
+            <Button onClick={handleSave} size="sm" className="text-sm">
+              Guardar Cambios
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

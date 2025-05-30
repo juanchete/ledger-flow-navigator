@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -170,18 +171,18 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
         onClose();
       }
     }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md w-full">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="text-base sm:text-lg">
             {receivableId ? 'Registrar Pago para Cuenta por Cobrar' : 
              debtId ? 'Registrar Pago para Deuda' : 
              'Registrar Nuevo Pago'}
           </DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           <div className="grid gap-2">
-            <Label htmlFor="amount">Monto</Label>
+            <Label htmlFor="amount" className="text-sm">Monto</Label>
             <Input 
               id="amount"
               type="number" 
@@ -189,18 +190,19 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
               value={amount}
               onChange={(e) => setAmount(Number(e.target.value))}
               max={maxAmount}
+              className="text-sm"
             />
             {maxAmount && (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Monto máximo: {maxAmount.toFixed(2)}
               </p>
             )}
           </div>
           
           <div className="grid gap-2">
-            <Label htmlFor="method">Método de Pago</Label>
+            <Label htmlFor="method" className="text-sm">Método de Pago</Label>
             <Select value={method} onValueChange={setMethod}>
-              <SelectTrigger id="method">
+              <SelectTrigger id="method" className="text-sm">
                 <SelectValue placeholder="Selecciona un método" />
               </SelectTrigger>
               <SelectContent>
@@ -214,25 +216,27 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="bankAccount">Cuenta Bancaria *</Label>
+            <Label htmlFor="bankAccount" className="text-sm">Cuenta Bancaria *</Label>
             <Select value={selectedBankAccount} onValueChange={setSelectedBankAccount}>
-              <SelectTrigger id="bankAccount">
+              <SelectTrigger id="bankAccount" className="text-sm">
                 <SelectValue placeholder="Selecciona la cuenta donde se depositará" />
               </SelectTrigger>
               <SelectContent>
                 {bankAccounts.map((account) => (
                   <SelectItem key={account.id} value={account.id}>
-                    {account.bank} - {account.account_number} ({account.currency})
-                    <span className="ml-2 text-muted-foreground">
-                      Saldo: {account.currency === 'USD' 
-                        ? `$${account.amount.toLocaleString()}` 
-                        : `Bs. ${account.amount.toLocaleString()}`}
-                    </span>
+                    <div className="flex flex-col">
+                      <span>{account.bank} - {account.account_number}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {account.currency === 'USD' 
+                          ? `$${account.amount.toLocaleString()}` 
+                          : `Bs. ${account.amount.toLocaleString()}`}
+                      </span>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               El pago se depositará en la cuenta seleccionada y se actualizará automáticamente el saldo.
             </p>
           </div>
@@ -243,21 +247,22 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
           />
           
           <div className="grid gap-2">
-            <Label htmlFor="notes">Notas</Label>
+            <Label htmlFor="notes" className="text-sm">Notas</Label>
             <Textarea 
               id="notes" 
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Información adicional sobre el pago"
+              className="text-sm min-h-[60px]"
             />
           </div>
         </div>
         
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={loading}>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={onClose} disabled={loading} className="text-sm">
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={loading}>
+          <Button onClick={handleSubmit} disabled={loading} className="text-sm">
             {loading ? 'Registrando...' : 'Registrar Pago'}
           </Button>
         </DialogFooter>
