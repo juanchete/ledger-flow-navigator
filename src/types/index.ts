@@ -55,6 +55,7 @@ export interface Transaction {
   indirectForClientId?: string;
   debtId?: string;
   receivableId?: string;
+  obraId?: string;
 }
 
 export interface Debt {
@@ -74,6 +75,31 @@ export interface Debt {
   updatedAt: Date;
 }
 
+export interface Obra {
+  id: string;
+  name: string;
+  description?: string;
+  location?: string;
+  startDate?: Date;
+  endDate?: Date;
+  status: "planning" | "in-progress" | "completed" | "on-hold";
+  budget?: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface GastoObra {
+  id: string;
+  obraId: string;
+  description: string;
+  amount: number;
+  date: Date;
+  receiptUrl?: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Receivable {
   id: string;
   clientId: string;
@@ -88,6 +114,7 @@ export interface Receivable {
   installments?: number; // Número de cuotas
   createdAt: Date;
   updatedAt: Date;
+  obraId?: string;
 }
 
 export interface CalendarEvent {

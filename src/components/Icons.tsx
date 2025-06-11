@@ -1,4 +1,3 @@
-
 import {
   Home,
   Users,
@@ -12,8 +11,10 @@ import {
   CreditCard,
   DollarSign,
   Calculator,
+  Building,
   LucideIcon,
   LucideProps,
+  Loader2,
 } from "lucide-react";
 import { forwardRef } from "react";
 
@@ -33,6 +34,8 @@ type IconsType = {
   creditCard: LucideIcon;
   dollarSign: LucideIcon;
   calculator: LucideIcon;
+  building: LucideIcon;
+  spinner: LucideIcon;
 };
 
 // Create a custom logo icon that matches the LucideIcon type
@@ -71,4 +74,6 @@ export const Icons: IconsType = {
   creditCard: CreditCard,
   dollarSign: DollarSign,
   calculator: Calculator,
+  building: Building,
+  spinner: Loader2,
 };

@@ -383,6 +383,50 @@ export type Database = {
         }
         Relationships: []
       }
+      gasto_obras: {
+        Row: {
+          amount: number
+          created_at: string
+          date: string
+          description: string
+          id: string
+          notes: string | null
+          obra_id: string
+          receipt_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          date: string
+          description: string
+          id?: string
+          notes?: string | null
+          obra_id: string
+          receipt_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          date?: string
+          description?: string
+          id?: string
+          notes?: string | null
+          obra_id?: string
+          receipt_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gasto_obras_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           client_id: string | null
@@ -476,6 +520,45 @@ export type Database = {
         }
         Relationships: []
       }
+      obras: {
+        Row: {
+          budget: number | null
+          created_at: string
+          description: string | null
+          end_date: string | null
+          id: string
+          location: string | null
+          name: string
+          start_date: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          budget?: number | null
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          location?: string | null
+          name: string
+          start_date?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          budget?: number | null
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          location?: string | null
+          name?: string
+          start_date?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       receivables: {
         Row: {
           amount: number
@@ -488,6 +571,7 @@ export type Database = {
           installments: number | null
           interest_rate: number | null
           notes: string | null
+          obra_id: string | null
           status: string | null
         }
         Insert: {
@@ -501,6 +585,7 @@ export type Database = {
           installments?: number | null
           interest_rate?: number | null
           notes?: string | null
+          obra_id?: string | null
           status?: string | null
         }
         Update: {
@@ -514,9 +599,17 @@ export type Database = {
           installments?: number | null
           interest_rate?: number | null
           notes?: string | null
+          obra_id?: string | null
           status?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_receivables_obra_id"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "receivables_client_id_fkey"
             columns: ["client_id"]
@@ -541,6 +634,7 @@ export type Database = {
           installments: number | null
           interest_rate: number | null
           notes: string | null
+          obra_id: string | null
           receivable_id: string | null
           status: string | null
         }
@@ -558,6 +652,7 @@ export type Database = {
           installments?: number | null
           interest_rate?: number | null
           notes?: string | null
+          obra_id?: string | null
           receivable_id?: string | null
           status?: string | null
         }
@@ -575,6 +670,7 @@ export type Database = {
           installments?: number | null
           interest_rate?: number | null
           notes?: string | null
+          obra_id?: string | null
           receivable_id?: string | null
           status?: string | null
         }
@@ -597,6 +693,7 @@ export type Database = {
           indirect_for_client_id: string | null
           invoice: string | null
           notes: string | null
+          obra_id: string | null
           payment_method: string | null
           receipt: string | null
           receivable_id: string | null
@@ -620,6 +717,7 @@ export type Database = {
           indirect_for_client_id?: string | null
           invoice?: string | null
           notes?: string | null
+          obra_id?: string | null
           payment_method?: string | null
           receipt?: string | null
           receivable_id?: string | null
@@ -643,6 +741,7 @@ export type Database = {
           indirect_for_client_id?: string | null
           invoice?: string | null
           notes?: string | null
+          obra_id?: string | null
           payment_method?: string | null
           receipt?: string | null
           receivable_id?: string | null
@@ -651,6 +750,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_transactions_obra_id"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "transactions_bank_account_id_fkey"
             columns: ["bank_account_id"]
@@ -714,6 +820,7 @@ export type Database = {
           indirect_for_client_id: string | null
           invoice: string | null
           notes: string | null
+          obra_id: string | null
           payment_method: string | null
           receipt: string | null
           receivable_id: string | null
@@ -740,6 +847,7 @@ export type Database = {
           indirect_for_client_id?: string | null
           invoice?: string | null
           notes?: string | null
+          obra_id?: string | null
           payment_method?: string | null
           receipt?: string | null
           receivable_id?: string | null
@@ -766,6 +874,7 @@ export type Database = {
           indirect_for_client_id?: string | null
           invoice?: string | null
           notes?: string | null
+          obra_id?: string | null
           payment_method?: string | null
           receipt?: string | null
           receivable_id?: string | null

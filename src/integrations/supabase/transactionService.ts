@@ -72,17 +72,41 @@ export const getTransactionById = async (
 /**
  * Creates a new transaction in the database.
  * Bank account balance is automatically updated by database trigger.
- * @param transactionData Data for the new transaction (must match NewTransaction).
+ * @param transaction The partial transaction object with updates (must match UpdatedTransaction).
  * @returns A promise that resolves to the created transaction object.
  */
 export const createTransaction = async (
-  transactionData: NewTransaction
+  transaction: Partial<import("@/types").Transaction>
 ): Promise<Transaction> => {
-  const transactionWithId = { id: uuidv4(), ...transactionData };
+  const transactionData = {
+    id: transaction.id || uuidv4(),
+    type: transaction.type,
+    amount: transaction.amount,
+    description: transaction.description,
+    date: transaction.date
+      ? new Date(transaction.date).toISOString()
+      : new Date().toISOString(),
+    client_id: transaction.clientId,
+    status: transaction.status,
+    receipt: transaction.receipt,
+    invoice: transaction.invoice,
+    delivery_note: transaction.deliveryNote,
+    payment_method: transaction.paymentMethod,
+    category: transaction.category,
+    notes: transaction.notes,
+    created_at: transaction.createdAt
+      ? new Date(transaction.createdAt).toISOString()
+      : new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    indirect_for_client_id: transaction.indirectForClientId,
+    debt_id: transaction.debtId,
+    receivable_id: transaction.receivableId,
+    obra_id: transaction.obraId,
+  };
 
   const { data, error } = await supabase
     .from(TRANSACTIONS_TABLE)
-    .insert(transactionWithId)
+    .insert(transactionData)
     .select()
     .single();
 

@@ -28,6 +28,9 @@ import ReceivableDetail from "./pages/ReceivableDetail";
 import BankAccounts from "./pages/BankAccounts";
 import ExchangeRates from "./pages/ExchangeRates";
 import InterestCalculatorPage from "./pages/InterestCalculatorPage";
+import AllObras from "./pages/AllObras";
+import CreateObra from "./pages/CreateObra";
+import ObraDetail from "./pages/ObraDetail";
 import { TestFunctionality } from "./components/TestFunctionality";
 
 const queryClient = new QueryClient();
@@ -70,6 +73,9 @@ const App = () => (
                     <Route path="/historical-balance" element={<HistoricalBalance />} />
                     <Route path="/exchange-rates" element={<ExchangeRates />} />
                     <Route path="/interest-calculator" element={<InterestCalculatorPage />} />
+                    <Route path="/obras" element={<AllObras />} />
+                    <Route path="/obras/new" element={<CreateObra />} />
+                    <Route path="/obras/:id" element={<ObraDetail />} />
                     <Route path="/test-functionality" element={<TestFunctionality />} />
                   </Route>
                   <Route path="*" element={<NotFound />} />

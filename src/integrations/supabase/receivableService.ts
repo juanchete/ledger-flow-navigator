@@ -1,5 +1,6 @@
 import { supabase } from "./client";
 import type { Database, Tables, TablesInsert, TablesUpdate } from "./types";
+import { v4 as uuidv4 } from "uuid";
 
 export type Receivable = Tables<"receivables">;
 export type NewReceivable = TablesInsert<"receivables">;
@@ -45,11 +46,28 @@ export const getReceivableById = async (
  * Crea una nueva cuenta por cobrar en la base de datos.
  */
 export const createReceivable = async (
-  receivable: NewReceivable
+  receivable: Partial<import("@/types").Receivable>
 ): Promise<Receivable> => {
+  const receivableData = {
+    id: receivable.id || uuidv4(),
+    client_id: receivable.clientId,
+    amount: receivable.amount,
+    due_date: receivable.dueDate
+      ? new Date(receivable.dueDate).toISOString()
+      : new Date().toISOString(),
+    description: receivable.description,
+    status: receivable.status,
+    notes: receivable.notes,
+    interest_rate: receivable.interestRate,
+    commission: receivable.commission,
+    currency: receivable.currency,
+    installments: receivable.installments,
+    obra_id: receivable.obraId,
+  };
+
   const { data, error } = await supabase
     .from(RECEIVABLES_TABLE)
-    .insert(receivable)
+    .insert(receivableData)
     .select()
     .single();
 
