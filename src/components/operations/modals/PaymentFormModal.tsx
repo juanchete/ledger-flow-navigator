@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import React, { useState, useEffect, useMemo } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -10,29 +10,24 @@ import { toast } from "sonner";
 import { v4 as uuidv4 } from 'uuid';
 import { getClients } from '@/integrations/supabase/clientService';
 import { createTransaction } from '@/integrations/supabase/transactionService';
-import { getBankAccounts } from '@/integrations/supabase/bankAccountService';
-import { saveExchangeRate } from '@/integrations/supabase/exchangeRateService';
+import { getBankAccounts, BankAccountApp } from '@/integrations/supabase/bankAccountService';
+import { saveExchangeRate, useExchangeRates } from '@/integrations/supabase/exchangeRateService';
 import { useTransactions } from '@/context/TransactionContext';
-import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { formatCurrency } from '@/lib/utils';
-import type { Client } from '@/integrations/supabase/clientService';
-import type { BankAccount } from '@/integrations/supabase/bankAccountService';
+import type { Client, BankAccount, Transaction } from '@/types';
+import { Plus, Trash2 } from "lucide-react";
+import { Icons } from '@/components/Icons';
 
-interface Payment {
+interface Denomination {
   id: string;
-  amount: number;
-  date: Date;
-  method: string;
-  clientId?: string;
-  clientName?: string;
-  clientType?: 'direct' | 'indirect';
-  notes?: string;
+  value: number;
+  count: number;
 }
 
 interface PaymentFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onPaymentAdded: (payment: Payment) => void;
+  onPaymentAdded: (payment: Transaction) => void;
   receivableId?: string; // ID de la cuenta por cobrar para asociar el pago
   debtId?: string; // ID de la deuda para asociar el pago
   defaultClientId?: string; // Cliente predeterminado
@@ -48,359 +43,228 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
   defaultClientId,
   maxAmount
 }) => {
-  const [amount, setAmount] = useState(100);
-  const [method, setMethod] = useState('credit_card');
+  const [amount, setAmount] = useState<number>(0);
+  const [method, setMethod] = useState('cash');
   const [notes, setNotes] = useState('');
-  const [selectedClient, setSelectedClient] = useState('');
+  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedClient, setSelectedClient] = useState(defaultClientId || '');
   const [selectedBankAccount, setSelectedBankAccount] = useState('');
-  const [currency, setCurrency] = useState<'USD' | 'VES'>('USD');
+  const [currency, setCurrency] = useState<'USD' | 'EUR' | 'VES' | 'COP'>('USD');
   const [exchangeRate, setExchangeRate] = useState<number>(0);
   const [useCustomRate, setUseCustomRate] = useState(false);
   const [customRate, setCustomRate] = useState('');
-  const [clients, setClients] = useState<Client[]>([]);
-  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(false);
+  const [denominations, setDenominations] = useState<Denomination[]>([{ id: uuidv4(), value: 0, count: 0 }]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccountApp[]>([]);
   
-  // Usar el contexto de transacciones para actualizar automáticamente la lista
   const { refetchTransactions } = useTransactions();
   const { rates } = useExchangeRates();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const [clientsData, bankAccountsData] = await Promise.all([
-        getClients(),
-        getBankAccounts()
-      ]);
-      setClients(clientsData);
-      setBankAccounts(bankAccountsData);
-    };
-    fetchData();
-  }, []);
+  const denominationBasedAmount = useMemo(() => {
+    return denominations.reduce((total, den) => total + den.value * den.count, 0);
+  }, [denominations]);
 
-  // Establecer cliente predeterminado cuando se proporciona
   useEffect(() => {
-    if (defaultClientId && isOpen) {
-      setSelectedClient(defaultClientId);
+    async function fetchAccounts() {
+      try {
+        const accounts = await getBankAccounts();
+        setBankAccounts(accounts);
+      } catch (error) {
+        console.error("Failed to fetch bank accounts:", error);
+        toast.error("No se pudieron cargar las cuentas bancarias.");
+      }
     }
-  }, [defaultClientId, isOpen]);
-
-  // Establecer monto máximo cuando se proporciona
-  useEffect(() => {
-    if (maxAmount && isOpen) {
-      setAmount(Math.min(100, maxAmount));
+    if (isOpen) {
+      fetchAccounts();
+      if(defaultClientId) setSelectedClient(defaultClientId);
     }
-  }, [maxAmount, isOpen]);
+  }, [isOpen, defaultClientId]);
 
-  // Cargar tasa de cambio cuando se selecciona VES
   useEffect(() => {
-    if (currency === 'VES' && rates) {
-      const parallelRate = rates.usd_to_ves_parallel;
-      setExchangeRate(parallelRate);
-      setCustomRate(parallelRate.toString());
+    if (currency === 'VES' && rates.parallel) {
+      setExchangeRate(rates.parallel);
     }
   }, [currency, rates]);
 
+  useEffect(() => {
+    if ((currency === 'USD' || currency === 'EUR') && method === 'cash') {
+      setAmount(denominationBasedAmount);
+    }
+  }, [denominationBasedAmount, currency, method]);
+
   const handleSubmit = async () => {
-    // Validar monto máximo considerando la conversión de moneda
-    if (maxAmount) {
-      let amountToValidate = amount;
-      
-      // Si el pago es en VES, convertir a USD para la validación
-      if (currency === 'VES') {
-        const finalRate = useCustomRate ? parseFloat(customRate) : exchangeRate;
-        if (finalRate && finalRate > 0) {
-          amountToValidate = amount / finalRate; // Convertir VES a USD
-        }
-      }
-      
-      if (amountToValidate > maxAmount) {
-        const maxAmountMessage = currency === 'VES' 
-          ? `Bs. ${(maxAmount * (useCustomRate ? parseFloat(customRate) : exchangeRate)).toLocaleString('es-VE')} (${formatCurrency(maxAmount)})`
-          : formatCurrency(maxAmount);
-        toast.error(`El monto no puede exceder ${maxAmountMessage}`);
-        return;
-      }
-    }
-
-    // Validar que se haya seleccionado una cuenta bancaria
-    if (!selectedBankAccount) {
-      toast.error('Debe seleccionar una cuenta bancaria');
-      return;
-    }
-
-    // Validar tasa de cambio para pagos en VES
-    if (currency === 'VES' && (!exchangeRate || exchangeRate <= 0)) {
-      toast.error('Debe establecer una tasa de cambio válida para pagos en VES');
-      return;
-    }
-
     setLoading(true);
-    const selectedClientData = clients.find(c => c.id === selectedClient);
-    
     try {
-      let exchangeRateId: number | null = null;
-      
-      // Si el pago es en VES, guardar la tasa de cambio utilizada
+      let exchangeRateId: number | undefined = undefined;
       if (currency === 'VES') {
         const finalRate = useCustomRate ? parseFloat(customRate) : exchangeRate;
-        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-        
-        const savedRate = await saveExchangeRate({
-          from_currency: 'USD',
-          to_currency: 'VES_PAY', // Indicar que es una tasa para pago (máximo 8 caracteres)
-          rate: finalRate,
-          date: today
-        });
-        
+        const savedRate = await saveExchangeRate({ from_currency: 'USD', to_currency: 'VES_PAY', rate: finalRate, date: date });
         exchangeRateId = savedRate.id;
       }
 
-      // Registrar el pago en Supabase
-      const newTx = await createTransaction({
-        id: uuidv4(),
-        amount,
-        date: new Date().toISOString(),
-        description: notes || `Pago ${receivableId ? 'para cuenta por cobrar' : debtId ? 'para deuda' : ''} en ${currency}`,
+      const finalAmount = (currency === 'USD' || currency === 'EUR') && method === 'cash' ? denominationBasedAmount : amount;
+
+      const denominationsToSave = (currency === 'USD' || currency === 'EUR') && method === 'cash'
+        ? denominations.reduce((acc, den) => {
+            if (den.value > 0 && den.count > 0) {
+              acc[den.value.toString()] = den.count;
+            }
+            return acc;
+          }, {} as Record<string, number>)
+        : undefined;
+
+      const newTxData: Partial<Transaction> = {
+        amount: finalAmount,
+        date: new Date(date),
+        description: notes || `Pago ${receivableId ? 'para cuenta por cobrar' : 'para deuda'} en ${currency}`,
         type: 'payment',
-        client_id: selectedClient || null,
-        payment_method: method,
+        clientId: selectedClient || undefined,
+        paymentMethod: method,
         status: 'completed',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
         currency: currency,
-        exchange_rate_id: exchangeRateId,
-        // Asociar con la cuenta por cobrar o deuda si se proporciona
-        receivable_id: receivableId || null,
-        debt_id: debtId || null,
-        bank_account_id: selectedBankAccount,
-        // Otros campos opcionales en null
-        category: null,
-        indirect_for_client_id: null,
-        invoice: null,
-        notes,
-        receipt: null,
-        delivery_note: null,
-      });
-      
-      // Llamar callback con el pago creado (adaptado al tipo Payment)
-      onPaymentAdded({
-        id: newTx.id,
-        amount: newTx.amount,
-        date: new Date(newTx.date),
-        method: newTx.payment_method || '',
-        notes: newTx.notes || '',
-        clientId: newTx.client_id || undefined,
-        clientName: selectedClientData?.name,
-        clientType: selectedClientData?.client_type as 'direct' | 'indirect',
-      });
-      
-      toast.success('Pago registrado exitosamente');
-      
-      // Actualizar el contexto de transacciones para refrescar automáticamente las listas
-      await refetchTransactions();
-      
+        exchangeRateId: exchangeRateId,
+        receivableId: receivableId || undefined,
+        debtId: debtId || undefined,
+        bankAccountId: selectedBankAccount || undefined,
+        notes: notes || undefined,
+        denominations: denominationsToSave,
+      };
+
+      const newTx = await createTransaction(newTxData);
+
+      toast.success("Pago registrado exitosamente");
+      onPaymentAdded(newTx);
+      refetchTransactions();
       resetForm();
       onClose();
-    } catch (e) {
-      console.error('Error al registrar el pago:', e);
-      toast.error('Error al registrar el pago');
+    } catch (error) {
+      toast.error("Error al registrar el pago");
+      console.error(error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const resetForm = () => {
-    setAmount(maxAmount ? Math.min(100, maxAmount) : 100);
-    setMethod('credit_card');
+    setAmount(0);
+    setMethod('cash');
     setNotes('');
+    setDate(new Date().toISOString().split('T')[0]);
+    setSelectedClient(defaultClientId || '');
+    setDenominations([{ id: uuidv4(), value: 0, count: 0 }]);
     setSelectedBankAccount('');
-    setCurrency('USD');
-    setExchangeRate(0);
-    setUseCustomRate(false);
-    setCustomRate('');
-    if (!defaultClientId) {
-      setSelectedClient('');
-    }
+  };
+
+  const handleAddDenomination = () => setDenominations([...denominations, { id: uuidv4(), value: 0, count: 0 }]);
+  const handleRemoveDenomination = (id: string) => setDenominations(denominations.filter(d => d.id !== id));
+  const handleDenominationChange = (id: string, field: 'value' | 'count', fieldValue: number) => {
+    setDenominations(denominations.map(d => d.id === id ? { ...d, [field]: fieldValue } : d));
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-      if (!open) {
-        resetForm();
-        onClose();
-      }
-    }}>
-      <DialogContent className="max-w-md w-full max-h-[90vh] overflow-y-auto mx-4 sm:mx-auto">
-        <DialogHeader className="pb-2">
-          <DialogTitle className="text-base sm:text-lg">
-            {receivableId ? 'Registrar Pago para Cuenta por Cobrar' : 
-             debtId ? 'Registrar Pago para Deuda' : 
-             'Registrar Nuevo Pago'}
-          </DialogTitle>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>Registrar Pago</DialogTitle>
+          <DialogDescription>
+            Rellena los detalles para registrar un nuevo pago.
+          </DialogDescription>
         </DialogHeader>
-        
-        <div className="space-y-3 sm:space-y-4 pt-2">
-          <div className="grid gap-2">
-            <Label htmlFor="amount" className="text-sm">Monto</Label>
-            <Input 
-              id="amount"
-              type="number" 
-              step="0.01"
-              value={amount}
-              onChange={(e) => setAmount(Number(e.target.value))}
-              className="text-sm"
-            />
-            {maxAmount && (
-              <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded-md">
-                {currency === 'VES' ? (
-                  <div className="space-y-1">
-                    <div>Monto máximo: Bs. {(maxAmount * (useCustomRate ? parseFloat(customRate) || 1 : exchangeRate || 1)).toLocaleString('es-VE')}</div>
-                    <div>Equivalente a: {formatCurrency(maxAmount)}</div>
-                  </div>
-                ) : (
-                  <div>Monto máximo: {formatCurrency(maxAmount)}</div>
-                )}
+        <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-1">
+                    <Label htmlFor="date">Fecha</Label>
+                    <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={loading} />
+                </div>
+                <div className="col-span-1">
+                    <Label htmlFor="currency">Moneda</Label>
+                    <Select value={currency} onValueChange={(value) => setCurrency(value as 'USD' | 'EUR' | 'VES' | 'COP')} disabled={loading}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="USD">USD</SelectItem>
+                            <SelectItem value="EUR">EUR</SelectItem>
+                            <SelectItem value="VES">VES</SelectItem>
+                            <SelectItem value="COP">COP</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+                 <div className="col-span-1">
+                    <Label htmlFor="amount">Monto</Label>
+                    <Input id="amount" type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} disabled={loading || ((currency === 'USD' || currency === 'EUR') && method === 'cash')} />
+                    {maxAmount && <p className="text-xs text-muted-foreground mt-1">Restante: {maxAmount.toFixed(2)}</p>}
+                </div>
+                 <div className="col-span-1">
+                    <Label htmlFor="method">Método de Pago</Label>
+                    <Select value={method} onValueChange={setMethod} disabled={loading}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="cash">Efectivo</SelectItem>
+                            <SelectItem value="transfer">Transferencia</SelectItem>
+                            <SelectItem value="credit_card">Tarjeta de Crédito</SelectItem>
+                            <SelectItem value="other">Otro</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+
+            {(currency === 'USD' || currency === 'EUR') && method === 'cash' && (
+            <div className="col-span-2 mt-4 border-t pt-4">
+              <div className="flex justify-between items-center mb-2">
+                <Label>Desglose de Billetes</Label>
+                <Button type="button" size="sm" variant="outline" onClick={handleAddDenomination} disabled={loading}>
+                  <Plus className="h-4 w-4 mr-1" /> Añadir Fila
+                </Button>
               </div>
-            )}
-          </div>
-
-          {/* Selector de Moneda */}
-          <div className="grid gap-2">
-            <Label htmlFor="currency" className="text-sm">Moneda</Label>
-            <Select value={currency} onValueChange={(value) => setCurrency(value as 'USD' | 'VES')}>
-              <SelectTrigger id="currency" className="text-sm">
-                <SelectValue placeholder="Selecciona la moneda" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="USD">Dólares (USD)</SelectItem>
-                <SelectItem value="VES">Bolívares (VES)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Sección de Tasa de Cambio (solo para VES) */}
-          {currency === 'VES' && (
-            <div className="grid gap-3 p-3 border rounded-lg bg-muted/10">
-              <Label className="text-sm font-medium">Tasa de Cambio (USD/VES)</Label>
-              
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="useCustomRatePayment"
-                    checked={useCustomRate}
-                    onChange={(e) => setUseCustomRate(e.target.checked)}
-                    className="rounded"
-                  />
-                  <Label htmlFor="useCustomRatePayment" className="text-sm">
-                    Usar tasa personalizada
-                  </Label>
-                </div>
-                
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={useCustomRate ? customRate : exchangeRate.toString()}
-                  onChange={(e) => {
-                    if (useCustomRate) {
-                      setCustomRate(e.target.value);
-                    }
-                  }}
-                  disabled={!useCustomRate}
-                  placeholder="Tasa de cambio"
-                  className={`text-sm ${!useCustomRate ? "bg-muted" : ""}`}
-                />
-                
-                <div className="text-xs text-muted-foreground">
-                  {useCustomRate ? 
-                    "Usando tasa personalizada" : 
-                    `Tasa paralelo actual: Bs. ${exchangeRate.toFixed(2)}`
-                  }
-                </div>
-
-                {/* Mostrar equivalente en USD */}
-                <div className="text-xs text-blue-600 font-medium p-2 bg-blue-50 rounded-md">
-                  Equivalente: ${(amount / (useCustomRate ? parseFloat(customRate) || 1 : exchangeRate)).toFixed(2)} USD
-                </div>
+              <div className="space-y-2 max-h-32 overflow-y-auto">
+                {denominations.map(den => (
+                  <div key={den.id} className="grid grid-cols-3 gap-2 items-center">
+                    <Input type="number" placeholder="Denominación" value={den.value || ''} onChange={(e) => handleDenominationChange(den.id, 'value', parseInt(e.target.value) || 0)} disabled={loading} />
+                    <Input type="number" placeholder="Cantidad" value={den.count || ''} onChange={(e) => handleDenominationChange(den.id, 'count', parseInt(e.target.value) || 0)} disabled={loading} />
+                    <Button type="button" size="icon" variant="destructive" onClick={() => handleRemoveDenomination(den.id)} disabled={loading}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
               </div>
             </div>
           )}
-          
-          <div className="grid gap-2">
-            <Label htmlFor="method" className="text-sm">Método de Pago</Label>
-            <Select value={method} onValueChange={setMethod}>
-              <SelectTrigger id="method" className="text-sm">
-                <SelectValue placeholder="Selecciona un método" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="credit_card">Tarjeta de Crédito</SelectItem>
-                <SelectItem value="debit_card">Tarjeta de Débito</SelectItem>
-                <SelectItem value="cash">Efectivo</SelectItem>
-                <SelectItem value="transfer">Transferencia</SelectItem>
-                <SelectItem value="check">Cheque</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="bankAccount" className="text-sm">Cuenta Bancaria *</Label>
-            <Select value={selectedBankAccount} onValueChange={setSelectedBankAccount}>
-              <SelectTrigger id="bankAccount" className="text-sm">
-                <SelectValue placeholder="Selecciona la cuenta donde se depositará" />
-              </SelectTrigger>
-              <SelectContent>
-                {bankAccounts.map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
-                    <div className="flex flex-col text-left">
-                      <span className="font-medium">{account.bank}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {account.account_number} - {account.currency === 'USD' 
-                          ? `$${account.amount.toLocaleString()}` 
-                          : `Bs. ${account.amount.toLocaleString()}`}
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
+            <Label htmlFor="bank-account">Depositar en</Label>
+            <Select value={selectedBankAccount} onValueChange={setSelectedBankAccount} disabled={loading}>
+                <SelectTrigger id="bank-account"><SelectValue placeholder="Seleccionar cuenta..." /></SelectTrigger>
+                <SelectContent>
+                    {bankAccounts.map(account => (
+                        <SelectItem key={account.id} value={account.id.toString()}>
+                            <div className="flex flex-col">
+                                <span className="font-medium">{account.bankName}</span>
+                                <span className="text-xs text-muted-foreground">
+                                    {account.accountNumber} - {account.currency}
+                                </span>
+                            </div>
+                        </SelectItem>
+                    ))}
+                </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              El pago se depositará en la cuenta seleccionada y se actualizará automáticamente el saldo.
-            </p>
-          </div>
+           </div>
+
+
+          <ClientSelectionSection selectedClient={selectedClient} onClientChange={setSelectedClient} />
           
-          <ClientSelectionSection 
-            selectedClient={selectedClient}
-            onClientChange={setSelectedClient}
-          />
-          
-          <div className="grid gap-2">
-            <Label htmlFor="notes" className="text-sm">Notas</Label>
-            <Textarea 
-              id="notes" 
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Información adicional sobre el pago"
-              className="text-sm min-h-[60px] resize-none"
-            />
+          <div>
+            <Label htmlFor="notes">Notas</Label>
+            <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Información adicional..." disabled={loading}/>
           </div>
         </div>
-        
-        <DialogFooter className="mt-4 sm:mt-6 gap-2 sm:gap-0 pt-4 border-t">
-          <Button 
-            variant="outline" 
-            onClick={onClose} 
-            disabled={loading} 
-            className="text-sm w-full sm:w-auto"
-          >
-            Cancelar
-          </Button>
-          <Button 
-            onClick={handleSubmit} 
-            disabled={loading} 
-            className="text-sm w-full sm:w-auto"
-          >
-            {loading ? 'Registrando...' : 'Registrar Pago'}
-          </Button>
+        <DialogFooter>
+            <Button variant="ghost" onClick={onClose} disabled={loading}>Cancelar</Button>
+            <Button onClick={handleSubmit} disabled={loading}>
+              {loading && <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />}
+              {loading ? 'Guardando...' : 'Guardar Pago'}
+            </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

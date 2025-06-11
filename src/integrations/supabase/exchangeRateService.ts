@@ -1,4 +1,5 @@
 import { supabase } from "./client";
+import { useState, useEffect } from "react";
 
 export interface ExchangeRateDB {
   id: number;
@@ -247,3 +248,33 @@ export async function convertVESToUSDWithHistoricalRate(
     return null;
   }
 }
+
+export const useExchangeRates = () => {
+  const [rates, setRates] = useState({ bcv: 0, parallel: 0 });
+
+  useEffect(() => {
+    const fetchRates = async () => {
+      const { data, error } = await supabase
+        .from("exchange_rates")
+        .select("rate, from_currency, to_currency")
+        .in("to_currency", ["VES_BCV", "VES_PARALLEL"])
+        .order("created_at", { ascending: false })
+        .limit(2);
+
+      if (error) {
+        console.error("Error fetching exchange rates:", error);
+        return;
+      }
+
+      const bcvRate = data.find((r) => r.to_currency === "VES_BCV")?.rate || 0;
+      const parallelRate =
+        data.find((r) => r.to_currency === "VES_PARALLEL")?.rate || 0;
+
+      setRates({ bcv: bcvRate, parallel: parallelRate });
+    };
+
+    fetchRates();
+  }, []);
+
+  return { rates };
+};

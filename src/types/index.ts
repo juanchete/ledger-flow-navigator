@@ -50,6 +50,7 @@ export interface Transaction {
   paymentMethod?: string;
   category?: string;
   notes?: string;
+  denominations?: Record<string, number>;
   createdAt: Date;
   updatedAt: Date;
   indirectForClientId?: string;
@@ -182,3 +183,11 @@ export interface ExpenseStat {
   percentage: number;
   color: string;
 }
+
+export type BankAccount = {
+  id: number;
+  bankName: string;
+  accountNumber: string;
+  currency: "USD" | "EUR" | "VES" | "COP";
+  amount: number;
+};

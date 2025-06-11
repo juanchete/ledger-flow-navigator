@@ -687,6 +687,7 @@ export type Database = {
           date: string
           debt_id: string | null
           delivery_note: string | null
+          denominations: Json | null
           description: string | null
           exchange_rate_id: number | null
           id: string
@@ -711,6 +712,7 @@ export type Database = {
           date: string
           debt_id?: string | null
           delivery_note?: string | null
+          denominations?: Json | null
           description?: string | null
           exchange_rate_id?: number | null
           id: string
@@ -735,6 +737,7 @@ export type Database = {
           date?: string
           debt_id?: string | null
           delivery_note?: string | null
+          denominations?: Json | null
           description?: string | null
           exchange_rate_id?: number | null
           id?: string
@@ -815,6 +818,7 @@ export type Database = {
           date: string | null
           debt_id: string | null
           delivery_note: string | null
+          denominations: Json | null
           description: string | null
           exchange_rate_id: number | null
           indirect_for_client_id: string | null
@@ -842,6 +846,7 @@ export type Database = {
           date?: string | null
           debt_id?: string | null
           delivery_note?: string | null
+          denominations?: Json | null
           description?: string | null
           exchange_rate_id?: number | null
           indirect_for_client_id?: string | null
@@ -869,6 +874,7 @@ export type Database = {
           date?: string | null
           debt_id?: string | null
           delivery_note?: string | null
+          denominations?: Json | null
           description?: string | null
           exchange_rate_id?: number | null
           indirect_for_client_id?: string | null

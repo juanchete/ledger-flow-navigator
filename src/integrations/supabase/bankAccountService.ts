@@ -4,11 +4,27 @@ import type { Database, Tables, TablesInsert, TablesUpdate } from "./types";
 export type BankAccount = Tables<"bank_accounts">;
 export type BankAccountInsert = TablesInsert<"bank_accounts">;
 export type BankAccountUpdate = TablesUpdate<"bank_accounts">;
+export type BankAccountApp = {
+  id: string;
+  bankName: string;
+  accountNumber: string;
+  amount: number;
+  currency: string;
+};
 
-export const getBankAccounts = async (): Promise<BankAccount[]> => {
+export const getBankAccounts = async (): Promise<BankAccountApp[]> => {
   const { data, error } = await supabase.from("bank_accounts").select("*");
   if (error) throw error;
-  return data || [];
+
+  if (!data) return [];
+
+  return data.map((account) => ({
+    id: account.id,
+    bankName: account.bank,
+    accountNumber: account.account_number,
+    amount: account.amount,
+    currency: account.currency,
+  }));
 };
 
 export const getBankAccountById = async (
