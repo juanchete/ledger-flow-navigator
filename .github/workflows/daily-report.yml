@@ -1,0 +1,16 @@
+name: Trigger Daily Report
+
+on:
+  schedule:
+    # Corre a las 4:00 AM UTC (medianoche en Venezuela, UTC-4) todos los días
+    - cron: "0 4 * * *"
+  workflow_dispatch: # Permite ejecutar este flujo de trabajo manualmente desde la pestaña Actions
+
+jobs:
+  trigger-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Daily Report Function
+        run: |
+          curl -i -X POST "${{ secrets.SUPABASE_FUNCTION_URL }}/daily-report" \
+          -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" 
