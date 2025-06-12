@@ -48,6 +48,9 @@ export interface Transaction {
   invoice?: string;
   deliveryNote?: string;
   paymentMethod?: string;
+  bankAccountId?: string;
+  currency?: "USD" | "EUR" | "VES" | "COP";
+  exchangeRateId?: number;
   category?: string;
   notes?: string;
   denominations?: Record<string, number>;

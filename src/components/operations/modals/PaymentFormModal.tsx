@@ -130,10 +130,36 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
         denominations: denominationsToSave,
       };
 
+      console.log("newTxData a enviar:", newTxData);
+
       const newTx = await createTransaction(newTxData);
 
-      toast.success("Pago registrado exitosamente");
-      onPaymentAdded(newTx);
+      toast.success("Pago registrado exitosamente", newTx);
+      onPaymentAdded({
+        id: newTx.id,
+        type: newTx.type as Transaction['type'],
+        amount: newTx.amount,
+        description: newTx.description,
+        date: new Date(newTx.date),
+        clientId: newTx.client_id ?? undefined,
+        status: newTx.status as Transaction['status'],
+        receipt: newTx.receipt ?? undefined,
+        invoice: newTx.invoice ?? undefined,
+        deliveryNote: newTx.delivery_note ?? undefined,
+        paymentMethod: newTx.payment_method ?? undefined,
+        bankAccountId: newTx.bank_account_id ?? undefined,
+        currency: newTx.currency as Transaction['currency'],
+        exchangeRateId: newTx.exchange_rate_id ?? undefined,
+        category: newTx.category ?? undefined,
+        notes: newTx.notes ?? undefined,
+        denominations: newTx.denominations as Record<string, number> | undefined,
+        createdAt: new Date(newTx.created_at),
+        updatedAt: new Date(newTx.updated_at),
+        indirectForClientId: newTx.indirect_for_client_id ?? undefined,
+        debtId: newTx.debt_id ?? undefined,
+        receivableId: newTx.receivable_id ?? undefined,
+        obraId: newTx.obra_id ?? undefined,
+      });
       refetchTransactions();
       resetForm();
       onClose();

@@ -69,6 +69,8 @@ CREATE TABLE debts (
     commission DECIMAL(18,2),
     currency VARCHAR(8),
     installments INTEGER DEFAULT 1,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     FOREIGN KEY (client_id) REFERENCES clients(id)
 );
 
@@ -85,6 +87,8 @@ CREATE TABLE receivables (
     commission DECIMAL(18,2),
     currency VARCHAR(8),
     installments INTEGER DEFAULT 1,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     FOREIGN KEY (client_id) REFERENCES clients(id)
 );
 

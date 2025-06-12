@@ -94,6 +94,10 @@ export const createTransaction = async (
     payment_method: transaction.paymentMethod,
     category: transaction.category,
     notes: transaction.notes,
+    denominations: transaction.denominations,
+    bank_account_id: transaction.bankAccountId,
+    currency: transaction.currency,
+    exchange_rate_id: transaction.exchangeRateId,
     created_at: transaction.createdAt
       ? new Date(transaction.createdAt).toISOString()
       : new Date().toISOString(),
