@@ -190,11 +190,36 @@ class ExchangeRateService {
 
   /**
    * Extrae un valor de un objeto usando una ruta de propiedades
+   * Soporta tanto propiedades de objeto (obj.prop) como índices de array ([0].prop)
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private extractValueFromPath(obj: any, path: string): any {
     try {
-      return path.split(".").reduce((current, key) => current?.[key], obj);
+      // Manejar paths que incluyen índices de array como [0].promedio
+      let current = obj;
+
+      // Dividir el path y procesar cada parte
+      const parts = path.split(".");
+
+      for (const part of parts) {
+        if (part.startsWith("[") && part.endsWith("]")) {
+          // Es un índice de array
+          const index = parseInt(part.slice(1, -1));
+          if (isNaN(index) || !Array.isArray(current)) {
+            return null;
+          }
+          current = current[index];
+        } else {
+          // Es una propiedad de objeto
+          current = current?.[part];
+        }
+
+        if (current === undefined || current === null) {
+          return null;
+        }
+      }
+
+      return current;
     } catch {
       return null;
     }

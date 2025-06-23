@@ -12,6 +12,7 @@ import {
   DollarSign,
   Calculator,
   Building,
+  Receipt,
   LucideIcon,
   LucideProps,
   Loader2,
@@ -35,6 +36,7 @@ type IconsType = {
   dollarSign: LucideIcon;
   calculator: LucideIcon;
   building: LucideIcon;
+  receipt: LucideIcon;
   spinner: LucideIcon;
 };
 
@@ -75,5 +77,6 @@ export const Icons: IconsType = {
   dollarSign: DollarSign,
   calculator: Calculator,
   building: Building,
+  receipt: Receipt,
   spinner: Loader2,
 };

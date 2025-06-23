@@ -1,10 +1,10 @@
 export const EXCHANGE_RATE_CONFIG = {
   // API principal que funciona
   MAIN_API: {
-    url: "https://pydolarve.org/api/v2/dollar",
+    url: "https://ve.dolarapi.com/v1/dolares",
     name: "PyDolarVe API",
-    bcvPath: "monitors.bcv.price",
-    parallelPath: "monitors.enparalelovzla.price",
+    bcvPath: "[0].promedio",
+    parallelPath: "[1].promedio",
   },
 
   // URLs de APIs de respaldo (por si la principal falla)

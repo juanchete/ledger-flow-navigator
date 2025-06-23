@@ -27,8 +27,8 @@ const sidebarItems = [
   },
   {
     href: "/obras",
-    icon: "building",
-    label: "Obras",
+    icon: "receipt",
+    label: "Gastos",
   },
   {
     href: "/all-debts",

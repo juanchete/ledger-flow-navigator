@@ -10,6 +10,9 @@ Este documento describe la función de cada componente y pantalla principal del 
 - **AllDebts.tsx**  
   Muestra el listado completo de todas las deudas registradas en el sistema.
 
+- **AllObras.tsx (AllExpenses)**  
+  Gestión de gastos con dos categorías: gastos simples que se descuentan directamente de las cuentas, y proyectos de inversión (obras) que incrementan el patrimonio.
+
 - **Clients.tsx**  
   Pantalla para la gestión y visualización de todos los clientes, tanto directos como indirectos.
 
@@ -49,10 +52,16 @@ Este documento describe la función de cada componente y pantalla principal del 
 - **AccountDetail.tsx**  
   Detalle de una cuenta bancaria específica.
 
+- **CreateObra.tsx (CreateInvestmentProject)**  
+  Formulario para crear nuevos proyectos de inversión que incrementan el patrimonio.
+
+- **ObraDetail.tsx (InvestmentProjectDetail)**  
+  Detalle de un proyecto de inversión específico, incluyendo seguimiento de gastos y progreso del presupuesto.
+
 ## Componentes
 
 - **AppSidebar.tsx**  
-  Barra lateral de navegación principal de la aplicación.
+  Barra lateral de navegación principal de la aplicación. Actualizada para mostrar "Gastos" en lugar de "Obras".
 
 - **Icons.tsx**  
   Conjunto de íconos personalizados utilizados en la interfaz.

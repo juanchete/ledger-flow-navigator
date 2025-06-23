@@ -134,7 +134,16 @@ const ExchangeRates = () => {
                   <div className="flex justify-between text-sm">
                     <span>Última actualización:</span>
                     <span className="font-medium">
-                      {format(new Date(rates.last_updated), "dd/MM/yyyy HH:mm", { locale: es })}
+                      {rates.last_updated ? 
+                        (() => {
+                          try {
+                            return format(new Date(rates.last_updated), "dd/MM/yyyy HH:mm", { locale: es });
+                          } catch {
+                            return 'Fecha no disponible';
+                          }
+                        })() : 
+                        'Fecha no disponible'
+                      }
                     </span>
                   </div>
                 </div>
