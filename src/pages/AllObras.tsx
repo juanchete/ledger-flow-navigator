@@ -21,15 +21,14 @@ import { v4 as uuidv4 } from "uuid";
 import { exchangeRateService } from "@/services/exchangeRateService";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-
 const AllExpenses: React.FC = () => {
   const [obras, setObras] = useState<Obra[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  
+
   // Estados para gastos simples
   const [expenses, setExpenses] = useState<Transaction[]>([]);
   const [loadingExpenses, setLoadingExpenses] = useState<boolean>(false);
-  
+
   // Estados para el modal de gastos simples - Basado en TransactionForm
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -43,7 +42,6 @@ const AllExpenses: React.FC = () => {
   const [useCustomRate, setUseCustomRate] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>("");
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
   const [newExpense, setNewExpense] = useState({
     description: "",
     amount: "",
@@ -79,7 +77,6 @@ const AllExpenses: React.FC = () => {
         setIsLoadingRate(false);
       }
     };
-
     loadExchangeRate();
   }, []);
 
@@ -145,14 +142,10 @@ const AllExpenses: React.FC = () => {
       reloadAutomaticRate();
     }
   };
-
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [obrasData, accountsData] = await Promise.all([
-          getAllObras(),
-          getBankAccounts()
-        ]);
+        const [obrasData, accountsData] = await Promise.all([getAllObras(), getBankAccounts()]);
         setObras(obrasData);
         setBankAccounts(accountsData);
         // Cargar gastos simples también
@@ -163,33 +156,26 @@ const AllExpenses: React.FC = () => {
         setLoading(false);
       }
     };
-
     fetchData();
   }, []);
 
   // Get unique banks for the bank selection dropdown
-  const availableBanks = Array.from(
-    new Set(bankAccounts.map(account => account.bankName))
-  );
-
+  const availableBanks = Array.from(new Set(bankAccounts.map(account => account.bankName)));
   const handleCreateExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newExpense.description || !newExpense.amount) {
       toast.error("Por favor completa todos los campos obligatorios");
       return;
     }
-
     const parsedAmount = parseFloat(newExpense.amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       toast.error("Por favor ingrese un monto válido mayor que cero");
       return;
     }
-
     setIsSaving(true);
-
     try {
       const now = new Date().toISOString();
-      
+
       // Crear la transacción de gasto
       await createTransaction({
         id: uuidv4(),
@@ -202,14 +188,13 @@ const AllExpenses: React.FC = () => {
         notes: newExpense.notes || undefined,
         paymentMethod: newExpense.paymentMethod,
         bankAccountId: selectedAccount || undefined,
-        createdAt: new Date(now),
+        createdAt: new Date(now)
       });
-
       toast.success("Gasto registrado exitosamente");
-      
+
       // Recargar la lista de gastos
       await loadExpenses();
-      
+
       // Resetear el formulario
       setNewExpense({
         description: "",
@@ -220,7 +205,6 @@ const AllExpenses: React.FC = () => {
       });
       setSelectedBank("");
       setSelectedAccount("");
-      
       setIsExpenseModalOpen(false);
     } catch (error) {
       console.error("Error creating expense:", error);
@@ -229,7 +213,6 @@ const AllExpenses: React.FC = () => {
       setIsSaving(false);
     }
   };
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'planning':
@@ -261,17 +244,12 @@ const AllExpenses: React.FC = () => {
       setLoadingExpenses(false);
     }
   };
-
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
+    return <div className="flex justify-center items-center h-screen">
         <Progress value={50} />
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div className="container mx-auto p-4 space-y-6">
+  return <div className="container mx-auto p-4 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Gestión de Gastos</h1>
@@ -308,13 +286,10 @@ const AllExpenses: React.FC = () => {
           </div>
           
           <Card className="shadow-sm">
-            <CardContent className="px-4 sm:px-6">
-              {loadingExpenses ? (
-                <div className="flex items-center justify-center p-8 sm:p-12">
+            <CardContent className="px-4 sm:px-0">
+              {loadingExpenses ? <div className="flex items-center justify-center p-8 sm:p-12">
                   <div className="text-muted-foreground text-sm sm:text-base">Cargando gastos...</div>
-                </div>
-              ) : (
-                <div className="space-y-4">
+                </div> : <div className="space-y-4">
                   {/* Vista de tabla para pantallas medianas y grandes */}
                   <div className="hidden md:block rounded-md border">
                     <div className="grid grid-cols-12 p-4 bg-muted/50 text-sm font-medium">
@@ -326,17 +301,16 @@ const AllExpenses: React.FC = () => {
                     </div>
                     
                     <div className="divide-y">
-                      {expenses.length > 0 ? expenses.map((expense) => (
-                        <div key={expense.id} className="grid grid-cols-12 p-4 items-center hover:bg-muted/25 transition-colors">
+                      {expenses.length > 0 ? expenses.map(expense => <div key={expense.id} className="grid grid-cols-12 p-4 items-center hover:bg-muted/25 transition-colors">
                           <div className="col-span-4">
                             <div className="font-medium">{expense.description}</div>
-                            {expense.notes && (
-                              <div className="text-sm text-muted-foreground line-clamp-1">{expense.notes}</div>
-                            )}
+                            {expense.notes && <div className="text-sm text-muted-foreground line-clamp-1">{expense.notes}</div>}
                           </div>
                           
                           <div className="col-span-2 text-sm">
-                            {format(new Date(expense.date), "dd/MM/yyyy", { locale: es })}
+                            {format(new Date(expense.date), "dd/MM/yyyy", {
+                        locale: es
+                      })}
                           </div>
                           
                           <div className="col-span-2 font-medium">
@@ -344,31 +318,23 @@ const AllExpenses: React.FC = () => {
                           </div>
                           
                           <div className="col-span-2">
-                            {expense.category ? (
-                              <Badge variant="secondary">{expense.category}</Badge>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">Sin categoría</span>
-                            )}
+                            {expense.category ? <Badge variant="secondary">{expense.category}</Badge> : <span className="text-muted-foreground text-sm">Sin categoría</span>}
                           </div>
                           
                           <div className="col-span-2 text-sm">
                             {expense.payment_method || 'No especificado'}
                           </div>
-                        </div>
-                      )) : (
-                        <div className="p-8 text-center text-muted-foreground">
+                        </div>) : <div className="p-8 text-center text-muted-foreground">
                           <Receipt className="h-12 w-12 mx-auto mb-4 opacity-50" />
                           <p>No hay gastos registrados</p>
                           <p className="text-sm">Haz clic en "Nuevo Gasto" para comenzar</p>
-                        </div>
-                      )}
+                        </div>}
                     </div>
                   </div>
 
                   {/* Vista de tarjetas para pantallas pequeñas */}
                   <div className="md:hidden space-y-3">
-                    {expenses.length > 0 ? expenses.map((expense) => (
-                      <div key={expense.id} className="bg-card border rounded-lg p-4 space-y-3 shadow-sm">
+                    {expenses.length > 0 ? expenses.map(expense => <div key={expense.id} className="bg-card border rounded-lg p-4 space-y-3 shadow-sm">
                         <div className="flex justify-between items-start">
                           <Badge variant="outline" className="border-red-500 text-red-700">
                             Gasto
@@ -380,39 +346,31 @@ const AllExpenses: React.FC = () => {
                         
                         <div>
                           <div className="font-medium text-sm mb-1">{expense.description}</div>
-                          {expense.notes && (
-                            <div className="text-xs text-muted-foreground mb-2 line-clamp-2">
+                          {expense.notes && <div className="text-xs text-muted-foreground mb-2 line-clamp-2">
                               {expense.notes}
-                            </div>
-                          )}
+                            </div>}
                         </div>
                         
                         <div className="flex justify-between items-center text-sm">
                           <span className="text-muted-foreground">
-                            {format(new Date(expense.date), "dd/MM/yyyy", { locale: es })}
+                            {format(new Date(expense.date), "dd/MM/yyyy", {
+                        locale: es
+                      })}
                           </span>
                           <div className="flex gap-2">
-                            {expense.category && (
-                              <Badge variant="secondary" className="text-xs">{expense.category}</Badge>
-                            )}
-                            {expense.payment_method && (
-                              <span className="text-muted-foreground text-xs">
+                            {expense.category && <Badge variant="secondary" className="text-xs">{expense.category}</Badge>}
+                            {expense.payment_method && <span className="text-muted-foreground text-xs">
                                 {expense.payment_method}
-                              </span>
-                            )}
+                              </span>}
                           </div>
                         </div>
-                      </div>
-                    )) : (
-                      <div className="p-8 text-center text-muted-foreground border rounded-lg">
+                      </div>) : <div className="p-8 text-center text-muted-foreground border rounded-lg">
                         <Receipt className="h-12 w-12 mx-auto mb-4 opacity-50" />
                         <p>No hay gastos registrados</p>
                         <p className="text-sm">Haz clic en "Nuevo Gasto" para comenzar</p>
-                      </div>
-                    )}
+                      </div>}
                   </div>
-                </div>
-              )}
+                </div>}
             </CardContent>
           </Card>
         </TabsContent>
@@ -434,8 +392,7 @@ const AllExpenses: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {obras.map((obra) => (
-              <Card key={obra.id} className="hover:shadow-md transition-shadow">
+            {obras.map(obra => <Card key={obra.id} className="hover:shadow-md transition-shadow">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <CardTitle className="text-lg">{obra.name}</CardTitle>
@@ -447,28 +404,22 @@ const AllExpenses: React.FC = () => {
                     {obra.description || "Sin descripción"}
                   </p>
                   
-                  {obra.location && (
-                    <p className="text-sm">
+                  {obra.location && <p className="text-sm">
                       <strong>Ubicación:</strong> {obra.location}
-                    </p>
-                  )}
+                    </p>}
                   
-                  {obra.budget && (
-                    <p className="text-sm">
+                  {obra.budget && <p className="text-sm">
                       <strong>Presupuesto:</strong> ${obra.budget.toLocaleString()}
-                    </p>
-                  )}
+                    </p>}
                   
                   <Button asChild className="w-full mt-4">
                     <Link to={`/obras/${obra.id}`}>Ver Detalles</Link>
                   </Button>
                 </CardContent>
-              </Card>
-            ))}
+              </Card>)}
           </div>
 
-          {obras.length === 0 && (
-            <Card>
+          {obras.length === 0 && <Card>
               <CardContent className="p-6">
                 <div className="text-center text-muted-foreground">
                   <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -476,8 +427,7 @@ const AllExpenses: React.FC = () => {
                   <p className="text-sm">Crea tu primer proyecto para comenzar</p>
                 </div>
               </CardContent>
-            </Card>
-          )}
+            </Card>}
         </TabsContent>
       </Tabs>
 
@@ -502,27 +452,13 @@ const AllExpenses: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        id="currency-usd"
-                        name="currency"
-                        checked={isUSD}
-                        onChange={() => setIsUSD(true)}
-                        className="rounded"
-                      />
+                      <input type="radio" id="currency-usd" name="currency" checked={isUSD} onChange={() => setIsUSD(true)} className="rounded" />
                       <Label htmlFor="currency-usd" className="text-sm">
                         USD (Dólares)
                       </Label>
                     </div>
                     <div className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        id="currency-ves"
-                        name="currency"
-                        checked={!isUSD}
-                        onChange={() => setIsUSD(false)}
-                        className="rounded"
-                      />
+                      <input type="radio" id="currency-ves" name="currency" checked={!isUSD} onChange={() => setIsUSD(false)} className="rounded" />
                       <Label htmlFor="currency-ves" className="text-sm">
                         VES (Bolívares)
                       </Label>
@@ -531,20 +467,13 @@ const AllExpenses: React.FC = () => {
                   
                   <div className="space-y-2">
                     <Label className="text-sm">Monto *</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={newExpense.amount}
-                      onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
-                      placeholder={isUSD ? "0.00 USD" : "0.00 VES"}
-                      required
-                    />
-                    {isUSD && exchangeRate > 0 && (
-                      <div className="text-xs text-muted-foreground">
+                    <Input type="number" step="0.01" min="0" value={newExpense.amount} onChange={e => setNewExpense({
+                    ...newExpense,
+                    amount: e.target.value
+                  })} placeholder={isUSD ? "0.00 USD" : "0.00 VES"} required />
+                    {isUSD && exchangeRate > 0 && <div className="text-xs text-muted-foreground">
                         ≈ Bs. {(parseFloat(newExpense.amount || "0") * exchangeRate).toFixed(2)}
-                      </div>
-                    )}
+                      </div>}
                   </div>
                 </div>
               </div>
@@ -554,17 +483,8 @@ const AllExpenses: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium">Tasa de Cambio (USD/VES)</Label>
                   <div className="flex items-center gap-2">
-                    {isLoadingRate && (
-                      <span className="text-xs text-muted-foreground">Cargando...</span>
-                    )}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={refreshExchangeRate}
-                      disabled={isLoadingRate || isRefreshing}
-                      className="h-8 w-8 p-0"
-                    >
+                    {isLoadingRate && <span className="text-xs text-muted-foreground">Cargando...</span>}
+                    <Button type="button" variant="ghost" size="sm" onClick={refreshExchangeRate} disabled={isLoadingRate || isRefreshing} className="h-8 w-8 p-0">
                       <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                     </Button>
                   </div>
@@ -573,28 +493,13 @@ const AllExpenses: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="useCustomRate"
-                        checked={useCustomRate}
-                        onChange={(e) => handleUseCustomRateChange(e.target.checked)}
-                        className="rounded"
-                      />
+                      <input type="checkbox" id="useCustomRate" checked={useCustomRate} onChange={e => handleUseCustomRateChange(e.target.checked)} className="rounded" />
                       <Label htmlFor="useCustomRate" className="text-sm">
                         Usar tasa personalizada
                       </Label>
                     </div>
                     
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={customRate}
-                      onChange={(e) => handleCustomRateChange(e.target.value)}
-                      disabled={!useCustomRate}
-                      placeholder="Ingresa tasa personalizada"
-                      className={!useCustomRate ? "bg-muted" : ""}
-                    />
+                    <Input type="number" step="0.01" min="0" value={customRate} onChange={e => handleCustomRateChange(e.target.value)} disabled={!useCustomRate} placeholder="Ingresa tasa personalizada" className={!useCustomRate ? "bg-muted" : ""} />
                   </div>
                   
                   <div className="space-y-2">
@@ -607,14 +512,12 @@ const AllExpenses: React.FC = () => {
                     <div className="text-xs text-muted-foreground">
                       {useCustomRate ? "Personalizada" : "Obtenida automáticamente"}
                     </div>
-                    {lastUpdated && !useCustomRate && (
-                      <div className="text-xs text-muted-foreground">
+                    {lastUpdated && !useCustomRate && <div className="text-xs text-muted-foreground">
                         Actualizada: {new Date(lastUpdated).toLocaleString('es-VE', {
-                          dateStyle: 'short',
-                          timeStyle: 'short'
-                        })}
-                      </div>
-                    )}
+                      dateStyle: 'short',
+                      timeStyle: 'short'
+                    })}
+                      </div>}
                   </div>
                 </div>
               </div>
@@ -631,34 +534,24 @@ const AllExpenses: React.FC = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">Sin banco específico</SelectItem>
-                        {availableBanks.map((bank) => (
-                          <SelectItem key={bank} value={bank}>
+                        {availableBanks.map(bank => <SelectItem key={bank} value={bank}>
                             {bank}
-                          </SelectItem>
-                        ))}
+                          </SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   
                   <div className="space-y-2">
                     <Label className="text-sm">Cuenta</Label>
-                    <Select 
-                      value={selectedAccount} 
-                      onValueChange={setSelectedAccount}
-                      disabled={!selectedBank || selectedBank === "none"}
-                    >
+                    <Select value={selectedAccount} onValueChange={setSelectedAccount} disabled={!selectedBank || selectedBank === "none"}>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar cuenta" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">Sin cuenta específica</SelectItem>
-                        {bankAccounts
-                          .filter(account => selectedBank === "none" || account.bankName === selectedBank)
-                          .map((account) => (
-                            <SelectItem key={account.id} value={account.id}>
+                        {bankAccounts.filter(account => selectedBank === "none" || account.bankName === selectedBank).map(account => <SelectItem key={account.id} value={account.id}>
                               {account.accountNumber} ({account.currency})
-                            </SelectItem>
-                          ))}
+                            </SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -671,14 +564,10 @@ const AllExpenses: React.FC = () => {
                   <Label htmlFor="description" className="text-sm font-medium">
                     Descripción *
                   </Label>
-                  <Input
-                    id="description"
-                    type="text"
-                    value={newExpense.description}
-                    onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
-                    placeholder="Descripción del gasto"
-                    required
-                  />
+                  <Input id="description" type="text" value={newExpense.description} onChange={e => setNewExpense({
+                  ...newExpense,
+                  description: e.target.value
+                })} placeholder="Descripción del gasto" required />
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -686,23 +575,20 @@ const AllExpenses: React.FC = () => {
                     <Label htmlFor="category" className="text-sm font-medium">
                       Categoría
                     </Label>
-                    <Input
-                      id="category"
-                      type="text"
-                      value={newExpense.category}
-                      onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}
-                      placeholder="Categoría"
-                    />
+                    <Input id="category" type="text" value={newExpense.category} onChange={e => setNewExpense({
+                    ...newExpense,
+                    category: e.target.value
+                  })} placeholder="Categoría" />
                   </div>
                   
                   <div className="grid gap-2">
                     <Label htmlFor="paymentMethod" className="text-sm font-medium">
                       Método de Pago
                     </Label>
-                    <Select
-                      value={newExpense.paymentMethod}
-                      onValueChange={(value) => setNewExpense({ ...newExpense, paymentMethod: value })}
-                    >
+                    <Select value={newExpense.paymentMethod} onValueChange={value => setNewExpense({
+                    ...newExpense,
+                    paymentMethod: value
+                  })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar método" />
                       </SelectTrigger>
@@ -721,24 +607,16 @@ const AllExpenses: React.FC = () => {
                   <Label htmlFor="notes" className="text-sm font-medium">
                     Notas
                   </Label>
-                  <Textarea
-                    id="notes"
-                    value={newExpense.notes}
-                    onChange={(e) => setNewExpense({ ...newExpense, notes: e.target.value })}
-                    placeholder="Notas adicionales sobre el gasto"
-                    rows={3}
-                  />
+                  <Textarea id="notes" value={newExpense.notes} onChange={e => setNewExpense({
+                  ...newExpense,
+                  notes: e.target.value
+                })} placeholder="Notas adicionales sobre el gasto" rows={3} />
                 </div>
               </div>
             </div>
 
             <DialogFooter className="gap-2 pt-4">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setIsExpenseModalOpen(false)}
-                disabled={isSaving}
-              >
+              <Button type="button" variant="outline" onClick={() => setIsExpenseModalOpen(false)} disabled={isSaving}>
                 Cancelar
               </Button>
               <Button type="submit" disabled={isSaving}>
@@ -749,8 +627,6 @@ const AllExpenses: React.FC = () => {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
-  );
+    </div>;
 };
-
-export default AllExpenses; 
+export default AllExpenses;
