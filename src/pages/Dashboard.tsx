@@ -249,6 +249,24 @@ const Dashboard = () => {
     receivables: totalPendingReceivables,
     debts: totalPendingDebts
   };
+
+  // 5. Operaciones del día actual
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  const todayTransactions = transactions.filter(transaction => {
+    const transactionDate = new Date(transaction.date);
+    return transactionDate >= today && transactionDate < tomorrow;
+  });
+
+  const getClientName = (clientId: string | undefined) => {
+    if (!clientId) return 'N/A';
+    const client = clients.find(c => c.id === clientId);
+    return client ? client.name : 'Cliente no encontrado';
+  };
+
   const formatDateForChart = (date: Date) => format(new Date(date), 'MMM d');
   const chartData = {
     date: formatDateForChart(new Date()),
@@ -343,8 +361,100 @@ const Dashboard = () => {
         </Card>
       </div>
       
+      {/* Operaciones del Día */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold">Operaciones del Día</CardTitle>
+          <CardDescription>
+            {todayTransactions.length} operación{todayTransactions.length !== 1 ? 'es' : ''} realizada{todayTransactions.length !== 1 ? 's' : ''} hoy
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {todayTransactions.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Clock className="mx-auto h-12 w-12 mb-4 opacity-50" />
+              <p>No hay operaciones registradas para hoy</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Descripción</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Monto</TableHead>
+                    <TableHead>Hora</TableHead>
+                    <TableHead>Estado</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {todayTransactions.map((transaction) => (
+                    <TableRow key={transaction.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {transaction.type === 'income' ? (
+                            <ArrowUp className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <ArrowDown className="h-4 w-4 text-red-500" />
+                          )}
+                          <span className="capitalize">
+                            {transaction.type === 'income' ? 'Ingreso' : 
+                             transaction.type === 'expense' ? 'Gasto' : 
+                             transaction.type}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="max-w-[200px] truncate">
+                          {transaction.description || 'Sin descripción'}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="max-w-[150px] truncate">
+                          {getClientName(transaction.clientId)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className={transaction.type === 'income' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                          {formatCurrency(transaction.amount)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-muted-foreground">
+                          {format(new Date(transaction.date), 'HH:mm')}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={
+                          transaction.status === 'completed' ? 'default' :
+                          transaction.status === 'pending' ? 'secondary' :
+                          transaction.status === 'cancelled' ? 'destructive' :
+                          'outline'
+                        }>
+                          {transaction.status === 'completed' ? 'Completado' :
+                           transaction.status === 'pending' ? 'Pendiente' :
+                           transaction.status === 'cancelled' ? 'Cancelado' :
+                           transaction.status || 'Sin estado'}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          {todayTransactions.length > 0 && (
+            <div className="mt-4 flex justify-end">
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/operations">Ver todas las operaciones</Link>
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
       
-        <DebtsAndReceivables />
+      <DebtsAndReceivables />
       
       <BankAccountsModal isOpen={openModal === 'USD'} onClose={() => setOpenModal(null)} currency="USD" accounts={usdAccounts} />
       
