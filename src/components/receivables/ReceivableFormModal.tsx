@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -20,7 +19,8 @@ import { createReceivable, updateReceivable, type NewReceivable, type UpdatedRec
 const receivableSchema = z.object({
   client_id: z.string({ required_error: "Cliente es requerido" }),
   amount: z.coerce.number().positive("El monto debe ser positivo"),
-  description: z.string().min(1, "La descripción es requerida"),
+  description: z.string().min(1, "La referencia es requerida"),
+  receipt: z.any().optional(),
   due_date: z.date({ required_error: "Fecha de vencimiento es requerida" }),
   status: z.enum(["pending", "overdue", "paid"], { required_error: "Estado es requerido" }).default("pending"),
   notes: z.string().optional(),
@@ -47,6 +47,7 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
   onSuccess
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const isEditing = !!receivable;
 
   const form = useForm<ReceivableFormValues>({
@@ -90,12 +91,21 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
         installments: 1,
       });
     }
+    setReceiptFile(null);
   }, [receivable, form]);
 
   const onSubmit = async (data: ReceivableFormValues) => {
     setIsSubmitting(true);
     
     try {
+      // TODO: Subir archivo de comprobante a Supabase Storage si existe
+      const receiptUrl: string | undefined = receiptFile ? undefined : undefined;
+      if (receiptFile) {
+        // Aquí se implementará la subida del archivo
+        // receiptUrl = await uploadReceipt(receiptFile);
+        console.log('Archivo de comprobante seleccionado:', receiptFile.name);
+      }
+
       if (isEditing && receivable) {
         // Update existing receivable
         const updatedData: UpdatedReceivable = {
@@ -103,7 +113,7 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
           amount: data.amount,
           description: data.description,
           due_date: data.due_date.toISOString(),
-          status: data.status,
+          status: data.status as "pending" | "overdue" | "paid",
           notes: data.notes,
           currency: data.currency,
           interest_rate: data.interest_rate || null,
@@ -119,7 +129,7 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
           amount: data.amount,
           description: data.description,
           due_date: data.due_date.toISOString(),
-          status: data.status,
+          status: data.status as "pending" | "overdue" | "paid",
           notes: data.notes,
           currency: data.currency,
           interest_rate: data.interest_rate || null,
@@ -203,6 +213,40 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
 
             <FormField
               control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm sm:text-base">Referencia *</FormLabel>
+                  <FormControl>
+                    <Input 
+                      {...field} 
+                      placeholder="Referencia de la cuenta por cobrar"
+                      className="h-10 sm:h-11 text-base"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Comprobante */}
+            <div className="grid gap-2">
+              <FormLabel className="text-sm sm:text-base">Comprobante</FormLabel>
+              <Input
+                type="file"
+                accept="image/*,.pdf,.doc,.docx"
+                onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                className="h-10 sm:h-11 text-base cursor-pointer"
+              />
+              {receiptFile && (
+                <p className="text-xs text-muted-foreground">
+                  Archivo seleccionado: {receiptFile.name}
+                </p>
+              )}
+            </div>
+
+            <FormField
+              control={form.control}
               name="interest_rate"
               render={({ field }) => (
                 <FormItem>
@@ -237,62 +281,6 @@ export const ReceivableFormModal: React.FC<ReceivableFormModalProps> = ({
                       className="h-10 sm:h-11 text-base"
                     />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm sm:text-base">Descripción</FormLabel>
-                  <FormControl>
-                    <Input 
-                      {...field} 
-                      className="h-10 sm:h-11 text-base"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="due_date"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm sm:text-base">Fecha de vencimiento</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full pl-3 text-left font-normal h-10 sm:h-11 text-base",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? (
-                            format(field.value, "dd/MM/yyyy")
-                          ) : (
-                            <span>Seleccionar fecha</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
                   <FormMessage />
                 </FormItem>
               )}

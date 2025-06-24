@@ -38,7 +38,8 @@ export const TransactionForm = ({ onSuccess, showCancelButton = true }: Transact
   const [selectedClient, setSelectedClient] = useState("");
   const [selectedBank, setSelectedBank] = useState("");
   const [selectedAccount, setSelectedAccount] = useState("");
-  const [description, setDescription] = useState("");
+  const [reference, setReference] = useState("");
+  const [receipt, setReceipt] = useState<File | null>(null);
   const [category, setCategory] = useState("");
   const [notes, setNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
@@ -174,7 +175,7 @@ export const TransactionForm = ({ onSuccess, showCancelButton = true }: Transact
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!transactionType || !amount || !description) {
+    if (!transactionType || !amount || !reference) {
       toast({
         title: "Error en el formulario",
         description: "Por favor complete todos los campos obligatorios.",
@@ -201,7 +202,7 @@ export const TransactionForm = ({ onSuccess, showCancelButton = true }: Transact
         id: uuidv4(),
         type: transactionType,
         amount: parsedAmount,
-        description,
+        description: reference,
         date: now,
         status: "completed",
         category: category || undefined,
@@ -347,18 +348,37 @@ export const TransactionForm = ({ onSuccess, showCancelButton = true }: Transact
         {/* Nuevos campos para la transacción */}
         <div className="grid gap-4">
           <div className="grid grid-cols-1 gap-2">
-            <label htmlFor="description" className="text-sm font-medium">
-              Descripción
+            <label htmlFor="reference" className="text-sm font-medium">
+              Referencia *
             </label>
             <input
-              id="description"
+              id="reference"
               type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              placeholder="Descripción de la transacción"
+              placeholder="Referencia de la transacción"
               required
             />
+          </div>
+
+          {/* Comprobante */}
+          <div className="grid grid-cols-1 gap-2">
+            <label htmlFor="receipt" className="text-sm font-medium">
+              Comprobante
+            </label>
+            <input
+              id="receipt"
+              type="file"
+              accept="image/*,.pdf,.doc,.docx"
+              onChange={(e) => setReceipt(e.target.files?.[0] || null)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+            />
+            {receipt && (
+              <p className="text-xs text-muted-foreground">
+                Archivo seleccionado: {receipt.name}
+              </p>
+            )}
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -380,14 +400,18 @@ export const TransactionForm = ({ onSuccess, showCancelButton = true }: Transact
               <label htmlFor="paymentMethod" className="text-sm font-medium">
                 Método de Pago
               </label>
-              <input
+              <select
                 id="paymentMethod"
-                type="text"
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                placeholder="Método de pago"
-              />
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">Seleccionar método</option>
+                <option value="cash">Efectivo</option>
+                <option value="transfer">Transferencia</option>
+                <option value="credit_card">Tarjeta de Crédito</option>
+                <option value="other">Otro</option>
+              </select>
             </div>
           </div>
           

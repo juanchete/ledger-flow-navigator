@@ -19,6 +19,8 @@ import { createDebt, updateDebt, type NewDebt, type UpdatedDebt, type Debt } fro
 const debtSchema = z.object({
   client_id: z.string().optional(),
   amount: z.coerce.number().positive("El monto debe ser positivo"),
+  creditor: z.string().min(1, "La referencia es requerida"),
+  receipt: z.any().optional(),
   due_date: z.date({ required_error: "Fecha de vencimiento es requerida" }),
   status: z.enum(["pending", "overdue", "paid"], { required_error: "Estado es requerido" }).default("pending"),
   category: z.string().optional(),
@@ -46,6 +48,7 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
   onSuccess
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const isEditing = !!debt;
 
   const form = useForm<DebtFormValues>({
@@ -53,6 +56,7 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
     defaultValues: {
       client_id: debt?.client_id || undefined,
       amount: debt?.amount || 0,
+      creditor: debt?.creditor || "",
       due_date: debt?.due_date ? new Date(debt.due_date) : new Date(),
       status: (debt?.status as "pending" | "overdue" | "paid") || "pending",
       category: debt?.category || "",
@@ -68,6 +72,7 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
       form.reset({
         client_id: debt.client_id || undefined,
         amount: debt.amount || 0,
+        creditor: debt.creditor || "",
         due_date: debt.due_date ? new Date(debt.due_date) : new Date(),
         status: (debt.status as "pending" | "overdue" | "paid") || "pending",
         category: debt.category || "",
@@ -80,6 +85,7 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
       form.reset({
         client_id: undefined,
         amount: 0,
+        creditor: "",
         due_date: new Date(),
         status: "pending",
         category: "",
@@ -89,16 +95,25 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
         installments: 1,
       });
     }
+    setReceiptFile(null);
   }, [debt, form]);
 
   const onSubmit = async (data: DebtFormValues) => {
     setIsSubmitting(true);
     
     try {
+      // TODO: Subir archivo de comprobante a Supabase Storage si existe
+      const receiptUrl: string | undefined = receiptFile ? undefined : undefined;
+      if (receiptFile) {
+        // Aquí se implementará la subida del archivo
+        // receiptUrl = await uploadReceipt(receiptFile);
+        console.log('Archivo de comprobante seleccionado:', receiptFile.name);
+      }
+
       if (isEditing && debt) {
         // Update existing debt
         const updatedData: UpdatedDebt = {
-          creditor: "",
+          creditor: data.creditor,
           client_id: data.client_id === undefined || data.client_id === "none" ? null : data.client_id,
           amount: data.amount,
           due_date: data.due_date.toISOString(),
@@ -115,7 +130,7 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
       } else {
         // Create new debt
         const newData: NewDebt = {
-          creditor: "",
+          creditor: data.creditor,
           client_id: data.client_id === undefined || data.client_id === "none" ? null : data.client_id,
           amount: data.amount,
           due_date: data.due_date.toISOString(),
@@ -195,6 +210,39 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="creditor"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Referencia *</FormLabel>
+                  <FormControl>
+                    <Input 
+                      {...field} 
+                      placeholder="Referencia de la deuda"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Comprobante */}
+            <div className="grid gap-2">
+              <FormLabel>Comprobante</FormLabel>
+              <Input
+                type="file"
+                accept="image/*,.pdf,.doc,.docx"
+                onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                className="cursor-pointer"
+              />
+              {receiptFile && (
+                <p className="text-xs text-muted-foreground">
+                  Archivo seleccionado: {receiptFile.name}
+                </p>
+              )}
+            </div>
 
             <FormField
               control={form.control}

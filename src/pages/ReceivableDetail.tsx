@@ -10,10 +10,11 @@ import { format } from "date-fns";
 import { formatCurrency } from '@/lib/utils';
 import { StatusBadge } from "@/components/operations/common/StatusBadge";
 import { PaymentsList } from "@/components/operations/payments/PaymentsList";
-import { PaymentFormModal } from "@/components/operations/modals/PaymentFormModal";
+import { PaymentFormModalOptimized } from "@/components/operations/modals/PaymentFormModalOptimized";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getReceivableById, type Receivable as SupabaseReceivable } from "@/integrations/supabase/receivableService";
 import { getTransactions, type Transaction as SupabaseTransaction } from "@/integrations/supabase/transactionService";
+import type { Transaction as AppTransaction } from "@/types";
 import { getClients, type Client as SupabaseClient } from "@/integrations/supabase/clientService";
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { useHistoricalExchangeRates } from '@/hooks/useHistoricalExchangeRates';
@@ -186,7 +187,7 @@ const ReceivableDetail = () => {
     return format(new Date(date), 'dd/MM/yyyy');
   };
 
-  const handlePaymentAdded = (newPayment: { id: string; amount: number; date: Date; method: string; clientId?: string; clientName?: string; clientType?: 'direct' | 'indirect'; notes?: string; }) => {
+  const handlePaymentAdded = (newPayment: AppTransaction) => {
     // Recargar los datos completos para mantener consistencia
     const fetchData = async () => {
       try {
@@ -542,7 +543,7 @@ const ReceivableDetail = () => {
       </div>
 
       {/* Modal de registro de pago */}
-      <PaymentFormModal
+      <PaymentFormModalOptimized
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
         onPaymentAdded={handlePaymentAdded}

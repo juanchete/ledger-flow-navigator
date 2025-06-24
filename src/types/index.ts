@@ -54,6 +54,9 @@ export interface Transaction {
   category?: string;
   notes?: string;
   denominations?: Record<string, number>;
+  bankCommission?: number;
+  transferCount?: number;
+  destinationBankAccountId?: string;
   createdAt: Date;
   updatedAt: Date;
   indirectForClientId?: string;

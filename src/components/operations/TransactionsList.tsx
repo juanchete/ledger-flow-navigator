@@ -73,6 +73,38 @@ export const TransactionsList = ({ selectedType, searchQuery }: TransactionsList
     }).format(amount);
   };
 
+  const getTransactionTypeLabel = (type: string) => {
+    switch(type) {
+      case 'purchase':
+        return 'Compra';
+      case 'sale':
+        return 'Venta';
+      case 'banking':
+        return 'Bancario';
+      case 'balance-change':
+        return 'Cambio de Saldo';
+      case 'expense':
+        return 'Gasto';
+      case 'payment':
+        return 'Pago';
+      default:
+        return type || 'N/A';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch(status) {
+      case 'completed':
+        return 'Completado';
+      case 'pending':
+        return 'Pendiente';
+      case 'cancelled':
+        return 'Cancelado';
+      default:
+        return status || 'Sin estado';
+    }
+  };
+
   const getBadgeColor = (transactionType: string) => {
     switch(transactionType) {
       case 'purchase':
@@ -149,7 +181,7 @@ export const TransactionsList = ({ selectedType, searchQuery }: TransactionsList
                 <div key={transaction.id} className="grid grid-cols-12 p-4 items-center hover:bg-muted/25 transition-colors">
                   <div className="col-span-1">
                     <Badge className={getBadgeColor(transaction.type || '')}>
-                      {transaction.type ? transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1) : 'N/A'}
+                      {getTransactionTypeLabel(transaction.type || '')}
                     </Badge>
                   </div>
                   
@@ -178,7 +210,7 @@ export const TransactionsList = ({ selectedType, searchQuery }: TransactionsList
                   
                   <div className="col-span-2">
                     <Badge className={getStatusBadgeColor(transaction.status || '')}>
-                      {transaction.status || 'Sin estado'}
+                      {getStatusLabel(transaction.status || '')}
                     </Badge>
                   </div>
                   
@@ -213,10 +245,10 @@ export const TransactionsList = ({ selectedType, searchQuery }: TransactionsList
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-2">
                     <Badge className={getBadgeColor(transaction.type || '')} variant="secondary">
-                      {transaction.type ? transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1) : 'N/A'}
+                      {getTransactionTypeLabel(transaction.type || '')}
                     </Badge>
                     <Badge className={getStatusBadgeColor(transaction.status || '')} variant="outline">
-                      {transaction.status || 'Sin estado'}
+                      {getStatusLabel(transaction.status || '')}
                     </Badge>
                   </div>
                   <Button size="sm" variant="ghost" asChild>

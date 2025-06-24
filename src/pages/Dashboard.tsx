@@ -16,7 +16,7 @@ import { format } from "date-fns";
 import { BankAccountsModal } from "@/components/BankAccountsModal";
 import { DebtsAndReceivables } from "@/components/operations/DebtsAndReceivables";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { TransactionForm } from "@/components/operations/TransactionForm";
+import { TransactionFormOptimized } from "@/components/operations/TransactionFormOptimized";
 import { getTransactions } from "@/integrations/supabase/transactionService";
 import { getClients } from "@/integrations/supabase/clientService";
 import { getDebts } from "@/integrations/supabase/debtService";
@@ -301,10 +301,10 @@ const Dashboard = () => {
               <DialogHeader>
                 <DialogTitle>Crear Nueva Transacción</DialogTitle>
                 <DialogDescription>
-                  Ingresa los detalles para tu nueva transacción.
+                  Ingresa los detalles para tu nueva transacción.ss
                 </DialogDescription>
               </DialogHeader>
-              <TransactionForm 
+              <TransactionFormOptimized 
                 onSuccess={() => setOpenTransactionModal(false)} 
                 showCancelButton={true}
               />

@@ -103,6 +103,38 @@ const TransactionDetail = () => {
     }).format(amount);
   };
 
+  const getTransactionTypeLabel = (type: string) => {
+    switch(type) {
+      case 'purchase':
+        return 'Compra';
+      case 'sale':
+        return 'Venta';
+      case 'banking':
+        return 'Bancario';
+      case 'balance-change':
+        return 'Cambio de Saldo';
+      case 'expense':
+        return 'Gasto';
+      case 'payment':
+        return 'Pago';
+      default:
+        return type || 'N/A';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch(status) {
+      case 'completed':
+        return 'Completado';
+      case 'pending':
+        return 'Pendiente';
+      case 'cancelled':
+        return 'Cancelado';
+      default:
+        return status || 'Sin estado';
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch(status) {
       case 'completed':
@@ -146,7 +178,7 @@ const TransactionDetail = () => {
         </Button>
         <h1 className="text-3xl font-bold tracking-tight">Detalle de Transacción</h1>
         <Badge className={getTypeColor(transaction.type)}>
-          {transaction.type === 'sale' ? 'Venta' : transaction.type === 'purchase' ? 'Compra' : transaction.type === 'banking' ? 'Bancario' : transaction.type === 'balance-change' ? 'Ajuste de Saldo' : transaction.type === 'expense' ? 'Gasto' : transaction.type === 'payment' ? 'Pago' : transaction.type}
+          {getTransactionTypeLabel(transaction.type)}
         </Badge>
       </div>
 
@@ -167,7 +199,7 @@ const TransactionDetail = () => {
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Estado:</span>
               <Badge className={getStatusColor(transaction.status)}>
-                {transaction.status === 'completed' ? 'Completado' : transaction.status === 'pending' ? 'Pendiente' : transaction.status === 'cancelled' ? 'Cancelado' : transaction.status}
+                {getStatusLabel(transaction.status)}
               </Badge>
             </div>
             

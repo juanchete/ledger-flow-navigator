@@ -9,15 +9,29 @@ DECLARE
 BEGIN
     -- Manejar INSERT (nueva transacción)
     IF TG_OP = 'INSERT' THEN
-        IF NEW.bank_account_id IS NOT NULL AND NEW.type IS NOT NULL THEN
+        -- Manejo especial para balance-change (transferencia entre cuentas propias)
+        IF NEW.type = 'balance-change' AND NEW.bank_account_id IS NOT NULL AND NEW.destination_bank_account_id IS NOT NULL THEN
+            -- Descontar de la cuenta origen
+            UPDATE bank_accounts 
+            SET amount = amount - NEW.amount 
+            WHERE id = NEW.bank_account_id;
+            
+            -- Sumar a la cuenta destino
+            UPDATE bank_accounts 
+            SET amount = amount + NEW.amount 
+            WHERE id = NEW.destination_bank_account_id;
+            
+            -- Log para debugging
+            RAISE NOTICE 'Balance-change: Descontado % de cuenta % y sumado a cuenta %', NEW.amount, NEW.bank_account_id, NEW.destination_bank_account_id;
+            
+        -- Manejo normal para otros tipos de transacciones
+        ELSIF NEW.bank_account_id IS NOT NULL AND NEW.type IS NOT NULL AND NEW.type != 'balance-change' THEN
             -- Determinar el cambio de saldo basado en el tipo de transacción
             CASE NEW.type
                 WHEN 'sale', 'payment', 'banking' THEN
                     balance_change := NEW.amount;
                 WHEN 'purchase', 'expense' THEN
                     balance_change := -NEW.amount;
-                WHEN 'balance-change' THEN
-                    balance_change := NEW.amount;
                 ELSE
                     balance_change := 0;
             END CASE;
@@ -27,7 +41,7 @@ BEGIN
             SET amount = amount + balance_change 
             WHERE id = NEW.bank_account_id;
             
-            -- Log para debugging (opcional)
+            -- Log para debugging
             RAISE NOTICE 'Saldo actualizado para cuenta %: cambio de %', NEW.bank_account_id, balance_change;
         END IF;
         RETURN NEW;
@@ -35,15 +49,23 @@ BEGIN
     
     -- Manejar UPDATE (transacción modificada)
     IF TG_OP = 'UPDATE' THEN
-        -- Revertir el efecto de la transacción anterior si tenía cuenta bancaria
-        IF OLD.bank_account_id IS NOT NULL AND OLD.type IS NOT NULL THEN
+        -- Revertir el efecto de la transacción anterior
+        IF OLD.type = 'balance-change' AND OLD.bank_account_id IS NOT NULL AND OLD.destination_bank_account_id IS NOT NULL THEN
+            -- Revertir balance-change anterior: sumar a origen, restar de destino
+            UPDATE bank_accounts 
+            SET amount = amount + OLD.amount 
+            WHERE id = OLD.bank_account_id;
+            
+            UPDATE bank_accounts 
+            SET amount = amount - OLD.amount 
+            WHERE id = OLD.destination_bank_account_id;
+            
+        ELSIF OLD.bank_account_id IS NOT NULL AND OLD.type IS NOT NULL AND OLD.type != 'balance-change' THEN
             CASE OLD.type
                 WHEN 'sale', 'payment', 'banking' THEN
                     balance_change := -OLD.amount;
                 WHEN 'purchase', 'expense' THEN
                     balance_change := OLD.amount;
-                WHEN 'balance-change' THEN
-                    balance_change := -OLD.amount;
                 ELSE
                     balance_change := 0;
             END CASE;
@@ -53,15 +75,23 @@ BEGIN
             WHERE id = OLD.bank_account_id;
         END IF;
         
-        -- Aplicar el efecto de la nueva transacción si tiene cuenta bancaria
-        IF NEW.bank_account_id IS NOT NULL AND NEW.type IS NOT NULL THEN
+        -- Aplicar el efecto de la nueva transacción
+        IF NEW.type = 'balance-change' AND NEW.bank_account_id IS NOT NULL AND NEW.destination_bank_account_id IS NOT NULL THEN
+            -- Aplicar nuevo balance-change: restar de origen, sumar a destino
+            UPDATE bank_accounts 
+            SET amount = amount - NEW.amount 
+            WHERE id = NEW.bank_account_id;
+            
+            UPDATE bank_accounts 
+            SET amount = amount + NEW.amount 
+            WHERE id = NEW.destination_bank_account_id;
+            
+        ELSIF NEW.bank_account_id IS NOT NULL AND NEW.type IS NOT NULL AND NEW.type != 'balance-change' THEN
             CASE NEW.type
                 WHEN 'sale', 'payment', 'banking' THEN
                     balance_change := NEW.amount;
                 WHEN 'purchase', 'expense' THEN
                     balance_change := -NEW.amount;
-                WHEN 'balance-change' THEN
-                    balance_change := NEW.amount;
                 ELSE
                     balance_change := 0;
             END CASE;
@@ -75,15 +105,23 @@ BEGIN
     
     -- Manejar DELETE (transacción eliminada)
     IF TG_OP = 'DELETE' THEN
-        IF OLD.bank_account_id IS NOT NULL AND OLD.type IS NOT NULL THEN
-            -- Revertir el efecto de la transacción
+        -- Revertir balance-change: sumar a origen, restar de destino
+        IF OLD.type = 'balance-change' AND OLD.bank_account_id IS NOT NULL AND OLD.destination_bank_account_id IS NOT NULL THEN
+            UPDATE bank_accounts 
+            SET amount = amount + OLD.amount 
+            WHERE id = OLD.bank_account_id;
+            
+            UPDATE bank_accounts 
+            SET amount = amount - OLD.amount 
+            WHERE id = OLD.destination_bank_account_id;
+            
+        ELSIF OLD.bank_account_id IS NOT NULL AND OLD.type IS NOT NULL AND OLD.type != 'balance-change' THEN
+            -- Revertir el efecto de otros tipos de transacciones
             CASE OLD.type
                 WHEN 'sale', 'payment', 'banking' THEN
                     balance_change := -OLD.amount;
                 WHEN 'purchase', 'expense' THEN
                     balance_change := OLD.amount;
-                WHEN 'balance-change' THEN
-                    balance_change := -OLD.amount;
                 ELSE
                     balance_change := 0;
             END CASE;

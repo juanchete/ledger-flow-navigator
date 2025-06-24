@@ -5,18 +5,23 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ClientSelectionSection } from '../transaction/ClientSelectionSection';
 import { toast } from "sonner";
 import { v4 as uuidv4 } from 'uuid';
-import { getClients } from '@/integrations/supabase/clientService';
-import { createTransaction } from '@/integrations/supabase/transactionService';
-import { getBankAccounts, BankAccountApp } from '@/integrations/supabase/bankAccountService';
-import { saveExchangeRate, useExchangeRates } from '@/integrations/supabase/exchangeRateService';
-import { useTransactions } from '@/context/TransactionContext';
-import { formatCurrency } from '@/lib/utils';
-import type { Client, BankAccount, Transaction } from '@/types';
 import { Plus, Trash2 } from "lucide-react";
 import { Icons } from '@/components/Icons';
+
+// Importar los nuevos componentes optimizados
+import { useExchangeRate } from '@/hooks/useExchangeRate';
+import { ExchangeRateSection } from '@/components/forms/ExchangeRateSection';
+import { AmountCurrencySection } from '@/components/forms/AmountCurrencySection';
+import { ClientSelectionSection } from '../transaction/ClientSelectionSection';
+
+// Imports existentes
+import { createTransaction } from '@/integrations/supabase/transactionService';
+import { getBankAccounts, BankAccountApp } from '@/integrations/supabase/bankAccountService';
+import { saveExchangeRate } from '@/integrations/supabase/exchangeRateService';
+import { useTransactions } from '@/context/TransactionContext';
+import type { Transaction } from '@/types';
 
 interface Denomination {
   id: string;
@@ -28,13 +33,13 @@ interface PaymentFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onPaymentAdded: (payment: Transaction) => void;
-  receivableId?: string; // ID de la cuenta por cobrar para asociar el pago
-  debtId?: string; // ID de la deuda para asociar el pago
-  defaultClientId?: string; // Cliente predeterminado
-  maxAmount?: number; // Monto máximo permitido (monto restante)
+  receivableId?: string;
+  debtId?: string;
+  defaultClientId?: string;
+  maxAmount?: number;
 }
 
-export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
+export const PaymentFormModalOptimized: React.FC<PaymentFormModalProps> = ({
   isOpen,
   onClose,
   onPaymentAdded,
@@ -43,7 +48,9 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
   defaultClientId,
   maxAmount
 }) => {
-  const [amount, setAmount] = useState<number>(0);
+  // Estados del formulario
+  const [amount, setAmount] = useState('0');
+  const [currency, setCurrency] = useState('USD');
   const [method, setMethod] = useState('cash');
   const [reference, setReference] = useState('');
   const [receipt, setReceipt] = useState<File | null>(null);
@@ -51,46 +58,41 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [selectedClient, setSelectedClient] = useState(defaultClientId || '');
   const [selectedBankAccount, setSelectedBankAccount] = useState('');
-  const [currency, setCurrency] = useState<'USD' | 'EUR' | 'VES' | 'COP'>('USD');
-  const [exchangeRate, setExchangeRate] = useState<number>(0);
-  const [useCustomRate, setUseCustomRate] = useState(false);
-  const [customRate, setCustomRate] = useState('');
   const [loading, setLoading] = useState(false);
   const [denominations, setDenominations] = useState<Denomination[]>([{ id: uuidv4(), value: 0, count: 0 }]);
   const [bankAccounts, setBankAccounts] = useState<BankAccountApp[]>([]);
   
   const { refetchTransactions } = useTransactions();
-  const { rates } = useExchangeRates();
+  
+  // Usar el hook optimizado de tasa de cambio
+  const exchangeRateHook = useExchangeRate();
 
   const denominationBasedAmount = useMemo(() => {
     return denominations.reduce((total, den) => total + den.value * den.count, 0);
   }, [denominations]);
 
+  // Cargar cuentas bancarias
   useEffect(() => {
-    async function fetchAccounts() {
-      try {
-        const accounts = await getBankAccounts();
-        setBankAccounts(accounts);
-      } catch (error) {
-        console.error("Failed to fetch bank accounts:", error);
-        toast.error("No se pudieron cargar las cuentas bancarias.");
+    const fetchAccounts = async () => {
+      if (isOpen) {
+        try {
+          const accounts = await getBankAccounts();
+          setBankAccounts(accounts);
+        } catch (error) {
+          console.error("Failed to fetch bank accounts:", error);
+          toast.error("No se pudieron cargar las cuentas bancarias.");
+        }
+        
+        if (defaultClientId) setSelectedClient(defaultClientId);
       }
-    }
-    if (isOpen) {
-      fetchAccounts();
-      if(defaultClientId) setSelectedClient(defaultClientId);
-    }
+    };
+    fetchAccounts();
   }, [isOpen, defaultClientId]);
 
-  useEffect(() => {
-    if (currency === 'VES' && rates.parallel) {
-      setExchangeRate(rates.parallel);
-    }
-  }, [currency, rates]);
-
+  // Actualizar monto cuando se usan denominaciones
   useEffect(() => {
     if ((currency === 'USD' || currency === 'EUR') && method === 'cash') {
-      setAmount(denominationBasedAmount);
+      setAmount(denominationBasedAmount.toString());
     }
   }, [denominationBasedAmount, currency, method]);
 
@@ -98,13 +100,24 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
     setLoading(true);
     try {
       let exchangeRateId: number | undefined = undefined;
+      
+      // Guardar tasa de cambio si es VES
       if (currency === 'VES') {
-        const finalRate = useCustomRate ? parseFloat(customRate) : exchangeRate;
-        const savedRate = await saveExchangeRate({ from_currency: 'USD', to_currency: 'VES_PAY', rate: finalRate, date: date });
+        const finalRate = exchangeRateHook.useCustomRate 
+          ? parseFloat(exchangeRateHook.customRate) 
+          : exchangeRateHook.exchangeRate;
+        const savedRate = await saveExchangeRate({ 
+          from_currency: 'USD', 
+          to_currency: 'VES_PAY', 
+          rate: finalRate, 
+          date: date 
+        });
         exchangeRateId = savedRate.id;
       }
 
-      const finalAmount = (currency === 'USD' || currency === 'EUR') && method === 'cash' ? denominationBasedAmount : amount;
+      const finalAmount = (currency === 'USD' || currency === 'EUR') && method === 'cash' 
+        ? denominationBasedAmount 
+        : parseFloat(amount);
 
       // Para VES, guardamos el monto original en bolívares (NO convertir a USD)
       // La conversión se hará en tiempo real para mostrar equivalentes
@@ -134,7 +147,7 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
         clientId: selectedClient || undefined,
         paymentMethod: method,
         status: 'completed',
-        currency: currency,
+        currency: currency as Transaction['currency'],
         exchangeRateId: exchangeRateId,
         receivableId: receivableId || undefined,
         debtId: debtId || undefined,
@@ -144,11 +157,9 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
         denominations: denominationsToSave,
       };
 
-      console.log("newTxData a enviar:", newTxData);
-
       const newTx = await createTransaction(newTxData);
 
-      toast.success("Pago registrado exitosamente", newTx);
+      toast.success("Pago registrado exitosamente");
       onPaymentAdded({
         id: newTx.id,
         type: newTx.type as Transaction['type'],
@@ -174,6 +185,7 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
         receivableId: newTx.receivable_id ?? undefined,
         obraId: newTx.obra_id ?? undefined,
       });
+      
       refetchTransactions();
       resetForm();
       onClose();
@@ -186,7 +198,8 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
   };
 
   const resetForm = () => {
-    setAmount(0);
+    setAmount('0');
+    setCurrency('USD');
     setMethod('cash');
     setReference('');
     setReceipt(null);
@@ -212,47 +225,67 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
             Rellena los detalles para registrar un nuevo pago.
           </DialogDescription>
         </DialogHeader>
+        
         <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-1">
-                    <Label htmlFor="date">Fecha</Label>
-                    <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={loading} />
-                </div>
-                <div className="col-span-1">
-                    <Label htmlFor="currency">Moneda</Label>
-                    <Select value={currency} onValueChange={(value) => setCurrency(value as 'USD' | 'EUR' | 'VES' | 'COP')} disabled={loading}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="USD">USD</SelectItem>
-                            <SelectItem value="EUR">EUR</SelectItem>
-                            <SelectItem value="VES">VES</SelectItem>
-                            <SelectItem value="COP">COP</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-1">
+              <Label htmlFor="date">Fecha</Label>
+              <Input 
+                id="date" 
+                type="date" 
+                value={date} 
+                onChange={(e) => setDate(e.target.value)} 
+                disabled={loading} 
+              />
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-                 <div className="col-span-1">
-                    <Label htmlFor="amount">Monto</Label>
-                    <Input id="amount" type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} disabled={loading || ((currency === 'USD' || currency === 'EUR') && method === 'cash')} />
-                    {maxAmount && <p className="text-xs text-muted-foreground mt-1">Restante: {maxAmount.toFixed(2)}</p>}
-                </div>
-                 <div className="col-span-1">
-                    <Label htmlFor="method">Método de Pago</Label>
-                    <Select value={method} onValueChange={setMethod} disabled={loading}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="cash">Efectivo</SelectItem>
-                            <SelectItem value="transfer">Transferencia</SelectItem>
-                            <SelectItem value="credit_card">Tarjeta de Crédito</SelectItem>
-                            <SelectItem value="other">Otro</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
+            <div className="col-span-1">
+              <Label htmlFor="method">Método de Pago</Label>
+              <Select value={method} onValueChange={setMethod} disabled={loading}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Efectivo</SelectItem>
+                  <SelectItem value="transfer">Transferencia</SelectItem>
+                  <SelectItem value="credit_card">Tarjeta de Crédito</SelectItem>
+                  <SelectItem value="other">Otro</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+          </div>
 
-            {(currency === 'USD' || currency === 'EUR') && method === 'cash' && (
+          {/* Componente optimizado para monto y moneda */}
+          <AmountCurrencySection
+            amount={amount}
+            currency={currency}
+            exchangeRate={exchangeRateHook.exchangeRate}
+            onAmountChange={setAmount}
+            onCurrencyChange={setCurrency}
+            currencies={[
+              { value: 'USD', label: 'USD' },
+              { value: 'EUR', label: 'EUR' },
+              { value: 'VES', label: 'VES' },
+              { value: 'COP', label: 'COP' },
+            ]}
+          />
+
+          {/* Componente optimizado para tasa de cambio */}
+          {currency === 'VES' && (
+            <ExchangeRateSection
+              exchangeRate={exchangeRateHook.exchangeRate}
+              customRate={exchangeRateHook.customRate}
+              useCustomRate={exchangeRateHook.useCustomRate}
+              isLoadingRate={exchangeRateHook.isLoadingRate}
+              isRefreshing={exchangeRateHook.isRefreshing}
+              lastUpdated={exchangeRateHook.lastUpdated}
+              onCustomRateChange={exchangeRateHook.handleCustomRateChange}
+              onUseCustomRateChange={exchangeRateHook.handleUseCustomRateChange}
+              onRefreshRate={exchangeRateHook.refreshExchangeRate}
+            />
+          )}
+
+          {/* Sección de denominaciones para efectivo USD/EUR */}
+          {(currency === 'USD' || currency === 'EUR') && method === 'cash' && (
             <div className="col-span-2 mt-4 border-t pt-4">
               <div className="flex justify-between items-center mb-2">
                 <Label>Desglose de Billetes</Label>
@@ -263,9 +296,27 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
               <div className="space-y-2 max-h-32 overflow-y-auto">
                 {denominations.map(den => (
                   <div key={den.id} className="grid grid-cols-3 gap-2 items-center">
-                    <Input type="number" placeholder="Denominación" value={den.value || ''} onChange={(e) => handleDenominationChange(den.id, 'value', parseInt(e.target.value) || 0)} disabled={loading} />
-                    <Input type="number" placeholder="Cantidad" value={den.count || ''} onChange={(e) => handleDenominationChange(den.id, 'count', parseInt(e.target.value) || 0)} disabled={loading} />
-                    <Button type="button" size="icon" variant="destructive" onClick={() => handleRemoveDenomination(den.id)} disabled={loading}>
+                    <Input 
+                      type="number" 
+                      placeholder="Denominación" 
+                      value={den.value || ''} 
+                      onChange={(e) => handleDenominationChange(den.id, 'value', parseInt(e.target.value) || 0)} 
+                      disabled={loading} 
+                    />
+                    <Input 
+                      type="number" 
+                      placeholder="Cantidad" 
+                      value={den.count || ''} 
+                      onChange={(e) => handleDenominationChange(den.id, 'count', parseInt(e.target.value) || 0)} 
+                      disabled={loading} 
+                    />
+                    <Button 
+                      type="button" 
+                      size="icon" 
+                      variant="destructive" 
+                      onClick={() => handleRemoveDenomination(den.id)} 
+                      disabled={loading}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -274,27 +325,38 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
             </div>
           )}
 
+          {/* Selección de cuenta bancaria */}
           <div className="grid gap-2">
             <Label htmlFor="bank-account">Depositar en</Label>
             <Select value={selectedBankAccount} onValueChange={setSelectedBankAccount} disabled={loading}>
-                <SelectTrigger id="bank-account"><SelectValue placeholder="Seleccionar cuenta..." /></SelectTrigger>
-                <SelectContent>
-                    {bankAccounts.map(account => (
-                        <SelectItem key={account.id} value={account.id.toString()}>
-                            <div className="flex flex-col">
-                                <span className="font-medium">{account.bankName}</span>
-                                <span className="text-xs text-muted-foreground">
-                                    {account.accountNumber} - {account.currency}
-                                </span>
-                            </div>
-                        </SelectItem>
-                    ))}
-                </SelectContent>
+              <SelectTrigger id="bank-account">
+                <SelectValue placeholder="Seleccionar cuenta..." />
+              </SelectTrigger>
+              <SelectContent>
+                {bankAccounts.map(account => (
+                  <SelectItem key={account.id} value={account.id.toString()}>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{account.bankName}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {account.accountNumber} - {account.currency}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
-           </div>
+            {maxAmount && (
+              <p className="text-xs text-muted-foreground">
+                Restante: {maxAmount.toFixed(2)}
+              </p>
+            )}
+          </div>
 
-
-          <ClientSelectionSection selectedClient={selectedClient} onClientChange={setSelectedClient} />
+          {/* Selección de cliente */}
+          <ClientSelectionSection 
+            selectedClient={selectedClient} 
+            onClientChange={setSelectedClient} 
+          />
           
           {/* Referencia */}
           <div>
@@ -326,19 +388,29 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
             )}
           </div>
           
+          {/* Notas */}
           <div>
             <Label htmlFor="notes">Notas</Label>
-            <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Información adicional..." disabled={loading}/>
+            <Textarea 
+              id="notes" 
+              value={notes} 
+              onChange={(e) => setNotes(e.target.value)} 
+              placeholder="Información adicional..." 
+              disabled={loading}
+            />
           </div>
         </div>
+        
         <DialogFooter>
-            <Button variant="ghost" onClick={onClose} disabled={loading}>Cancelar</Button>
-            <Button onClick={handleSubmit} disabled={loading}>
-              {loading && <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />}
-              {loading ? 'Guardando...' : 'Guardar Pago'}
-            </Button>
+          <Button variant="ghost" onClick={onClose} disabled={loading}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSubmit} disabled={loading}>
+            {loading && <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />}
+            {loading ? 'Guardando...' : 'Guardar Pago'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
-};
+}; 

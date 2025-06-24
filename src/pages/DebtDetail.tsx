@@ -12,16 +12,17 @@ import { getClientById } from "@/integrations/supabase/clientService";
 import { formatCurrency } from '@/lib/utils';
 import { StatusBadge } from "@/components/operations/common/StatusBadge";
 import { PaymentsList } from "@/components/operations/payments/PaymentsList";
-import { PaymentFormModal } from "@/components/operations/modals/PaymentFormModal";
+import { PaymentFormModalOptimized } from "@/components/operations/modals/PaymentFormModalOptimized";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { useHistoricalExchangeRates } from '@/hooks/useHistoricalExchangeRates';
 import type { Debt } from "@/integrations/supabase/debtService";
-import type { Transaction } from "@/integrations/supabase/transactionService";
+import type { Transaction as DBTransaction } from "@/integrations/supabase/transactionService";
+import type { Transaction as AppTransaction } from "@/types";
 import type { Client } from "@/integrations/supabase/clientService";
 
 // Defino tipos para la UI
-interface PaymentWithClientInfo extends Transaction {
+interface PaymentWithClientInfo extends DBTransaction {
   clientName?: string;
   clientType?: 'direct' | 'indirect';
   amountUSD?: number; // Monto convertido a USD si el pago fue en VES
@@ -30,7 +31,7 @@ interface PaymentWithClientInfo extends Transaction {
 const DebtDetail = () => {
   const { debtId } = useParams<{ debtId: string }>();
   const [debt, setDebt] = useState<Debt | null>(null);
-  const [payments, setPayments] = useState<Transaction[]>([]);
+  const [payments, setPayments] = useState<DBTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [primaryClient, setPrimaryClient] = useState<Client | null>(null);
   const [payingClients, setPayingClients] = useState<Client[]>([]);
@@ -140,7 +141,7 @@ const DebtDetail = () => {
     return format(new Date(date), 'dd/MM/yyyy');
   };
 
-  const handlePaymentAdded = (newPayment: { id: string; amount: number; date: Date; method: string; clientId?: string; clientName?: string; clientType?: 'direct' | 'indirect'; notes?: string; }) => {
+  const handlePaymentAdded = (newPayment: AppTransaction) => {
     // Recargar los pagos desde la base de datos para mantener consistencia
     const fetchPayments = async () => {
       try {
@@ -391,7 +392,7 @@ const DebtDetail = () => {
       </div>
 
       {/* Modal de registro de pago */}
-      <PaymentFormModal
+      <PaymentFormModalOptimized
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
         onPaymentAdded={handlePaymentAdded}

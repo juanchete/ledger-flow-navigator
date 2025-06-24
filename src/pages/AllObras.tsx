@@ -176,11 +176,18 @@ const AllExpenses: React.FC = () => {
     try {
       const now = new Date().toISOString();
 
+      // Calcular el monto final según la moneda
+      let finalAmount = parsedAmount;
+      if (!isUSD) {
+        // Si es VES, convertir a USD dividiendo por la tasa de cambio
+        finalAmount = parsedAmount / exchangeRate;
+      }
+
       // Crear la transacción de gasto
       await createTransaction({
         id: uuidv4(),
         type: "expense",
-        amount: parsedAmount,
+        amount: finalAmount,
         description: newExpense.description,
         date: new Date(now),
         status: "completed",
@@ -471,9 +478,20 @@ const AllExpenses: React.FC = () => {
                     ...newExpense,
                     amount: e.target.value
                   })} placeholder={isUSD ? "0.00 USD" : "0.00 VES"} required />
-                    {isUSD && exchangeRate > 0 && <div className="text-xs text-muted-foreground">
-                        ≈ Bs. {(parseFloat(newExpense.amount || "0") * exchangeRate).toFixed(2)}
-                      </div>}
+                    {exchangeRate > 0 && (
+                      <>
+                        {isUSD && (
+                          <div className="text-xs text-muted-foreground">
+                            ≈ Bs. {(parseFloat(newExpense.amount || "0") * exchangeRate).toFixed(2)}
+                          </div>
+                        )}
+                        {!isUSD && (
+                          <div className="text-xs text-muted-foreground">
+                            ≈ ${(parseFloat(newExpense.amount || "0") / exchangeRate).toFixed(2)} USD
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

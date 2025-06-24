@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { PlusCircle } from "lucide-react";
-import { TransactionForm } from "@/components/operations/TransactionForm";
+import { TransactionFormOptimized } from "@/components/operations/TransactionFormOptimized";
 import { TransactionsList } from "@/components/operations/TransactionsList";
 import { TransactionsFilter } from "@/components/operations/TransactionsFilter";
 import { useTransactions } from "@/context/TransactionContext";
@@ -35,7 +35,7 @@ const Operations = () => {
               </DialogDescription>
             </DialogHeader>
             
-            <TransactionForm />
+            <TransactionFormOptimized onSuccess={() => setIsDialogOpen(false)} />
           </DialogContent>
         </Dialog>
       </div>

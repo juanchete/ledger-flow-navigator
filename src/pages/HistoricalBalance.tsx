@@ -10,7 +10,7 @@ import { es } from "date-fns/locale";
 import { cn, formatCurrency, formatDateEs } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getBankAccounts, BankAccount } from "@/integrations/supabase/bankAccountService";
+import { getBankAccounts, BankAccountApp } from "@/integrations/supabase/bankAccountService";
 import { getTransactions, Transaction } from "@/integrations/supabase/transactionService";
 import { getDebts, Debt } from "@/integrations/supabase/debtService";
 import { getReceivables, Receivable } from "@/integrations/supabase/receivableService";
@@ -27,7 +27,7 @@ interface CalculatedFinancialStat {
 const HistoricalBalance = () => {
   const [date, setDate] = useState<Date>(new Date());
   const [view, setView] = useState<"summary" | "accounts" | "transactions" | "debtReceivables">("summary");
-  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccountApp[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
   const [receivables, setReceivables] = useState<Receivable[]>([]);
@@ -157,6 +157,25 @@ const HistoricalBalance = () => {
   // 4. Estadísticas financieras calculadas para la fecha seleccionada
   const stat = calculatedStats;
 
+  const getTransactionTypeLabel = (type: string) => {
+    switch(type) {
+      case 'purchase':
+        return 'Compra';
+      case 'sale':
+        return 'Venta';
+      case 'banking':
+        return 'Bancario';
+      case 'balance-change':
+        return 'Cambio de Saldo';
+      case 'expense':
+        return 'Gasto';
+      case 'payment':
+        return 'Pago';
+      default:
+        return type || 'N/A';
+    }
+  };
+
   if (loading) return <div className="p-8 text-center">Cargando historial...</div>;
 
   return (
@@ -265,8 +284,8 @@ const HistoricalBalance = () => {
                 <TableBody>
                   {usdAccounts.map((account) => (
                     <TableRow key={account.id}>
-                      <TableCell className="font-medium">{account.bank}</TableCell>
-                      <TableCell>{account.account_number}</TableCell>
+                      <TableCell className="font-medium">{account.bankName}</TableCell>
+                      <TableCell>{account.accountNumber}</TableCell>
                       <TableCell className="text-right">{formatCurrency(account.amount)}</TableCell>
                     </TableRow>
                   ))}
@@ -296,8 +315,8 @@ const HistoricalBalance = () => {
                 <TableBody>
                   {vesAccounts.map((account) => (
                     <TableRow key={account.id}>
-                      <TableCell className="font-medium">{account.bank}</TableCell>
-                      <TableCell>{account.account_number}</TableCell>
+                      <TableCell className="font-medium">{account.bankName}</TableCell>
+                      <TableCell>{account.accountNumber}</TableCell>
                       <TableCell className="text-right">Bs. {new Intl.NumberFormat('es-VE').format(account.amount)}</TableCell>
                     </TableRow>
                   ))}
@@ -334,9 +353,7 @@ const HistoricalBalance = () => {
                           transaction.type === 'purchase' ? 'bg-finance-red-light text-white' :
                           'bg-finance-blue text-white'
                         }>
-                          {transaction.type === 'sale' ? 'Venta' : 
-                           transaction.type === 'purchase' ? 'Compra' : 
-                           transaction.type === 'expense' ? 'Gasto' : 'Bancario'}
+                          {getTransactionTypeLabel(transaction.type)}
                         </Badge>
                       </div>
                       <div className="flex items-center justify-between">
