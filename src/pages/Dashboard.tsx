@@ -3,14 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { 
-  ArrowUp,
-  ArrowDown,
-  DollarSign,
-  Coins,
-  Clock,
-  PlusCircle
-} from "lucide-react";
+import { ArrowUp, ArrowDown, DollarSign, Coins, Clock, PlusCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { BankAccountsModal } from "@/components/BankAccountsModal";
@@ -60,7 +53,6 @@ interface TransactionUI {
   debtId?: string;
   receivableId?: string;
 }
-
 interface ClientUI {
   id: string;
   name: string;
@@ -77,7 +69,6 @@ interface ClientUI {
   alertNote?: string;
   relatedToClientId?: string;
 }
-
 interface DebtUI {
   id: string;
   creditor: string;
@@ -91,7 +82,6 @@ interface DebtUI {
   commission?: number;
   currency?: string;
 }
-
 interface ReceivableUI {
   id: string;
   clientId: string;
@@ -104,7 +94,6 @@ interface ReceivableUI {
   commission?: number;
   currency?: string;
 }
-
 interface CalendarEventUI {
   id: string;
   title: string;
@@ -118,7 +107,6 @@ interface CalendarEventUI {
   createdAt?: Date;
   updatedAt?: Date;
 }
-
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -126,7 +114,6 @@ const formatCurrency = (amount: number) => {
     minimumFractionDigits: 2
   }).format(amount);
 };
-
 const Dashboard = () => {
   const [transactions, setTransactions] = useState<TransactionUI[]>([]);
   const [clients, setClients] = useState<ClientUI[]>([]);
@@ -137,18 +124,10 @@ const Dashboard = () => {
   const [openModal, setOpenModal] = useState<null | 'USD' | 'VES'>(null);
   const [openTransactionModal, setOpenTransactionModal] = useState(false);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
-      const [txs, cls, dbts, recs, bks, evs] = await Promise.all([
-        getTransactions(),
-        getClients(),
-        getDebts(),
-        getReceivables(),
-        getBankAccounts(),
-        getCalendarEvents()
-      ]);
+      const [txs, cls, dbts, recs, bks, evs] = await Promise.all([getTransactions(), getClients(), getDebts(), getReceivables(), getBankAccounts(), getCalendarEvents()]);
       setTransactions(txs.map(t => ({
         id: t.id,
         type: t.type || '',
@@ -167,7 +146,7 @@ const Dashboard = () => {
         updatedAt: t.updated_at ? new Date(t.updated_at) : undefined,
         indirectForClientId: t.indirect_for_client_id || undefined,
         debtId: t.debt_id || undefined,
-        receivableId: t.receivable_id || undefined,
+        receivableId: t.receivable_id || undefined
       })));
       setClients(cls.map(c => ({
         id: c.id,
@@ -183,7 +162,7 @@ const Dashboard = () => {
         updatedAt: c.updated_at ? new Date(c.updated_at) : undefined,
         alertStatus: c.alert_status || undefined,
         alertNote: c.alert_note || undefined,
-        relatedToClientId: c.related_to_client_id || undefined,
+        relatedToClientId: c.related_to_client_id || undefined
       })));
       setDebts(dbts.map(d => ({
         id: d.id,
@@ -196,7 +175,7 @@ const Dashboard = () => {
         clientId: d.client_id || undefined,
         interestRate: d.interest_rate || undefined,
         commission: d.commission || undefined,
-        currency: d.currency || undefined,
+        currency: d.currency || undefined
       })));
       setReceivables(recs.map(r => ({
         id: r.id,
@@ -208,14 +187,14 @@ const Dashboard = () => {
         notes: r.notes || undefined,
         interestRate: r.interest_rate || undefined,
         commission: r.commission || undefined,
-        currency: r.currency || undefined,
+        currency: r.currency || undefined
       })));
       setBankAccounts(bks.map(acc => ({
         id: acc.id,
         bank: acc.bank,
         accountNumber: acc.account_number,
         amount: acc.amount,
-        currency: acc.currency === 'USD' ? 'USD' : 'VES',
+        currency: acc.currency === 'USD' ? 'USD' : 'VES'
       })));
       setEvents(evs.map(e => ({
         id: e.id,
@@ -228,7 +207,7 @@ const Dashboard = () => {
         isReminder: e.is_reminder,
         completed: e.completed,
         createdAt: e.created_at ? new Date(e.created_at) : undefined,
-        updatedAt: e.updated_at ? new Date(e.updated_at) : undefined,
+        updatedAt: e.updated_at ? new Date(e.updated_at) : undefined
       })));
       setLoading(false);
     };
@@ -236,57 +215,48 @@ const Dashboard = () => {
   }, []);
 
   // Clientes con alerta
-  const alertClients = clients.filter((c) => c.alertStatus === 'red' || c.alertStatus === 'yellow');
+  const alertClients = clients.filter(c => c.alertStatus === 'red' || c.alertStatus === 'yellow');
 
   // Próximos eventos (requiere eventos cargados)
   const now = new Date();
-  const upcomingEvents = events.filter((e) =>
-    new Date(e.startDate) > now &&
-    new Date(e.startDate) < new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-  );
+  const upcomingEvents = events.filter(e => new Date(e.startDate) > now && new Date(e.startDate) < new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000));
 
   // Cálculos financieros corregidos
-  
+
   // 1. Cuentas por Cobrar - Solo las pendientes (no pagadas)
-  const pendingReceivables = receivables.filter(r => 
-    r.status === 'pending' || r.status === 'overdue' || !r.status
-  );
+  const pendingReceivables = receivables.filter(r => r.status === 'pending' || r.status === 'overdue' || !r.status);
   const totalPendingReceivables = pendingReceivables.reduce((sum, r) => sum + Number(r.amount), 0);
 
   // 2. Deudas - Solo las pendientes (no pagadas)
-  const pendingDebts = debts.filter(d => 
-    d.status === 'pending' || d.status === 'overdue' || !d.status
-  );
+  const pendingDebts = debts.filter(d => d.status === 'pending' || d.status === 'overdue' || !d.status);
   const totalPendingDebts = pendingDebts.reduce((sum, d) => sum + Number(d.amount), 0);
 
   // 3. Balance por moneda - Total real en cuentas bancarias
-  const usdAccounts = bankAccounts.filter((acc) => acc.currency === 'USD');
-  const vesAccounts = bankAccounts.filter((acc) => acc.currency === 'VES');
+  const usdAccounts = bankAccounts.filter(acc => acc.currency === 'USD');
+  const vesAccounts = bankAccounts.filter(acc => acc.currency === 'VES');
   const totalUSD = usdAccounts.reduce((sum, acc) => sum + Number(acc.amount), 0);
   const totalVES = vesAccounts.reduce((sum, acc) => sum + Number(acc.amount), 0);
 
   // 4. Patrimonio Neto - Total en todas las cuentas usando tasas de cambio dinámicas
-  const { rates: exchangeRates, convertVESToUSD } = useExchangeRates();
+  const {
+    rates: exchangeRates,
+    convertVESToUSD
+  } = useExchangeRates();
   const totalVESInUSD = convertVESToUSD ? convertVESToUSD(totalVES, 'parallel') || 0 : 0;
   const totalNetWorth = totalUSD + totalVESInUSD;
-
   const currentStats = {
     netWorth: totalNetWorth,
     receivables: totalPendingReceivables,
     debts: totalPendingDebts
   };
-
   const formatDateForChart = (date: Date) => format(new Date(date), 'MMM d');
-  
   const chartData = {
     date: formatDateForChart(new Date()),
     netWorth: currentStats.netWorth,
     receivables: currentStats.receivables,
     debts: currentStats.debts
   };
-
-  return (
-    <div className="space-y-6 animate-fade-in">
+  return <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Panel</h1>
         <div className="hidden md:flex items-center gap-2">
@@ -304,10 +274,7 @@ const Dashboard = () => {
                   Ingresa los detalles para tu nueva transacción.ss
                 </DialogDescription>
               </DialogHeader>
-              <TransactionFormOptimized 
-                onSuccess={() => setOpenTransactionModal(false)} 
-                showCancelButton={true}
-              />
+              <TransactionFormOptimized onSuccess={() => setOpenTransactionModal(false)} showCancelButton={true} />
             </DialogContent>
           </Dialog>
           <Button asChild variant="outline" size="sm">
@@ -333,11 +300,9 @@ const Dashboard = () => {
               <div className="text-right">
                 <div className="text-xs text-muted-foreground">USD: {formatCurrency(totalUSD)}</div>
                 <div className="text-xs text-muted-foreground">VES: Bs. {new Intl.NumberFormat('es-VE').format(totalVES)}</div>
-                {exchangeRates && (
-                  <div className="text-xs text-muted-foreground mt-1">
+                {exchangeRates && <div className="text-xs text-muted-foreground mt-1">
                     Tasa: Bs. {exchangeRates.usd_to_ves_parallel.toFixed(2)}/USD
-                  </div>
-                )}
+                  </div>}
               </div>
             </div>
           </CardContent>
@@ -377,81 +342,13 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <ExchangeRateDisplay compact={false} showRefreshButton={true} />
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Disponible en USD</CardTitle>
-            <CardDescription className="text-2xl font-bold">
-              {formatCurrency(totalUSD)}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center">
-                  <DollarSign size={16} className="mr-2 text-finance-blue" />
-                  <span>{usdAccounts.length} cuenta{usdAccounts.length !== 1 ? 's' : ''} bancaria{usdAccounts.length !== 1 ? 's' : ''}</span>
-                </div>
-                <Button variant="outline" size="sm" onClick={() => setOpenModal('USD')}>
-                  Ver detalles
-                </Button>
-              </div>
-              {usdAccounts.length > 0 && (
-                <div className="text-xs text-muted-foreground">
-                  Mayor saldo: {formatCurrency(Math.max(...usdAccounts.map(acc => acc.amount)))}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Disponible en VES</CardTitle>
-            <CardDescription className="text-2xl font-bold">
-              Bs. {new Intl.NumberFormat('es-VE').format(totalVES)}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center">
-                  <Coins size={16} className="mr-2 text-finance-green" />
-                  <span>{vesAccounts.length} cuenta{vesAccounts.length !== 1 ? 's' : ''} bancaria{vesAccounts.length !== 1 ? 's' : ''}</span>
-                </div>
-                <Button variant="outline" size="sm" onClick={() => setOpenModal('VES')}>
-                  Ver detalles
-                </Button>
-              </div>
-              {vesAccounts.length > 0 && (
-                <div className="text-xs text-muted-foreground">
-                  Mayor saldo: Bs. {new Intl.NumberFormat('es-VE').format(Math.max(...vesAccounts.map(acc => acc.amount)))}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      
       
         <DebtsAndReceivables />
       
-      <BankAccountsModal
-        isOpen={openModal === 'USD'}
-        onClose={() => setOpenModal(null)}
-        currency="USD"
-        accounts={usdAccounts}
-      />
+      <BankAccountsModal isOpen={openModal === 'USD'} onClose={() => setOpenModal(null)} currency="USD" accounts={usdAccounts} />
       
-      <BankAccountsModal
-        isOpen={openModal === 'VES'}
-        onClose={() => setOpenModal(null)}
-        currency="VES"
-        accounts={vesAccounts}
-      />
-    </div>
-  );
+      <BankAccountsModal isOpen={openModal === 'VES'} onClose={() => setOpenModal(null)} currency="VES" accounts={vesAccounts} />
+    </div>;
 };
-
 export default Dashboard;
