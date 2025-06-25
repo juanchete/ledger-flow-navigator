@@ -1,15 +1,22 @@
 import { supabase } from "./client";
 import type { Database, Tables, TablesInsert, TablesUpdate } from "./types";
 
-export type BankAccount = Tables<"bank_accounts">;
-export type BankAccountInsert = TablesInsert<"bank_accounts">;
-export type BankAccountUpdate = TablesUpdate<"bank_accounts">;
+// Extended types to include user_id (to be updated after RLS migration)
+export type BankAccount = Tables<"bank_accounts"> & { user_id?: string };
+export type BankAccountInsert = TablesInsert<"bank_accounts"> & {
+  user_id?: string;
+};
+export type BankAccountUpdate = TablesUpdate<"bank_accounts"> & {
+  user_id?: string;
+};
+
 export type BankAccountApp = {
   id: string;
-  bankName: string;
-  accountNumber: string;
+  bank: string;
+  account_number: string;
   amount: number;
   currency: string;
+  user_id?: string;
 };
 
 export const getBankAccounts = async (): Promise<BankAccountApp[]> => {
@@ -18,13 +25,17 @@ export const getBankAccounts = async (): Promise<BankAccountApp[]> => {
 
   if (!data) return [];
 
-  return data.map((account) => ({
-    id: account.id,
-    bankName: account.bank,
-    accountNumber: account.account_number,
-    amount: account.amount,
-    currency: account.currency,
-  }));
+  return data.map((account) => {
+    const accountWithUserId = account as BankAccount;
+    return {
+      id: accountWithUserId.id,
+      bank: accountWithUserId.bank,
+      account_number: accountWithUserId.account_number,
+      amount: accountWithUserId.amount,
+      currency: accountWithUserId.currency,
+      user_id: accountWithUserId.user_id,
+    };
+  });
 };
 
 export const getBankAccountById = async (

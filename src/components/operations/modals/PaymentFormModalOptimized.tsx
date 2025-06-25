@@ -218,7 +218,7 @@ export const PaymentFormModalOptimized: React.FC<PaymentFormModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="max-w-[95vw] sm:max-w-[600px] mx-4 sm:mx-auto max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Registrar Pago</DialogTitle>
           <DialogDescription>
@@ -226,22 +226,23 @@ export const PaymentFormModalOptimized: React.FC<PaymentFormModalProps> = ({
           </DialogDescription>
         </DialogHeader>
         
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-1">
+        <div className="grid gap-4 py-4 w-full max-w-full">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
               <Label htmlFor="date">Fecha</Label>
               <Input 
                 id="date" 
                 type="date" 
                 value={date} 
                 onChange={(e) => setDate(e.target.value)} 
-                disabled={loading} 
+                disabled={loading}
+                className="w-full"
               />
             </div>
-            <div className="col-span-1">
+            <div>
               <Label htmlFor="method">Método de Pago</Label>
               <Select value={method} onValueChange={setMethod} disabled={loading}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -286,10 +287,10 @@ export const PaymentFormModalOptimized: React.FC<PaymentFormModalProps> = ({
 
           {/* Sección de denominaciones para efectivo USD/EUR */}
           {(currency === 'USD' || currency === 'EUR') && method === 'cash' && (
-            <div className="col-span-2 mt-4 border-t pt-4">
-              <div className="flex justify-between items-center mb-2">
+            <div className="mt-4 border-t pt-4 w-full">
+              <div className="flex flex-col space-y-2 sm:flex-row sm:justify-between sm:items-center sm:space-y-0 mb-2">
                 <Label>Desglose de Billetes</Label>
-                <Button type="button" size="sm" variant="outline" onClick={handleAddDenomination} disabled={loading}>
+                <Button type="button" size="sm" variant="outline" onClick={handleAddDenomination} disabled={loading} className="w-full sm:w-auto">
                   <Plus className="h-4 w-4 mr-1" /> Añadir Fila
                 </Button>
               </div>
@@ -301,14 +302,16 @@ export const PaymentFormModalOptimized: React.FC<PaymentFormModalProps> = ({
                       placeholder="Denominación" 
                       value={den.value || ''} 
                       onChange={(e) => handleDenominationChange(den.id, 'value', parseInt(e.target.value) || 0)} 
-                      disabled={loading} 
+                      disabled={loading}
+                      className="w-full"
                     />
                     <Input 
                       type="number" 
                       placeholder="Cantidad" 
                       value={den.count || ''} 
                       onChange={(e) => handleDenominationChange(den.id, 'count', parseInt(e.target.value) || 0)} 
-                      disabled={loading} 
+                      disabled={loading}
+                      className="w-full"
                     />
                     <Button 
                       type="button" 
@@ -316,6 +319,7 @@ export const PaymentFormModalOptimized: React.FC<PaymentFormModalProps> = ({
                       variant="destructive" 
                       onClick={() => handleRemoveDenomination(den.id)} 
                       disabled={loading}
+                      className="flex-shrink-0"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -326,19 +330,19 @@ export const PaymentFormModalOptimized: React.FC<PaymentFormModalProps> = ({
           )}
 
           {/* Selección de cuenta bancaria */}
-          <div className="grid gap-2">
+          <div className="grid gap-2 w-full">
             <Label htmlFor="bank-account">Depositar en</Label>
             <Select value={selectedBankAccount} onValueChange={setSelectedBankAccount} disabled={loading}>
-              <SelectTrigger id="bank-account">
+              <SelectTrigger id="bank-account" className="w-full">
                 <SelectValue placeholder="Seleccionar cuenta..." />
               </SelectTrigger>
               <SelectContent>
                 {bankAccounts.map(account => (
                   <SelectItem key={account.id} value={account.id.toString()}>
                     <div className="flex flex-col">
-                      <span className="font-medium">{account.bankName}</span>
+                      <span className="font-medium">{account.bank}</span>
                       <span className="text-xs text-muted-foreground">
-                        {account.accountNumber} - {account.currency}
+                        {account.account_number} - {account.currency}
                       </span>
                     </div>
                   </SelectItem>
@@ -359,7 +363,7 @@ export const PaymentFormModalOptimized: React.FC<PaymentFormModalProps> = ({
           />
           
           {/* Referencia */}
-          <div>
+          <div className="w-full">
             <Label htmlFor="reference">Referencia *</Label>
             <Input 
               id="reference" 
@@ -367,11 +371,12 @@ export const PaymentFormModalOptimized: React.FC<PaymentFormModalProps> = ({
               onChange={(e) => setReference(e.target.value)} 
               placeholder="Referencia del pago" 
               disabled={loading}
+              className="w-full"
             />
           </div>
 
           {/* Comprobante */}
-          <div>
+          <div className="w-full">
             <Label htmlFor="receipt">Comprobante</Label>
             <Input 
               id="receipt" 
@@ -379,17 +384,17 @@ export const PaymentFormModalOptimized: React.FC<PaymentFormModalProps> = ({
               accept="image/*,.pdf,.doc,.docx"
               onChange={(e) => setReceipt(e.target.files?.[0] || null)} 
               disabled={loading}
-              className="cursor-pointer"
+              className="cursor-pointer w-full"
             />
             {receipt && (
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1 break-words">
                 Archivo seleccionado: {receipt.name}
               </p>
             )}
           </div>
           
           {/* Notas */}
-          <div>
+          <div className="w-full">
             <Label htmlFor="notes">Notas</Label>
             <Textarea 
               id="notes" 
@@ -397,15 +402,16 @@ export const PaymentFormModalOptimized: React.FC<PaymentFormModalProps> = ({
               onChange={(e) => setNotes(e.target.value)} 
               placeholder="Información adicional..." 
               disabled={loading}
+              className="w-full"
             />
           </div>
         </div>
         
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose} disabled={loading}>
+        <DialogFooter className="flex flex-col space-y-2 sm:flex-row sm:justify-end sm:space-y-0 sm:space-x-2">
+          <Button variant="ghost" onClick={onClose} disabled={loading} className="w-full sm:w-auto">
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={loading}>
+          <Button onClick={handleSubmit} disabled={loading} className="w-full sm:w-auto">
             {loading && <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />}
             {loading ? 'Guardando...' : 'Guardar Pago'}
           </Button>

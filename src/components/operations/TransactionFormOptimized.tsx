@@ -255,11 +255,11 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
   }
 
   return (
-    <div className="grid gap-4 py-4">
+    <div className="grid gap-4 py-4 w-full max-w-full">
       
-      {/* Primera fila: Fecha y Tipo de Transacción */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="col-span-1">
+      {/* Primera fila: Fecha y Tipo de Transacción - responsive */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
           <Label htmlFor="date">Fecha</Label>
           <Input 
             id="date" 
@@ -267,13 +267,13 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
             value={date} 
             onChange={(e) => setDate(e.target.value)} 
             disabled={loading}
-            className="h-10 sm:h-11"
+            className="h-10 sm:h-11 w-full"
           />
         </div>
-        <div className="col-span-1">
+        <div>
           <Label htmlFor="transaction-type">Tipo de Transacción</Label>
           <Select value={transactionType} onValueChange={(value) => setTransactionType(value as Transaction["type"])} disabled={loading}>
-            <SelectTrigger id="transaction-type" className="h-10 sm:h-11">
+            <SelectTrigger id="transaction-type" className="h-10 sm:h-11 w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -288,9 +288,9 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
         </div>
       </div>
 
-      {/* Segunda fila: Categoría y Método de Pago */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="col-span-1">
+      {/* Segunda fila: Categoría y Método de Pago - responsive */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
           <Label htmlFor="category">Categoría</Label>
           <Input
             id="category"
@@ -298,13 +298,13 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
             onChange={(e) => setCategory(e.target.value)}
             placeholder="Categoría"
             disabled={loading}
-            className="h-10 sm:h-11"
+            className="h-10 sm:h-11 w-full"
           />
         </div>
-        <div className="col-span-1">
+        <div>
           <Label htmlFor="method">Método de Pago</Label>
           <Select value={method} onValueChange={setMethod} disabled={loading}>
-            <SelectTrigger id="method" className="h-10 sm:h-11">
+            <SelectTrigger id="method" className="h-10 sm:h-11 w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -348,10 +348,10 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
 
       {/* Sección de denominaciones para efectivo USD/EUR */}
       {(currency === 'USD' || currency === 'EUR') && method === 'cash' && (
-        <div className="col-span-2 mt-4 border-t pt-4">
-          <div className="flex justify-between items-center mb-2">
+        <div className="mt-4 border-t pt-4 w-full">
+          <div className="flex flex-col space-y-2 sm:flex-row sm:justify-between sm:items-center sm:space-y-0 mb-2">
             <Label>Desglose de Billetes</Label>
-            <Button type="button" size="sm" variant="outline" onClick={handleAddDenomination} disabled={loading}>
+            <Button type="button" size="sm" variant="outline" onClick={handleAddDenomination} disabled={loading} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-1" /> Añadir Fila
             </Button>
           </div>
@@ -363,14 +363,16 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
                   placeholder="Denominación" 
                   value={den.value || ''} 
                   onChange={(e) => handleDenominationChange(den.id, 'value', parseInt(e.target.value) || 0)} 
-                  disabled={loading} 
+                  disabled={loading}
+                  className="w-full"
                 />
                 <Input 
                   type="number" 
                   placeholder="Cantidad" 
                   value={den.count || ''} 
                   onChange={(e) => handleDenominationChange(den.id, 'count', parseInt(e.target.value) || 0)} 
-                  disabled={loading} 
+                  disabled={loading}
+                  className="w-full"
                 />
                 <Button 
                   type="button" 
@@ -378,6 +380,7 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
                   variant="destructive" 
                   onClick={() => handleRemoveDenomination(den.id)} 
                   disabled={loading}
+                  className="flex-shrink-0"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -389,14 +392,14 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
 
       {/* Campos específicos para Cambio de Balance */}
       {transactionType === 'balance-change' && (
-        <div className="col-span-2 mt-4 border-t pt-4">
+        <div className="mt-4 border-t pt-4 w-full">
           <div className="mb-4">
             <Label className="text-base font-medium">Información de Cambio de Saldo</Label>
             <p className="text-sm text-muted-foreground">Detalles específicos para operaciones bancarias</p>
           </div>
           
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
               <Label htmlFor="bank-commission">Comisión del Banco</Label>
               <Input
                 id="bank-commission"
@@ -406,14 +409,14 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
                 onChange={(e) => setBankCommission(e.target.value)}
                 placeholder="0.00"
                 disabled={loading}
-                className="h-10 sm:h-11"
+                className="h-10 sm:h-11 w-full"
               />
               <p className="text-xs text-muted-foreground mt-1">
                 Monto que cobra el banco por la operación
               </p>
             </div>
             
-            <div className="col-span-1">
+            <div>
               <Label htmlFor="transfer-count">Número de Transferencias</Label>
               <Input
                 id="transfer-count"
@@ -423,7 +426,7 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
                 onChange={(e) => setTransferCount(e.target.value)}
                 placeholder="1"
                 disabled={loading}
-                className="h-10 sm:h-11"
+                className="h-10 sm:h-11 w-full"
               />
               <p className="text-xs text-muted-foreground mt-1">
                 Cantidad de transferencias realizadas
@@ -434,21 +437,21 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
       )}
 
       {/* Selección de cuenta bancaria */}
-      <div className="grid gap-2">
+      <div className="grid gap-2 w-full">
         <Label htmlFor="bank-account">
           {transactionType === 'balance-change' ? 'Cuenta Origen' : 'Cuenta Bancaria'}
         </Label>
         <Select value={selectedBankAccount} onValueChange={setSelectedBankAccount} disabled={loading}>
-          <SelectTrigger id="bank-account" className="h-10 sm:h-11">
+          <SelectTrigger id="bank-account" className="h-10 sm:h-11 w-full">
             <SelectValue placeholder="Seleccionar cuenta..." />
           </SelectTrigger>
           <SelectContent>
             {bankAccounts.map(account => (
               <SelectItem key={account.id} value={account.id.toString()}>
                 <div className="flex flex-col">
-                  <span className="font-medium">{account.bankName}</span>
+                  <span className="font-medium">{account.bank}</span>
                   <span className="text-xs text-muted-foreground">
-                    {account.accountNumber} - {account.currency}
+                    {account.account_number} - {account.currency}
                   </span>
                 </div>
               </SelectItem>
@@ -459,19 +462,19 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
 
       {/* Campo específico para balance-change: Banco Destinatario */}
       {transactionType === 'balance-change' ? (
-        <div className="grid gap-2">
+        <div className="grid gap-2 w-full">
           <Label htmlFor="destination-bank">Banco Destinatario</Label>
           <Select value={destinationBankAccount} onValueChange={setDestinationBankAccount} disabled={loading}>
-            <SelectTrigger id="destination-bank" className="h-10 sm:h-11">
+            <SelectTrigger id="destination-bank" className="h-10 sm:h-11 w-full">
               <SelectValue placeholder="Seleccionar cuenta destino..." />
             </SelectTrigger>
             <SelectContent>
               {bankAccounts.map(account => (
                 <SelectItem key={account.id} value={account.id.toString()}>
                   <div className="flex flex-col">
-                    <span className="font-medium">{account.bankName}</span>
+                    <span className="font-medium">{account.bank}</span>
                     <span className="text-xs text-muted-foreground">
-                      {account.accountNumber} - {account.currency}
+                      {account.account_number} - {account.currency}
                     </span>
                   </div>
                 </SelectItem>
@@ -488,7 +491,7 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
       )}
       
       {/* Referencia */}
-      <div>
+      <div className="w-full">
         <Label htmlFor="reference">Referencia *</Label>
         <Input 
           id="reference" 
@@ -496,13 +499,13 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
           onChange={(e) => setReference(e.target.value)} 
           placeholder="Referencia de la transacción" 
           disabled={loading}
-          className="h-10 sm:h-11"
+          className="h-10 sm:h-11 w-full"
           required
         />
       </div>
 
       {/* Comprobante */}
-      <div>
+      <div className="w-full">
         <Label htmlFor="receipt">Comprobante</Label>
         <Input 
           id="receipt" 
@@ -510,17 +513,17 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
           accept="image/*,.pdf,.doc,.docx"
           onChange={(e) => setReceipt(e.target.files?.[0] || null)} 
           disabled={loading}
-          className="h-10 sm:h-11 cursor-pointer"
+          className="h-10 sm:h-11 cursor-pointer w-full"
         />
         {receipt && (
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground mt-1 break-words">
             Archivo seleccionado: {receipt.name}
           </p>
         )}
       </div>
       
       {/* Notas */}
-      <div>
+      <div className="w-full">
         <Label htmlFor="notes">Notas</Label>
         <Textarea 
           id="notes" 
@@ -528,18 +531,19 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
           onChange={(e) => setNotes(e.target.value)} 
           placeholder="Notas adicionales sobre la transacción" 
           disabled={loading}
-          className="min-h-[60px]"
+          className="min-h-[60px] w-full"
         />
       </div>
 
       {/* Botones */}
-      <div className="flex justify-end gap-2 pt-4">
+      <div className="flex flex-col space-y-2 sm:flex-row sm:justify-end sm:space-y-0 sm:space-x-2 pt-4 w-full">
         {showCancelButton && (
           <Button 
             type="button" 
             variant="outline" 
             onClick={() => onSuccess ? onSuccess() : navigate("/operations")}
             disabled={loading}
+            className="w-full sm:w-auto"
           >
             Cancelar
           </Button>
@@ -547,6 +551,7 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
         <Button 
           onClick={handleSubmit}
           disabled={loading}
+          className="w-full sm:w-auto"
         >
           {loading && <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />}
           {loading ? "Guardando..." : "Guardar Transacción"}

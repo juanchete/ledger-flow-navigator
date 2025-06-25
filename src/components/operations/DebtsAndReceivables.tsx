@@ -175,16 +175,16 @@ export const DebtsAndReceivables: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex flex-col md:flex-row gap-6 w-full">
+    <div className="flex flex-col lg:flex-row gap-4 md:gap-6 w-full max-w-full overflow-hidden">
       {/* Cuentas por Cobrar */}
-      <Card className="h-full w-full">
-        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+      <Card className="h-full w-full max-w-full min-w-0">
+        <CardHeader className="pb-3 flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
           <div>
             <CardTitle className="text-lg font-semibold">Cuentas por Cobrar</CardTitle>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge className="bg-green-500 text-white px-4 py-1 text-base font-semibold rounded-full shadow-sm">
-              Total Pendiente: {formatCurrency(
+          <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-2">
+            <Badge className="bg-green-500 text-white px-3 py-1 text-sm font-semibold rounded-full shadow-sm text-center">
+              Total: {formatCurrency(
                 receivables
                   .filter(r => r.status === 'pending')
                   .reduce((sum, rec) => {
@@ -197,7 +197,7 @@ export const DebtsAndReceivables: React.FC = () => {
                   }, 0)
               )}
             </Badge>
-            <Button variant="outline" size="sm" asChild className="whitespace-nowrap">
+            <Button variant="outline" size="sm" asChild className="whitespace-nowrap w-full sm:w-auto">
               <Link to="/all-receivables">
                 Ver Todos <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
@@ -225,27 +225,29 @@ export const DebtsAndReceivables: React.FC = () => {
                 return pendingReceivables.map((receivable: Receivable) => (
                   <HoverCard key={receivable.id}>
                     <HoverCardTrigger asChild>
-                      <div className="flex items-center justify-between py-2 px-3 border-b hover:bg-gray-50 cursor-pointer transition-colors rounded-sm">
-                        <div className="flex items-center gap-3">
-                          <Badge className={`${getStatusColor(receivable.status)} h-2 w-2 p-1 rounded-full`} />
-                          <span className="font-medium">{receivable.description}</span>
+                      <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 py-2 px-3 border-b hover:bg-gray-50 cursor-pointer transition-colors rounded-sm">
+                        <div className="flex items-center gap-3 min-w-0 flex-shrink">
+                          <Badge className={`${getStatusColor(receivable.status)} h-2 w-2 p-1 rounded-full flex-shrink-0`} />
+                          <span className="font-medium truncate min-w-0">{receivable.description}</span>
                         </div>
-                        <div className="flex items-center gap-4">
-                          <span className="text-sm text-gray-500">{formatDate(receivable.dueDate)}</span>
-                          <span className="font-semibold">{formatCurrency(receivable.amount)}</span>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-6 w-6" 
-                                onClick={() => handleReceivableClick(receivable)}
-                              >
-                                <Info className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Ver detalles completos</TooltipContent>
-                          </Tooltip>
+                        <div className="flex items-center justify-between sm:gap-4 flex-shrink-0">
+                          <span className="text-sm text-gray-500 flex-shrink-0">{formatDate(receivable.dueDate)}</span>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="font-semibold">{formatCurrency(receivable.amount)}</span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-6 w-6" 
+                                  onClick={() => handleReceivableClick(receivable)}
+                                >
+                                  <Info className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Ver detalles completos</TooltipContent>
+                            </Tooltip>
+                          </div>
                         </div>
                       </div>
                     </HoverCardTrigger>
@@ -294,14 +296,14 @@ export const DebtsAndReceivables: React.FC = () => {
         </CardContent>
       </Card>
       {/* Deudas */}
-      <Card className="h-full w-full">
-        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+      <Card className="h-full w-full max-w-full min-w-0">
+        <CardHeader className="pb-3 flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
           <div>
             <CardTitle className="text-lg font-semibold">Deudas Pendientes</CardTitle>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge className="bg-red-500 text-white px-4 py-1 text-base font-semibold rounded-full shadow-sm">
-              Total Pendiente: {formatCurrency(
+          <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-2">
+            <Badge className="bg-red-500 text-white px-3 py-1 text-sm font-semibold rounded-full shadow-sm text-center">
+              Total: {formatCurrency(
                 debts
                   .filter(d => d.status === 'pending')
                   .reduce((sum, debt) => {
@@ -314,7 +316,7 @@ export const DebtsAndReceivables: React.FC = () => {
                   }, 0)
               )}
             </Badge>
-            <Button variant="outline" size="sm" asChild className="whitespace-nowrap">
+            <Button variant="outline" size="sm" asChild className="whitespace-nowrap w-full sm:w-auto">
               <Link to="/all-debts">
                 Ver Todos <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
@@ -342,27 +344,29 @@ export const DebtsAndReceivables: React.FC = () => {
                 return pendingDebts.map((debt: Debt) => (
                   <HoverCard key={debt.id}>
                     <HoverCardTrigger asChild>
-                      <div className="flex items-center justify-between py-2 px-3 border-b hover:bg-gray-50 cursor-pointer transition-colors rounded-sm">
-                        <div className="flex items-center gap-3">
-                          <Badge className={`${getStatusColor(debt.status)} h-2 w-2 p-1 rounded-full`} />
-                          <span className="font-medium">{debt.clientName || 'Sin cliente'}</span>
+                      <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 py-2 px-3 border-b hover:bg-gray-50 cursor-pointer transition-colors rounded-sm">
+                        <div className="flex items-center gap-3 min-w-0 flex-shrink">
+                          <Badge className={`${getStatusColor(debt.status)} h-2 w-2 p-1 rounded-full flex-shrink-0`} />
+                          <span className="font-medium truncate min-w-0">{debt.clientName || 'Sin cliente'}</span>
                         </div>
-                        <div className="flex items-center gap-4">
-                          <span className="text-sm text-gray-500">{formatDate(debt.dueDate)}</span>
-                          <span className="font-semibold">{formatCurrency(debt.amount)}</span>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-6 w-6" 
-                                onClick={() => handleDebtClick(debt)}
-                              >
-                                <Info className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Ver detalles completos</TooltipContent>
-                          </Tooltip>
+                        <div className="flex items-center justify-between sm:gap-4 flex-shrink-0">
+                          <span className="text-sm text-gray-500 flex-shrink-0">{formatDate(debt.dueDate)}</span>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="font-semibold">{formatCurrency(debt.amount)}</span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-6 w-6" 
+                                  onClick={() => handleDebtClick(debt)}
+                                >
+                                  <Info className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Ver detalles completos</TooltipContent>
+                            </Tooltip>
+                          </div>
                         </div>
                       </div>
                     </HoverCardTrigger>

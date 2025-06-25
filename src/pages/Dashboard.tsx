@@ -274,51 +274,57 @@ const Dashboard = () => {
     receivables: currentStats.receivables,
     debts: currentStats.debts
   };
-  return <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Panel</h1>
-        <div className="hidden md:flex items-center gap-2">
+  return <div className="space-y-4 md:space-y-6 animate-fade-in">
+      {/* Header responsive */}
+      <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Panel</h1>
+        
+        {/* Botones siempre visibles en móvil y desktop */}
+        <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-2">
           <Dialog open={openTransactionModal} onOpenChange={setOpenTransactionModal}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
+              <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto">
                 <PlusCircle size={18} />
-                Nueva Transacción
+                <span className="hidden xs:inline">Nueva Transacción</span>
+                <span className="xs:hidden">Nueva</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-[95vw] sm:max-w-md mx-4 sm:mx-auto max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Crear Nueva Transacción</DialogTitle>
                 <DialogDescription>
-                  Ingresa los detalles para tu nueva transacción.ss
+                  Ingresa los detalles para tu nueva transacción.
                 </DialogDescription>
               </DialogHeader>
               <TransactionFormOptimized onSuccess={() => setOpenTransactionModal(false)} showCancelButton={true} />
             </DialogContent>
           </Dialog>
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="outline" size="sm" className="w-full sm:w-auto">
             <Link to="/historical-balance">
               <Clock className="mr-2 h-4 w-4" />
-              Balance Histórico
+              <span className="hidden sm:inline">Balance Histórico</span>
+              <span className="sm:hidden">Balance</span>
             </Link>
           </Button>
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
+      {/* Métricas principales - responsive grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 w-full max-w-full">
+        <Card className="col-span-1 sm:col-span-2 lg:col-span-1 min-w-0">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Patrimonio Neto</CardTitle>
-            <CardDescription className="text-2xl font-bold">{formatCurrency(currentStats.netWorth)}</CardDescription>
+            <CardDescription className="text-xl md:text-2xl font-bold">{formatCurrency(currentStats.netWorth)}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between text-xs">
+            <div className="flex flex-col space-y-1 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 text-xs">
               <span className="text-muted-foreground">
                 Total en todas las cuentas
               </span>
-              <div className="text-right">
+              <div className="text-left sm:text-right space-y-0.5">
                 <div className="text-xs text-muted-foreground">USD: {formatCurrency(totalUSD)}</div>
                 <div className="text-xs text-muted-foreground">VES: Bs. {new Intl.NumberFormat('es-VE').format(totalVES)}</div>
-                {exchangeRates && <div className="text-xs text-muted-foreground mt-1">
+                {exchangeRates && <div className="text-xs text-muted-foreground">
                     Tasa: Bs. {exchangeRates.usd_to_ves_parallel.toFixed(2)}/USD
                   </div>}
               </div>
@@ -326,34 +332,34 @@ const Dashboard = () => {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="min-w-0">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Cuentas por Cobrar Pendientes</CardTitle>
-            <CardDescription className="text-2xl font-bold">{formatCurrency(currentStats.receivables)}</CardDescription>
+            <CardTitle className="text-sm font-medium">Cuentas por Cobrar</CardTitle>
+            <CardDescription className="text-xl md:text-2xl font-bold">{formatCurrency(currentStats.receivables)}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between text-xs">
+            <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 text-xs">
               <span className="text-muted-foreground">
                 {pendingReceivables.length} cuenta{pendingReceivables.length !== 1 ? 's' : ''} pendiente{pendingReceivables.length !== 1 ? 's' : ''}
               </span>
-              <Button variant="ghost" size="sm" asChild className="h-6 px-2 text-xs">
+              <Button variant="ghost" size="sm" asChild className="h-6 px-2 text-xs w-fit">
                 <Link to="/all-receivables">Ver todas</Link>
               </Button>
             </div>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="min-w-0">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Deudas Pendientes</CardTitle>
-            <CardDescription className="text-2xl font-bold">{formatCurrency(currentStats.debts)}</CardDescription>
+            <CardDescription className="text-xl md:text-2xl font-bold">{formatCurrency(currentStats.debts)}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between text-xs">
+            <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 text-xs">
               <span className="text-muted-foreground">
                 {pendingDebts.length} deuda{pendingDebts.length !== 1 ? 's' : ''} pendiente{pendingDebts.length !== 1 ? 's' : ''}
               </span>
-              <Button variant="ghost" size="sm" asChild className="h-6 px-2 text-xs">
+              <Button variant="ghost" size="sm" asChild className="h-6 px-2 text-xs w-fit">
                 <Link to="/all-debts">Ver todas</Link>
               </Button>
             </div>
@@ -369,84 +375,140 @@ const Dashboard = () => {
             {todayTransactions.length} operación{todayTransactions.length !== 1 ? 'es' : ''} realizada{todayTransactions.length !== 1 ? 's' : ''} hoy
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 sm:p-6">
           {todayTransactions.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-8 text-muted-foreground px-6">
               <Clock className="mx-auto h-12 w-12 mb-4 opacity-50" />
               <p>No hay operaciones registradas para hoy</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Descripción</TableHead>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Monto</TableHead>
-                    <TableHead>Hora</TableHead>
-                    <TableHead>Estado</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {todayTransactions.map((transaction) => (
-                    <TableRow key={transaction.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {transaction.type === 'income' ? (
-                            <ArrowUp className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <ArrowDown className="h-4 w-4 text-red-500" />
-                          )}
-                          <span className="capitalize">
-                            {transaction.type === 'income' ? 'Ingreso' : 
-                             transaction.type === 'expense' ? 'Gasto' : 
-                             transaction.type}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="max-w-[200px] truncate">
-                          {transaction.description || 'Sin descripción'}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="max-w-[150px] truncate">
-                          {getClientName(transaction.clientId)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className={transaction.type === 'income' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-                          {formatCurrency(transaction.amount)}
+            <>
+              {/* Vista móvil - tarjetas apiladas */}
+              <div className="block md:hidden space-y-3 p-4 w-full max-w-full overflow-hidden">
+                {todayTransactions.map((transaction) => (
+                  <div key={transaction.id} className="border rounded-lg p-4 space-y-2 w-full max-w-full">
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-2 flex-shrink min-w-0">
+                        {transaction.type === 'income' ? (
+                          <ArrowUp className="h-4 w-4 text-green-500 flex-shrink-0" />
+                        ) : (
+                          <ArrowDown className="h-4 w-4 text-red-500 flex-shrink-0" />
+                        )}
+                        <span className="font-medium truncate">
+                          {transaction.type === 'income' ? 'Ingreso' : 
+                           transaction.type === 'expense' ? 'Gasto' : 
+                           transaction.type}
                         </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-muted-foreground">
-                          {format(new Date(transaction.date), 'HH:mm')}
-                        </span>
-                      </TableCell>
-                      <TableCell>
+                      </div>
+                      <span className={`font-bold flex-shrink-0 ${transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                        {formatCurrency(transaction.amount)}
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-1 text-sm w-full">
+                      <div className="w-full">
+                        <span className="text-muted-foreground">Descripción: </span>
+                        <span className="break-words">{transaction.description || 'Sin descripción'}</span>
+                      </div>
+                      <div className="w-full">
+                        <span className="text-muted-foreground">Cliente: </span>
+                        <span className="break-words">{getClientName(transaction.clientId)}</span>
+                      </div>
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex-shrink-0">
+                          <span className="text-muted-foreground">Hora: </span>
+                          <span>{format(new Date(transaction.date), 'HH:mm')}</span>
+                        </div>
                         <Badge variant={
                           transaction.status === 'completed' ? 'default' :
                           transaction.status === 'pending' ? 'secondary' :
                           transaction.status === 'cancelled' ? 'destructive' :
                           'outline'
-                        }>
+                        } className="text-xs flex-shrink-0">
                           {transaction.status === 'completed' ? 'Completado' :
                            transaction.status === 'pending' ? 'Pendiente' :
                            transaction.status === 'cancelled' ? 'Cancelado' :
                            transaction.status || 'Sin estado'}
                         </Badge>
-                      </TableCell>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Vista desktop - tabla normal */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Descripción</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Monto</TableHead>
+                      <TableHead>Hora</TableHead>
+                      <TableHead>Estado</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {todayTransactions.map((transaction) => (
+                      <TableRow key={transaction.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {transaction.type === 'income' ? (
+                              <ArrowUp className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <ArrowDown className="h-4 w-4 text-red-500" />
+                            )}
+                            <span className="capitalize">
+                              {transaction.type === 'income' ? 'Ingreso' : 
+                               transaction.type === 'expense' ? 'Gasto' : 
+                               transaction.type}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="max-w-[200px] truncate">
+                            {transaction.description || 'Sin descripción'}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="max-w-[150px] truncate">
+                            {getClientName(transaction.clientId)}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className={transaction.type === 'income' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                            {formatCurrency(transaction.amount)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm text-muted-foreground">
+                            {format(new Date(transaction.date), 'HH:mm')}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={
+                            transaction.status === 'completed' ? 'default' :
+                            transaction.status === 'pending' ? 'secondary' :
+                            transaction.status === 'cancelled' ? 'destructive' :
+                            'outline'
+                          }>
+                            {transaction.status === 'completed' ? 'Completado' :
+                             transaction.status === 'pending' ? 'Pendiente' :
+                             transaction.status === 'cancelled' ? 'Cancelado' :
+                             transaction.status || 'Sin estado'}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
           {todayTransactions.length > 0 && (
-            <div className="mt-4 flex justify-end">
-              <Button variant="outline" size="sm" asChild>
+            <div className="mt-4 flex justify-center md:justify-end px-4 md:px-0">
+              <Button variant="outline" size="sm" asChild className="w-full md:w-auto">
                 <Link to="/operations">Ver todas las operaciones</Link>
               </Button>
             </div>

@@ -16,8 +16,8 @@ function AppLayoutContent() {
           <SidebarTrigger className="-ml-1" />
         </header>
         
-        <main className="flex-1 p-6 overflow-auto lg:p-6">
-          <div className="max-w-7xl mx-auto">
+        <main className="flex-1 p-4 md:p-6 overflow-auto">
+          <div className="max-w-7xl mx-auto w-full max-w-full overflow-hidden">
             <Outlet />
           </div>
           <Toaster position="top-right" />
