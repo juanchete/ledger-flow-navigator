@@ -18,6 +18,7 @@ export interface TransactionFilter {
   receivable_id?: string;
   bank_account_id?: string;
   category?: string;
+  payment_method?: string;
   start_date?: string;
   end_date?: string;
   min_amount?: number;
@@ -294,6 +295,9 @@ export const filterTransactions = async (
   }
   if (filters.category) {
     query = query.eq("category", filters.category);
+  }
+  if (filters.payment_method) {
+    query = query.eq("payment_method", filters.payment_method);
   }
   if (filters.start_date) {
     query = query.gte("date", filters.start_date);

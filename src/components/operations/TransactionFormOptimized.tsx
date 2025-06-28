@@ -55,7 +55,7 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
   const [isLoadingData, setIsLoadingData] = useState(true);
 
   // Estados específicos para balance-change
-  const [bankCommission, setBankCommission] = useState('0');
+  const [bankCommission, setBankCommission] = useState('0'); // Ahora representa porcentaje
   const [transferCount, setTransferCount] = useState('1');
   const [destinationBankAccount, setDestinationBankAccount] = useState('');
 
@@ -129,17 +129,32 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
       }
     }
 
-    const finalAmount = (currency === 'USD' || currency === 'EUR') && method === 'cash' 
+    const baseAmount = (currency === 'USD' || currency === 'EUR') && method === 'cash' 
       ? denominationBasedAmount 
       : parseFloat(amount);
 
-    if (isNaN(finalAmount) || finalAmount <= 0) {
+    if (isNaN(baseAmount) || baseAmount <= 0) {
       toast({
         title: "Monto inválido",
         description: "Por favor ingrese un monto válido mayor que cero.",
         variant: "destructive",
       });
       return;
+    }
+
+    // Calcular monto final incluyendo número de transferencias y comisión por porcentaje
+    let finalAmount = baseAmount;
+    if (transactionType === 'balance-change') {
+      // Multiplicar por el número de transferencias
+      const transferMultiplier = parseInt(transferCount) || 1;
+      finalAmount = baseAmount * transferMultiplier;
+      
+      // Aplicar comisión sobre el monto total (después de multiplicar por transferencias)
+      if (bankCommission) {
+        const commissionPercentage = parseFloat(bankCommission) || 0;
+        const commissionAmount = (finalAmount * commissionPercentage) / 100;
+        finalAmount = finalAmount + commissionAmount;
+      }
     }
 
     setLoading(true);
@@ -185,7 +200,8 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
         receipt: receiptUrl,
         denominations: denominationsToSave,
         // Campos específicos para balance-change
-        bank_commission: transactionType === 'balance-change' ? parseFloat(bankCommission) || 0 : undefined,
+        bank_commission: transactionType === 'balance-change' && bankCommission ? 
+          (((baseAmount * (parseInt(transferCount) || 1)) * (parseFloat(bankCommission) || 0)) / 100) : undefined,
         transfer_count: transactionType === 'balance-change' ? parseInt(transferCount) || 1 : undefined,
         destination_bank_account_id: transactionType === 'balance-change' ? destinationBankAccount || undefined : undefined,
       };
@@ -400,20 +416,42 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="bank-commission">Comisión del Banco</Label>
-              <Input
-                id="bank-commission"
-                type="number"
-                step="0.01"
-                value={bankCommission}
-                onChange={(e) => setBankCommission(e.target.value)}
-                placeholder="0.00"
-                disabled={loading}
-                className="h-10 sm:h-11 w-full"
-              />
+              <Label htmlFor="bank-commission">Comisión del Banco (%)</Label>
+              <div className="relative">
+                <Input
+                  id="bank-commission"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={bankCommission}
+                  onChange={(e) => setBankCommission(e.target.value)}
+                  placeholder="1.25"
+                  disabled={loading}
+                  className="h-10 sm:h-11 w-full pr-8"
+                />
+                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">
+                  %
+                </span>
+              </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Monto que cobra el banco por la operación
+                Porcentaje de comisión que se añade al monto base (ej: 1.25% = 1.25)
               </p>
+              {bankCommission && parseFloat(bankCommission) > 0 && amount && parseFloat(amount) > 0 && (
+                <div className="text-xs text-blue-600 mt-1 font-medium">
+                  {(() => {
+                    const baseAmt = parseFloat(amount);
+                    const transfers = parseInt(transferCount) || 1;
+                    const totalBeforeCommission = baseAmt * transfers;
+                    const commissionAmt = (totalBeforeCommission * parseFloat(bankCommission)) / 100;
+                    const finalTotal = totalBeforeCommission + commissionAmt;
+                    
+                    return transfers > 1 
+                      ? `Previsualización: (${currency} ${baseAmt.toFixed(2)} × ${transfers}) + ${parseFloat(bankCommission)}% = ${currency} ${totalBeforeCommission.toFixed(2)} + ${currency} ${commissionAmt.toFixed(2)} = ${currency} ${finalTotal.toFixed(2)}`
+                      : `Previsualización: ${currency} ${baseAmt.toFixed(2)} + ${parseFloat(bankCommission)}% = ${currency} ${totalBeforeCommission.toFixed(2)} + ${currency} ${commissionAmt.toFixed(2)} = ${currency} ${finalTotal.toFixed(2)}`;
+                  })()}
+                </div>
+              )}
             </div>
             
             <div>
@@ -429,10 +467,41 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
                 className="h-10 sm:h-11 w-full"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Cantidad de transferencias realizadas
+                Cantidad de transferencias realizadas. El monto se multiplicará por este número.
               </p>
+              {transferCount && parseInt(transferCount) > 1 && amount && parseFloat(amount) > 0 && (
+                <div className="text-xs text-orange-600 mt-1 font-medium">
+                  {parseInt(transferCount)} transferencias × {currency} {parseFloat(amount).toFixed(2)} = {currency} {(parseFloat(amount) * parseInt(transferCount)).toFixed(2)}
+                </div>
+              )}
             </div>
           </div>
+          
+          {/* Resumen del cálculo total */}
+          {amount && parseFloat(amount) > 0 && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="text-sm font-medium text-blue-800 mb-1">Resumen del Monto Total:</div>
+              {(() => {
+                const baseAmt = parseFloat(amount);
+                const transfers = parseInt(transferCount) || 1;
+                const totalBeforeCommission = baseAmt * transfers;
+                const commissionPercent = parseFloat(bankCommission) || 0;
+                const commissionAmt = (totalBeforeCommission * commissionPercent) / 100;
+                const finalTotal = totalBeforeCommission + commissionAmt;
+                
+                return (
+                  <div className="text-sm text-blue-700">
+                    <div>Monto base: {currency} {baseAmt.toFixed(2)}</div>
+                    {transfers > 1 && <div>× {transfers} transferencias = {currency} {totalBeforeCommission.toFixed(2)}</div>}
+                    {commissionPercent > 0 && <div>+ Comisión {commissionPercent}% = {currency} {commissionAmt.toFixed(2)}</div>}
+                    <div className="font-semibold border-t border-blue-300 pt-1 mt-1">
+                      <strong>Total final: {currency} {finalTotal.toFixed(2)}</strong>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
         </div>
       )}
 

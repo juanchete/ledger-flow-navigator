@@ -11,6 +11,7 @@ import { useTransactions } from "@/context/TransactionContext";
 const Operations = () => {
   const [selectedType, setSelectedType] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { isLoading } = useTransactions();
   
@@ -49,6 +50,8 @@ const Operations = () => {
               setSelectedType={setSelectedType}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
+              selectedPaymentMethod={selectedPaymentMethod}
+              setSelectedPaymentMethod={setSelectedPaymentMethod}
             />
           </div>
         </CardHeader>
@@ -62,6 +65,7 @@ const Operations = () => {
             <TransactionsList
               selectedType={selectedType}
               searchQuery={searchQuery}
+              selectedPaymentMethod={selectedPaymentMethod}
             />
           </div>
           )}
