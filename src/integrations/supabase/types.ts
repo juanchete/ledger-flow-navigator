@@ -166,6 +166,7 @@ export type Database = {
           category: string | null
           client_id: string | null
           commission: number | null
+          created_at: string | null
           creditor: string
           currency: string | null
           due_date: string
@@ -174,12 +175,14 @@ export type Database = {
           interest_rate: number | null
           notes: string | null
           status: string | null
+          updated_at: string | null
         }
         Insert: {
           amount: number
           category?: string | null
           client_id?: string | null
           commission?: number | null
+          created_at?: string | null
           creditor: string
           currency?: string | null
           due_date: string
@@ -188,12 +191,14 @@ export type Database = {
           interest_rate?: number | null
           notes?: string | null
           status?: string | null
+          updated_at?: string | null
         }
         Update: {
           amount?: number
           category?: string | null
           client_id?: string | null
           commission?: number | null
+          created_at?: string | null
           creditor?: string
           currency?: string | null
           due_date?: string
@@ -202,6 +207,7 @@ export type Database = {
           interest_rate?: number | null
           notes?: string | null
           status?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -564,6 +570,7 @@ export type Database = {
           amount: number
           client_id: string
           commission: number | null
+          created_at: string | null
           currency: string | null
           description: string | null
           due_date: string
@@ -573,11 +580,13 @@ export type Database = {
           notes: string | null
           obra_id: string | null
           status: string | null
+          updated_at: string | null
         }
         Insert: {
           amount: number
           client_id: string
           commission?: number | null
+          created_at?: string | null
           currency?: string | null
           description?: string | null
           due_date: string
@@ -587,11 +596,13 @@ export type Database = {
           notes?: string | null
           obra_id?: string | null
           status?: string | null
+          updated_at?: string | null
         }
         Update: {
           amount?: number
           client_id?: string
           commission?: number | null
+          created_at?: string | null
           currency?: string | null
           description?: string | null
           due_date?: string
@@ -601,6 +612,7 @@ export type Database = {
           notes?: string | null
           obra_id?: string | null
           status?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -680,6 +692,7 @@ export type Database = {
         Row: {
           amount: number
           bank_account_id: string | null
+          bank_commission: number | null
           category: string | null
           client_id: string | null
           created_at: string
@@ -689,6 +702,7 @@ export type Database = {
           delivery_note: string | null
           denominations: Json | null
           description: string | null
+          destination_bank_account_id: string | null
           exchange_rate_id: number | null
           id: string
           indirect_for_client_id: string | null
@@ -699,12 +713,14 @@ export type Database = {
           receipt: string | null
           receivable_id: string | null
           status: string | null
+          transfer_count: number | null
           type: string | null
           updated_at: string
         }
         Insert: {
           amount: number
           bank_account_id?: string | null
+          bank_commission?: number | null
           category?: string | null
           client_id?: string | null
           created_at: string
@@ -714,6 +730,7 @@ export type Database = {
           delivery_note?: string | null
           denominations?: Json | null
           description?: string | null
+          destination_bank_account_id?: string | null
           exchange_rate_id?: number | null
           id: string
           indirect_for_client_id?: string | null
@@ -724,12 +741,14 @@ export type Database = {
           receipt?: string | null
           receivable_id?: string | null
           status?: string | null
+          transfer_count?: number | null
           type?: string | null
           updated_at: string
         }
         Update: {
           amount?: number
           bank_account_id?: string | null
+          bank_commission?: number | null
           category?: string | null
           client_id?: string | null
           created_at?: string
@@ -739,6 +758,7 @@ export type Database = {
           delivery_note?: string | null
           denominations?: Json | null
           description?: string | null
+          destination_bank_account_id?: string | null
           exchange_rate_id?: number | null
           id?: string
           indirect_for_client_id?: string | null
@@ -749,10 +769,18 @@ export type Database = {
           receipt?: string | null
           receivable_id?: string | null
           status?: string | null
+          transfer_count?: number | null
           type?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_transactions_destination_bank_account"
+            columns: ["destination_bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fk_transactions_obra_id"
             columns: ["obra_id"]

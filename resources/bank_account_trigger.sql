@@ -28,7 +28,7 @@ BEGIN
         ELSIF NEW.bank_account_id IS NOT NULL AND NEW.type IS NOT NULL AND NEW.type != 'balance-change' THEN
             -- Determinar el cambio de saldo basado en el tipo de transacción
             CASE NEW.type
-                WHEN 'sale', 'payment', 'banking' THEN
+                WHEN 'sale', 'payment', 'cash' THEN
                     balance_change := NEW.amount;
                 WHEN 'purchase', 'expense' THEN
                     balance_change := -NEW.amount;
@@ -62,7 +62,7 @@ BEGIN
             
         ELSIF OLD.bank_account_id IS NOT NULL AND OLD.type IS NOT NULL AND OLD.type != 'balance-change' THEN
             CASE OLD.type
-                WHEN 'sale', 'payment', 'banking' THEN
+                WHEN 'sale', 'payment', 'cash' THEN
                     balance_change := -OLD.amount;
                 WHEN 'purchase', 'expense' THEN
                     balance_change := OLD.amount;
@@ -88,7 +88,7 @@ BEGIN
             
         ELSIF NEW.bank_account_id IS NOT NULL AND NEW.type IS NOT NULL AND NEW.type != 'balance-change' THEN
             CASE NEW.type
-                WHEN 'sale', 'payment', 'banking' THEN
+                WHEN 'sale', 'payment', 'cash' THEN
                     balance_change := NEW.amount;
                 WHEN 'purchase', 'expense' THEN
                     balance_change := -NEW.amount;
@@ -118,7 +118,7 @@ BEGIN
         ELSIF OLD.bank_account_id IS NOT NULL AND OLD.type IS NOT NULL AND OLD.type != 'balance-change' THEN
             -- Revertir el efecto de otros tipos de transacciones
             CASE OLD.type
-                WHEN 'sale', 'payment', 'banking' THEN
+                WHEN 'sale', 'payment', 'cash' THEN
                     balance_change := -OLD.amount;
                 WHEN 'purchase', 'expense' THEN
                     balance_change := OLD.amount;
@@ -149,7 +149,7 @@ CREATE TRIGGER trigger_update_bank_account_balance
 -- Comentario explicativo
 COMMENT ON FUNCTION update_bank_account_balance() IS 
 'Función que actualiza automáticamente los saldos de las cuentas bancarias cuando se modifican transacciones. 
-Tipos de transacción que SUMAN al saldo: sale, payment, banking
+Tipos de transacción que SUMAN al saldo: sale, payment, cash
 Tipos de transacción que RESTAN del saldo: purchase, expense
 Tipo especial: balance-change (puede ser + o -)';
 

@@ -143,7 +143,7 @@ export const EventForm = ({ onSave, onCancel, selectedDate, initialData }: Event
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="legal">Legal</SelectItem>
-              <SelectItem value="banking">Bancario</SelectItem>
+              <SelectItem value="cash">Efectivo</SelectItem>
               <SelectItem value="home">Hogar</SelectItem>
               <SelectItem value="social">Social</SelectItem>
               <SelectItem value="charity">Caridad</SelectItem>

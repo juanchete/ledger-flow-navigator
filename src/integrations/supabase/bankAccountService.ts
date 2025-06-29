@@ -109,8 +109,8 @@ export const recalculateAccountBalance = async (
 
       switch (transaction.type) {
         case "sale":
-        case "payment": // Pago recibido
-        case "banking": // Transferencia recibida
+        case "payment":
+        case "cash": // Transferencia recibida
           calculatedBalance += transaction.amount;
           break;
         case "purchase":

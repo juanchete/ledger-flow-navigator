@@ -103,22 +103,22 @@ const TransactionDetail = () => {
     }).format(amount);
   };
 
-  const getTransactionTypeLabel = (type: string) => {
-    switch(type) {
+  const getTransactionTypeDisplay = (type: string) => {
+    switch (type) {
       case 'purchase':
-        return 'Compra';
+        return { label: 'Compra', color: 'text-red-600', bgColor: 'bg-red-50' };
       case 'sale':
-        return 'Venta';
-      case 'banking':
-        return 'Bancario';
+        return { label: 'Venta', color: 'text-green-600', bgColor: 'bg-green-50' };
+      case 'cash':
+        return { label: 'Efectivo', color: 'text-blue-600', bgColor: 'bg-blue-50' };
       case 'balance-change':
-        return 'Cambio de Saldo';
+        return { label: 'Cambio de Saldo', color: 'text-purple-600', bgColor: 'bg-purple-50' };
       case 'expense':
-        return 'Gasto';
+        return { label: 'Gasto', color: 'text-orange-600', bgColor: 'bg-orange-50' };
       case 'payment':
-        return 'Pago';
+        return { label: 'Pago', color: 'text-indigo-600', bgColor: 'bg-indigo-50' };
       default:
-        return type || 'N/A';
+        return { label: type, color: 'text-gray-600', bgColor: 'bg-gray-50' };
     }
   };
 
@@ -154,7 +154,7 @@ const TransactionDetail = () => {
         return 'bg-finance-red-light text-white';
       case 'sale':
         return 'bg-finance-green text-white';
-      case 'banking':
+      case 'cash':
         return 'bg-finance-blue text-white';
       case 'balance-change':
         return 'bg-finance-yellow text-finance-gray-dark';
@@ -164,6 +164,22 @@ const TransactionDetail = () => {
         return 'bg-finance-purple text-white';
       default:
         return '';
+    }
+  };
+
+  const getAmountColor = (type: string, amount: number) => {
+    switch (type) {
+      case 'sale':
+      case 'cash':
+      case 'payment':
+        return 'text-green-600'; // Ingresos
+      case 'purchase':
+      case 'expense':
+        return 'text-red-600'; // Egresos
+      case 'balance-change':
+        return 'text-blue-600'; // Transferencias
+      default:
+        return amount > 0 ? 'text-green-600' : 'text-red-600';
     }
   };
 
@@ -178,7 +194,7 @@ const TransactionDetail = () => {
         </Button>
         <h1 className="text-3xl font-bold tracking-tight">Detalle de Transacción</h1>
         <Badge className={getTypeColor(transaction.type)}>
-          {getTransactionTypeLabel(transaction.type)}
+          {getTransactionTypeDisplay(transaction.type).label}
         </Badge>
       </div>
 
@@ -193,7 +209,7 @@ const TransactionDetail = () => {
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Monto:</span>
-              <span className="text-xl font-bold">{formatCurrency(transaction.amount)}</span>
+              <span className={getAmountColor(transaction.type, transaction.amount)}>{formatCurrency(transaction.amount)}</span>
             </div>
             
             <div className="flex justify-between items-center">

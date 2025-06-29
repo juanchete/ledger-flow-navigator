@@ -1,31 +1,13 @@
--- Add columns for balance-change specific data to transactions table
+-- Agregar 'ingreso' como tipo válido de transacción
+-- Primero eliminamos la restricción existente
+ALTER TABLE public.transactions DROP CONSTRAINT IF EXISTS transactions_type_check;
+
+-- Agregamos la nueva restricción que incluye 'ingreso'
 ALTER TABLE public.transactions 
-ADD COLUMN IF NOT EXISTS bank_commission DECIMAL(18,2),
-ADD COLUMN IF NOT EXISTS transfer_count INTEGER,
-ADD COLUMN IF NOT EXISTS destination_bank_account_id VARCHAR(64);
+ADD CONSTRAINT transactions_type_check 
+CHECK (type IN ('purchase', 'sale', 'cash', 'balance-change', 'expense', 'payment', 'ingreso'));
 
--- Add comment explaining the new fields
-COMMENT ON COLUMN public.transactions.bank_commission IS 'Commission charged by the bank for balance-change transactions';
-COMMENT ON COLUMN public.transactions.transfer_count IS 'Number of transfers made for balance-change transactions';
-COMMENT ON COLUMN public.transactions.destination_bank_account_id IS 'Destination bank account for balance-change transactions (transfer between own accounts)';
-
--- Add denominations column (JSON format for bill breakdown)
-ALTER TABLE public.transactions 
-ADD COLUMN IF NOT EXISTS denominations JSONB;
-
--- Add foreign key constraint for destination bank account
-ALTER TABLE public.transactions 
-ADD CONSTRAINT IF NOT EXISTS fk_transactions_destination_bank_account 
-FOREIGN KEY (destination_bank_account_id) REFERENCES public.bank_accounts(id);
-
--- Add the same columns to the audit table
-ALTER TABLE public.transactions_audit
-ADD COLUMN IF NOT EXISTS bank_commission DECIMAL(18,2),
-ADD COLUMN IF NOT EXISTS transfer_count INTEGER,
-ADD COLUMN IF NOT EXISTS destination_bank_account_id VARCHAR(64),
-ADD COLUMN IF NOT EXISTS denominations JSONB;
-
--- Update the trigger function to handle balance-change transfers correctly
+-- Actualizar el trigger para manejar 'ingreso' como tipo que suma al patrimonio
 CREATE OR REPLACE FUNCTION update_bank_account_balance()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -49,7 +31,7 @@ BEGIN
         ELSIF NEW.bank_account_id IS NOT NULL AND NEW.type IS NOT NULL AND NEW.type != 'balance-change' THEN
             -- Determinar el cambio de saldo basado en el tipo de transacción
             CASE NEW.type
-                WHEN 'sale', 'payment', 'cash' THEN
+                WHEN 'sale', 'payment', 'cash', 'ingreso' THEN
                     balance_change := NEW.amount;
                 WHEN 'purchase', 'expense' THEN
                     balance_change := -NEW.amount;
@@ -80,7 +62,7 @@ BEGIN
             
         ELSIF OLD.bank_account_id IS NOT NULL AND OLD.type IS NOT NULL AND OLD.type != 'balance-change' THEN
             CASE OLD.type
-                WHEN 'sale', 'payment', 'cash' THEN
+                WHEN 'sale', 'payment', 'cash', 'ingreso' THEN
                     balance_change := -OLD.amount;
                 WHEN 'purchase', 'expense' THEN
                     balance_change := OLD.amount;
@@ -106,7 +88,7 @@ BEGIN
             
         ELSIF NEW.bank_account_id IS NOT NULL AND NEW.type IS NOT NULL AND NEW.type != 'balance-change' THEN
             CASE NEW.type
-                WHEN 'sale', 'payment', 'cash' THEN
+                WHEN 'sale', 'payment', 'cash', 'ingreso' THEN
                     balance_change := NEW.amount;
                 WHEN 'purchase', 'expense' THEN
                     balance_change := -NEW.amount;
@@ -136,7 +118,7 @@ BEGIN
         ELSIF OLD.bank_account_id IS NOT NULL AND OLD.type IS NOT NULL AND OLD.type != 'balance-change' THEN
             -- Revertir el efecto de otros tipos de transacciones
             CASE OLD.type
-                WHEN 'sale', 'payment', 'cash' THEN
+                WHEN 'sale', 'payment', 'cash', 'ingreso' THEN
                     balance_change := -OLD.amount;
                 WHEN 'purchase', 'expense' THEN
                     balance_change := OLD.amount;

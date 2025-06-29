@@ -180,7 +180,7 @@ export const mockTransactions: Transaction[] = [
   },
   {
     id: "t5",
-    type: "banking",
+    type: "cash",
     amount: 10000,
     description: "Transfer from savings to checking",
     date: new Date("2023-03-08"),
@@ -369,6 +369,18 @@ export const mockTransactions: Transaction[] = [
     createdAt: new Date("2023-05-10"),
     updatedAt: new Date("2023-05-10"),
     notes: "Abono 2 final de CxC r1 por Acme Corporation.",
+  },
+  {
+    id: "t8",
+    type: "cash",
+    amount: 200,
+    description: "Depósito de efectivo en cuenta",
+    date: new Date("2023-04-25"),
+    status: "completed",
+    paymentMethod: "efectivo",
+    category: "depósito",
+    createdAt: new Date("2023-04-25"),
+    updatedAt: new Date("2023-04-25"),
   },
 ];
 

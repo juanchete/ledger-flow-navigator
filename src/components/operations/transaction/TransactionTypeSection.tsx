@@ -20,12 +20,12 @@ export const TransactionTypeSection: React.FC<TransactionTypeSectionProps> = ({
           <SelectValue placeholder="Seleccionar tipo" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="purchase">Compra</SelectItem>
-          <SelectItem value="sale">Venta</SelectItem>
-          <SelectItem value="banking">Bancaria</SelectItem>
-          <SelectItem value="balance-change">Cambio de Saldo</SelectItem>
-          <SelectItem value="expense">Gasto</SelectItem>
           <SelectItem value="payment">Pago</SelectItem>
+          <SelectItem value="expense">Gasto</SelectItem>
+          <SelectItem value="ingreso">Ingreso</SelectItem>
+          <SelectItem value="sale">Venta</SelectItem>
+          <SelectItem value="purchase">Compra</SelectItem>
+          <SelectItem value="balance-change">Cambio de Saldo</SelectItem>
         </SelectContent>
       </Select>
     </div>

@@ -94,7 +94,7 @@ CREATE TABLE receivables (
 
 CREATE TABLE transactions (
     id VARCHAR(64) PRIMARY KEY,
-    type VARCHAR(32) CHECK (type IN ('purchase', 'sale', 'banking', 'balance-change', 'expense', 'payment')),
+    type VARCHAR(32) CHECK (type IN ('purchase', 'sale', 'cash', 'balance-change', 'expense', 'payment')),
     amount DECIMAL(18,2) NOT NULL,
     description TEXT,
     date TIMESTAMP NOT NULL,
@@ -277,12 +277,10 @@ BEGIN
         IF NEW.bank_account_id IS NOT NULL AND NEW.type IS NOT NULL THEN
             -- Determine balance change based on transaction type
             CASE NEW.type
-                WHEN 'sale', 'payment', 'banking' THEN
+                WHEN 'sale', 'payment', 'cash' THEN
                     balance_change := NEW.amount;
                 WHEN 'purchase', 'expense' THEN
                     balance_change := -NEW.amount;
-                WHEN 'balance-change' THEN
-                    balance_change := NEW.amount;
                 ELSE
                     balance_change := 0;
             END CASE;
@@ -298,14 +296,12 @@ BEGIN
     -- Handle UPDATE (modified transaction)
     IF TG_OP = 'UPDATE' THEN
         -- Revert old transaction effect if it had a bank account
-        IF OLD.bank_account_id IS NOT NULL AND OLD.type IS NOT NULL THEN
+        IF OLD.bank_account_id IS NOT NULL AND OLD.type IS NOT NULL AND OLD.type != 'balance-change' THEN
             CASE OLD.type
-                WHEN 'sale', 'payment', 'banking' THEN
+                WHEN 'sale', 'payment', 'cash' THEN
                     balance_change := -OLD.amount;
                 WHEN 'purchase', 'expense' THEN
                     balance_change := OLD.amount;
-                WHEN 'balance-change' THEN
-                    balance_change := -OLD.amount;
                 ELSE
                     balance_change := 0;
             END CASE;
@@ -316,14 +312,12 @@ BEGIN
         END IF;
         
         -- Apply new transaction effect if it has a bank account
-        IF NEW.bank_account_id IS NOT NULL AND NEW.type IS NOT NULL THEN
+        IF NEW.bank_account_id IS NOT NULL AND NEW.type IS NOT NULL AND NEW.type != 'balance-change' THEN
             CASE NEW.type
-                WHEN 'sale', 'payment', 'banking' THEN
+                WHEN 'sale', 'payment', 'cash' THEN
                     balance_change := NEW.amount;
                 WHEN 'purchase', 'expense' THEN
                     balance_change := -NEW.amount;
-                WHEN 'balance-change' THEN
-                    balance_change := NEW.amount;
                 ELSE
                     balance_change := 0;
             END CASE;
@@ -337,15 +331,13 @@ BEGIN
     
     -- Handle DELETE (removed transaction)
     IF TG_OP = 'DELETE' THEN
-        IF OLD.bank_account_id IS NOT NULL AND OLD.type IS NOT NULL THEN
+        IF OLD.bank_account_id IS NOT NULL AND OLD.type IS NOT NULL AND OLD.type != 'balance-change' THEN
             -- Revert the transaction effect
             CASE OLD.type
-                WHEN 'sale', 'payment', 'banking' THEN
+                WHEN 'sale', 'payment', 'cash' THEN
                     balance_change := -OLD.amount;
                 WHEN 'purchase', 'expense' THEN
                     balance_change := OLD.amount;
-                WHEN 'balance-change' THEN
-                    balance_change := -OLD.amount;
                 ELSE
                     balance_change := 0;
             END CASE;

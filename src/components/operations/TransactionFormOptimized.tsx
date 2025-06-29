@@ -15,6 +15,13 @@ import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { ExchangeRateSection } from '@/components/forms/ExchangeRateSection';
 import { AmountCurrencySection } from '@/components/forms/AmountCurrencySection';
 import { ClientSelectionSection } from "./transaction/ClientSelectionSection";
+import { CashOperationFlow } from "./transaction/CashOperationFlow";
+import { SaleOperationFlow } from "./transaction/SaleOperationFlow";
+import { PurchaseOperationFlow } from "./transaction/PurchaseOperationFlow";
+import { ExpenseOperationFlow } from "./transaction/ExpenseOperationFlow";
+import { PaymentOperationFlow } from "./transaction/PaymentOperationFlow";
+import { IngresoOperationFlow } from "./transaction/IngresoOperationFlow";
+import { PagoOperationFlow } from "./transaction/PagoOperationFlow";
 import { getBankAccounts, BankAccountApp } from "@/integrations/supabase/bankAccountService";
 import { useTransactions } from "@/context/TransactionContext";
 import type { Transaction } from "@/types";
@@ -38,10 +45,10 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
   const { addTransaction } = useTransactions();
 
   // Estados del formulario organizados como en PaymentFormModalOptimized
-  const [transactionType, setTransactionType] = useState<Transaction["type"]>("sale");
+  const [transactionType, setTransactionType] = useState<Transaction["type"]>("payment");
   const [amount, setAmount] = useState('0');
   const [currency, setCurrency] = useState('USD');
-  const [method, setMethod] = useState('cash');
+  const [method, setMethod] = useState('transfer');
   const [reference, setReference] = useState('');
   const [receipt, setReceipt] = useState<File | null>(null);
   const [category, setCategory] = useState('');
@@ -58,6 +65,25 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
   const [bankCommission, setBankCommission] = useState('0'); // Ahora representa porcentaje
   const [transferCount, setTransferCount] = useState('1');
   const [destinationBankAccount, setDestinationBankAccount] = useState('');
+
+  // Estados para los flujos interactivos
+  const [showCashFlow, setShowCashFlow] = useState(false);
+  const [showSaleFlow, setShowSaleFlow] = useState(false);
+  const [showPurchaseFlow, setShowPurchaseFlow] = useState(false);
+  const [showExpenseFlow, setShowExpenseFlow] = useState(false);
+  const [showPaymentFlow, setShowPaymentFlow] = useState(false);
+  const [showIngresoFlow, setShowIngresoFlow] = useState(false);
+  const [showPagoFlow, setShowPagoFlow] = useState(true);
+  
+  const [operationData, setOperationData] = useState<{
+    type: 'sale' | 'purchase' | 'payment' | 'expense';
+    relatedId?: string;
+    relatedType?: 'debt' | 'receivable';
+    clientId?: string;
+    description: string;
+    category?: string;
+    paymentType?: string;
+  } | null>(null);
 
   // Hook para manejo de tasa de cambio
   const exchangeRateHook = useExchangeRate();
@@ -94,6 +120,165 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
       setAmount(denominationBasedAmount.toString());
     }
   }, [denominationBasedAmount, currency, method]);
+
+  // Manejar cambio de tipo de transacción
+  const handleTransactionTypeChange = (value: Transaction["type"]) => {
+    setTransactionType(value);
+    // Reset todos los flujos
+    setShowCashFlow(false);
+    setShowSaleFlow(false);
+    setShowPurchaseFlow(false);
+    setShowExpenseFlow(false);
+    setShowPaymentFlow(false);
+    setShowIngresoFlow(false);
+    setShowPagoFlow(false);
+    setOperationData(null);
+    
+    // Mostrar el flujo correspondiente
+    if (value === 'cash') {
+      setShowCashFlow(true);
+    } else if (value === 'sale') {
+      setShowSaleFlow(true);
+    } else if (value === 'purchase') {
+      setShowPurchaseFlow(true);
+    } else if (value === 'expense') {
+      setShowExpenseFlow(true);
+    } else if (value === 'payment') {
+      setShowPagoFlow(true);
+    } else if (value === 'ingreso') {
+      setShowIngresoFlow(true);
+    }
+    // "balance-change" no necesita flujo especial, es directo
+  };
+
+  // Manejar selección de operación de efectivo
+  const handleCashOperationSelect = (operation: {
+    type: 'sale' | 'purchase' | 'payment' | 'expense';
+    relatedId?: string;
+    relatedType?: 'debt' | 'receivable';
+    clientId?: string;
+    description: string;
+  }) => {
+    setOperationData(operation);
+    setTransactionType(operation.type);
+    setReference(operation.description);
+    setMethod('cash'); // Establecer automáticamente el método de pago como efectivo
+    if (operation.clientId) {
+      setSelectedClient(operation.clientId);
+    }
+    setShowCashFlow(false);
+  };
+
+  // Manejar selección de operación de venta
+  const handleSaleOperationSelect = (operation: {
+    type: 'sale' | 'payment';
+    relatedId?: string;
+    relatedType?: 'receivable';
+    clientId?: string;
+    description: string;
+  }) => {
+    setOperationData(operation);
+    setTransactionType(operation.type);
+    setReference(operation.description);
+    setMethod('transfer'); // Mantener transferencia por defecto
+    if (operation.clientId) {
+      setSelectedClient(operation.clientId);
+    }
+    setShowSaleFlow(false);
+  };
+
+  // Manejar selección de operación de compra
+  const handlePurchaseOperationSelect = (operation: {
+    type: 'purchase' | 'payment';
+    relatedId?: string;
+    relatedType?: 'debt';
+    clientId?: string;
+    description: string;
+  }) => {
+    setOperationData(operation);
+    setTransactionType(operation.type);
+    setReference(operation.description);
+    setMethod('transfer'); // Mantener transferencia por defecto
+    if (operation.clientId) {
+      setSelectedClient(operation.clientId);
+    }
+    setShowPurchaseFlow(false);
+  };
+
+  // Manejar selección de operación de gasto
+  const handleExpenseOperationSelect = (operation: {
+    type: 'expense';
+    category?: string;
+    description: string;
+  }) => {
+    setOperationData({ ...operation, relatedId: undefined, relatedType: undefined, clientId: undefined });
+    setTransactionType(operation.type);
+    setReference(operation.description);
+    setMethod('transfer'); // Mantener transferencia por defecto
+    if (operation.category) {
+      setCategory(operation.category);
+    }
+    setShowExpenseFlow(false);
+  };
+
+  // Manejar selección de operación de pago
+  const handlePaymentOperationSelect = (operation: {
+    type: 'payment';
+    relatedId?: string;
+    relatedType?: 'debt' | 'receivable';
+    clientId?: string;
+    paymentType?: string;
+    description: string;
+  }) => {
+    setOperationData(operation);
+    setTransactionType(operation.type);
+    setReference(operation.description);
+    setMethod('transfer'); // Mantener transferencia por defecto
+    if (operation.clientId) {
+      setSelectedClient(operation.clientId);
+    }
+    setShowPaymentFlow(false);
+  };
+
+  // Manejar selección de operación de ingreso
+  const handleIngresoOperationSelect = (operation: {
+    type: 'sale' | 'payment';
+    relatedId?: string;
+    relatedType?: 'receivable';
+    clientId?: string;
+    description: string;
+  }) => {
+    setOperationData(operation);
+    setTransactionType(operation.type);
+    setReference(operation.description);
+    setMethod('cash'); // Establecer automáticamente el método de pago como efectivo para ingresos
+    if (operation.clientId) {
+      setSelectedClient(operation.clientId);
+    }
+    setShowIngresoFlow(false);
+  };
+
+  // Manejar selección de operación de pago completo
+  const handlePagoOperationSelect = (operation: {
+    type: 'purchase' | 'payment' | 'expense';
+    relatedId?: string;
+    relatedType?: 'debt';
+    clientId?: string;
+    description: string;
+    category?: string;
+  }) => {
+    setOperationData(operation);
+    setTransactionType(operation.type);
+    setReference(operation.description);
+    setMethod('cash'); // Establecer automáticamente el método de pago como efectivo para pagos
+    if (operation.clientId) {
+      setSelectedClient(operation.clientId);
+    }
+    if (operation.category) {
+      setCategory(operation.category);
+    }
+    setShowPagoFlow(false);
+  };
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -142,6 +327,35 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
       return;
     }
 
+    // Validación de saldo para transacciones que requieren dinero (excluimos 'sale' e 'ingreso' porque suman dinero)
+    const shouldValidateBalance = ['purchase', 'expense', 'payment', 'balance-change'].includes(transactionType);
+    if (shouldValidateBalance && selectedBankAccount) {
+      const selectedAccount = bankAccounts.find(acc => acc.id.toString() === selectedBankAccount);
+      if (selectedAccount) {
+        // Calcular monto final incluyendo transferencias y comisiones
+        let finalAmountForValidation = baseAmount;
+        if (transactionType === 'balance-change') {
+          const transferMultiplier = parseInt(transferCount) || 1;
+          finalAmountForValidation = baseAmount * transferMultiplier;
+          
+          if (bankCommission) {
+            const commissionPercentage = parseFloat(bankCommission) || 0;
+            const commissionAmount = (finalAmountForValidation * commissionPercentage) / 100;
+            finalAmountForValidation = finalAmountForValidation + commissionAmount;
+          }
+        }
+
+        if (finalAmountForValidation > selectedAccount.amount) {
+          toast({
+            title: "Saldo insuficiente",
+            description: `No hay suficiente saldo en la cuenta seleccionada. Saldo disponible: ${selectedAccount.currency} ${selectedAccount.amount.toLocaleString()}`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+    }
+
     // Calcular monto final incluyendo número de transferencias y comisión por porcentaje
     let finalAmount = baseAmount;
     if (transactionType === 'balance-change') {
@@ -182,38 +396,61 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
         console.log('Archivo de comprobante seleccionado:', receipt.name);
       }
       
+      // Construir las notas incluyendo información de balance-change si aplica
+      let finalNotes = notes || '';
+      if (transactionType === 'balance-change') {
+        const balanceChangeInfo = [];
+        if (bankCommission && parseFloat(bankCommission) > 0) {
+          balanceChangeInfo.push(`Comisión bancaria: ${bankCommission}%`);
+        }
+        if (transferCount && parseInt(transferCount) > 1) {
+          balanceChangeInfo.push(`Número de transferencias: ${transferCount}`);
+        }
+        if (destinationBankAccount) {
+          const destAccount = bankAccounts.find(acc => acc.id.toString() === destinationBankAccount);
+          balanceChangeInfo.push(`Cuenta destino: ${destAccount?.bank} - ${destAccount?.account_number}`);
+        }
+        
+        if (balanceChangeInfo.length > 0) {
+          finalNotes = finalNotes 
+            ? `${finalNotes}\n\n--- Detalles del cambio de saldo ---\n${balanceChangeInfo.join('\n')}`
+            : `--- Detalles del cambio de saldo ---\n${balanceChangeInfo.join('\n')}`;
+        }
+      }
+
       const newTransaction = {
         id: uuidv4(),
-        type: transactionType as Transaction['type'],
+        type: transactionType,
         amount: finalAmount,
         description: reference,
         date: now,
         status: "completed" as const,
-        category: category || undefined,
-        notes: notes || undefined,
-        payment_method: method || undefined,
-        client_id: selectedClient || undefined,
+        category: category || null,
+        notes: finalNotes || null,
+        payment_method: method || null,
+        client_id: selectedClient || null,
+        bank_account_id: selectedBankAccount || null,
+        currency: currency,
+        receipt: receiptUrl || null,
+        denominations: denominationsToSave || null,
         created_at: now,
         updated_at: now,
-        bank_account_id: selectedBankAccount || undefined,
-        currency: currency as Transaction['currency'],
-        receipt: receiptUrl,
-        denominations: denominationsToSave,
-        // Campos específicos para balance-change
+        // Campos específicos para balance-change (ahora que existen en la DB)
         bank_commission: transactionType === 'balance-change' && bankCommission ? 
-          (((baseAmount * (parseInt(transferCount) || 1)) * (parseFloat(bankCommission) || 0)) / 100) : undefined,
-        transfer_count: transactionType === 'balance-change' ? parseInt(transferCount) || 1 : undefined,
-        destination_bank_account_id: transactionType === 'balance-change' ? destinationBankAccount || undefined : undefined,
+          parseFloat(bankCommission) : null,
+        transfer_count: transactionType === 'balance-change' ? 
+          parseInt(transferCount) || 1 : null,
+        destination_bank_account_id: transactionType === 'balance-change' ? 
+          destinationBankAccount || null : null,
+        // Campos específicos para operaciones de efectivo
+        debt_id: operationData?.relatedType === 'debt' ? operationData.relatedId : null,
+        receivable_id: operationData?.relatedType === 'receivable' ? operationData.relatedId : null,
       };
 
       const result = await addTransaction(newTransaction);
       
       if (result) {
-        toast({
-          title: "¡Éxito!",
-          description: "La transacción se ha creado correctamente.",
-        });
-        
+        // El toast de éxito ahora se maneja en el TransactionContext
         resetForm();
         if (onSuccess) {
           onSuccess();
@@ -225,21 +462,17 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
       }
     } catch (error) {
       console.error("Error al crear la transacción:", error);
-      toast({
-        title: "Error",
-        description: "Ha ocurrido un error al guardar la transacción.",
-        variant: "destructive",
-      });
+      // El toast de error se maneja en el TransactionContext
     } finally {
       setLoading(false);
     }
   };
 
   const resetForm = () => {
-    setTransactionType("sale");
+    setTransactionType("purchase");
     setAmount('0');
     setCurrency('USD');
-    setMethod('cash');
+    setMethod('transfer');
     setReference('');
     setReceipt(null);
     setCategory('');
@@ -253,6 +486,16 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
     setBankCommission('0');
     setTransferCount('1');
     setDestinationBankAccount('');
+    
+    // Reset flujos interactivos - compra por defecto
+    setShowCashFlow(false);
+    setShowSaleFlow(false);
+    setShowPurchaseFlow(true);
+    setShowExpenseFlow(false);
+    setShowPaymentFlow(false);
+    setShowIngresoFlow(false);
+    setShowPagoFlow(false);
+    setOperationData(null);
   };
 
   // Funciones para manejo de denominaciones
@@ -288,35 +531,95 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
         </div>
         <div>
           <Label htmlFor="transaction-type">Tipo de Transacción</Label>
-          <Select value={transactionType} onValueChange={(value) => setTransactionType(value as Transaction["type"])} disabled={loading}>
+          <Select value={transactionType} onValueChange={handleTransactionTypeChange} disabled={loading}>
             <SelectTrigger id="transaction-type" className="h-10 sm:h-11 w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="sale">Venta</SelectItem>
-              <SelectItem value="expense">Gasto</SelectItem>
-              <SelectItem value="purchase">Compra</SelectItem>
-              <SelectItem value="banking">Bancario</SelectItem>
-              <SelectItem value="balance-change">Cambio de Balance</SelectItem>
               <SelectItem value="payment">Pago</SelectItem>
+              <SelectItem value="expense">Gasto</SelectItem>
+              <SelectItem value="ingreso">Ingreso</SelectItem>
+              <SelectItem value="sale">Venta</SelectItem>
+              <SelectItem value="purchase">Compra</SelectItem>
+              <SelectItem value="balance-change">Cambio de Saldo</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
 
-      {/* Segunda fila: Categoría y Método de Pago - responsive */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="category">Categoría</Label>
-          <Input
-            id="category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            placeholder="Categoría"
-            disabled={loading}
-            className="h-10 sm:h-11 w-full"
-          />
+      {/* Flujos Interactivos Condicionales */}
+      {showCashFlow ? (
+        <div className="mt-4 p-4 border border-blue-200 rounded-lg bg-blue-50">
+          <h3 className="text-lg font-semibold mb-4 text-blue-800">Operación de Efectivo</h3>
+          <CashOperationFlow onOperationSelect={handleCashOperationSelect} />
         </div>
+      ) : showSaleFlow ? (
+        <div className="mt-4 p-4 border border-green-200 rounded-lg bg-green-50">
+          <h3 className="text-lg font-semibold mb-4 text-green-800">Operación de Venta</h3>
+          <SaleOperationFlow onOperationSelect={handleSaleOperationSelect} />
+        </div>
+      ) : showPurchaseFlow ? (
+        <div className="mt-4 p-4 border border-orange-200 rounded-lg bg-orange-50">
+          <h3 className="text-lg font-semibold mb-4 text-orange-800">Operación de Compra</h3>
+          <PurchaseOperationFlow onOperationSelect={handlePurchaseOperationSelect} />
+        </div>
+      ) : showExpenseFlow ? (
+        <div className="mt-4 p-4 border border-red-200 rounded-lg bg-red-50">
+          <h3 className="text-lg font-semibold mb-4 text-red-800">Operación de Gasto</h3>
+          <ExpenseOperationFlow onOperationSelect={handleExpenseOperationSelect} />
+        </div>
+      ) : showPaymentFlow ? (
+        <div className="mt-4 p-4 border border-purple-200 rounded-lg bg-purple-50">
+          <h3 className="text-lg font-semibold mb-4 text-purple-800">Operación de Pago</h3>
+          <PaymentOperationFlow onOperationSelect={handlePaymentOperationSelect} />
+        </div>
+      ) : showIngresoFlow ? (
+        <div className="mt-4 p-4 border border-emerald-200 rounded-lg bg-emerald-50">
+          <h3 className="text-lg font-semibold mb-4 text-emerald-800">💰 Operación de Ingreso</h3>
+          <IngresoOperationFlow onOperationSelect={handleIngresoOperationSelect} />
+        </div>
+      ) : showPagoFlow ? (
+        <div className="mt-4 p-4 border border-rose-200 rounded-lg bg-rose-50">
+          <h3 className="text-lg font-semibold mb-4 text-rose-800">💸 Operación de Pago</h3>
+          <PagoOperationFlow onOperationSelect={handlePagoOperationSelect} />
+        </div>
+      ) : (
+        <>
+          {/* Mostrar información de la operación seleccionada */}
+          {operationData && (
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="font-medium text-green-800">
+                    Operación seleccionada: {operationData.description}
+                  </p>
+                  {operationData.relatedType && (
+                    <p className="text-sm text-green-600">
+                      Relacionado con {operationData.relatedType === 'debt' ? 'deuda' : 'cuenta por cobrar'}
+                    </p>
+                  )}
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    if (transactionType === 'cash') setShowCashFlow(true);
+                    else if (transactionType === 'sale') setShowSaleFlow(true);
+                    else if (transactionType === 'purchase') setShowPurchaseFlow(true);
+                    else if (transactionType === 'expense') setShowExpenseFlow(true);
+                    else if (transactionType === 'payment') setShowPagoFlow(true);
+                    else if (transactionType === 'ingreso') setShowIngresoFlow(true);
+                  }}
+                  className="text-blue-600"
+                >
+                  Cambiar
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Método de Pago */}
+      <div className="grid grid-cols-1 gap-4">
         <div>
           <Label htmlFor="method">Método de Pago</Label>
           <Select value={method} onValueChange={setMethod} disabled={loading}>
@@ -348,7 +651,7 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
       />
 
       {/* Componente optimizado para tasa de cambio */}
-      {currency === 'VES' && transactionType !== 'balance-change' && (
+      {transactionType !== 'balance-change' && (
         <ExchangeRateSection
           exchangeRate={exchangeRateHook.exchangeRate}
           customRate={exchangeRateHook.customRate}
@@ -366,7 +669,12 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
       {(currency === 'USD' || currency === 'EUR') && method === 'cash' && (
         <div className="mt-4 border-t pt-4 w-full">
           <div className="flex flex-col space-y-2 sm:flex-row sm:justify-between sm:items-center sm:space-y-0 mb-2">
-            <Label>Desglose de Billetes</Label>
+            <div>
+              <Label>Desglose de Billetes - {currency}</Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                Especifica qué billetes {operationData ? (operationData.type === 'sale' || operationData.type === 'payment' && operationData.relatedType === 'receivable' ? 'recibiste' : 'entregaste') : 'manejaste'}
+              </p>
+            </div>
             <Button type="button" size="sm" variant="outline" onClick={handleAddDenomination} disabled={loading} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-1" /> Añadir Fila
             </Button>
@@ -522,6 +830,9 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
                   <span className="text-xs text-muted-foreground">
                     {account.account_number} - {account.currency}
                   </span>
+                  <span className="text-xs font-medium text-blue-600">
+                    Saldo: {account.currency} {account.amount.toLocaleString()}
+                  </span>
                 </div>
               </SelectItem>
             ))}
@@ -544,6 +855,9 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
                     <span className="font-medium">{account.bank}</span>
                     <span className="text-xs text-muted-foreground">
                       {account.account_number} - {account.currency}
+                    </span>
+                    <span className="text-xs font-medium text-green-600">
+                      Saldo: {account.currency} {account.amount.toLocaleString()}
                     </span>
                   </div>
                 </SelectItem>
@@ -604,28 +918,30 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
         />
       </div>
 
-      {/* Botones */}
-      <div className="flex flex-col space-y-2 sm:flex-row sm:justify-end sm:space-y-0 sm:space-x-2 pt-4 w-full">
-        {showCancelButton && (
-          <Button 
-            type="button" 
-            variant="outline" 
-            onClick={() => onSuccess ? onSuccess() : navigate("/operations")}
-            disabled={loading}
-            className="w-full sm:w-auto"
-          >
-            Cancelar
-          </Button>
-        )}
-        <Button 
-          onClick={handleSubmit}
-          disabled={loading}
-          className="w-full sm:w-auto"
-        >
-          {loading && <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />}
-          {loading ? "Guardando..." : "Guardar Transacción"}
-        </Button>
-      </div>
+          {/* Botones */}
+          <div className="flex flex-col space-y-2 sm:flex-row sm:justify-end sm:space-y-0 sm:space-x-2 pt-4 w-full">
+            {showCancelButton && (
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => onSuccess ? onSuccess() : navigate("/operations")}
+                disabled={loading}
+                className="w-full sm:w-auto"
+              >
+                Cancelar
+              </Button>
+            )}
+            <Button 
+              onClick={handleSubmit}
+              disabled={loading}
+              className="w-full sm:w-auto"
+            >
+              {loading && <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />}
+              {loading ? "Guardando..." : "Guardar Transacción"}
+            </Button>
+          </div>
+        </>
+      )}
     </div>
   );
 }; 

@@ -35,10 +35,11 @@ export interface Transaction {
   type:
     | "purchase"
     | "sale"
-    | "banking"
+    | "cash"
     | "balance-change"
     | "expense"
-    | "payment";
+    | "payment"
+    | "ingreso";
   amount: number;
   description: string;
   date: Date;
@@ -197,3 +198,18 @@ export type BankAccount = {
   currency: "USD" | "EUR" | "VES" | "COP";
   amount: number;
 };
+
+interface CommonTransactionFormData {
+  amount: number;
+  description: string;
+  date: Date;
+  type:
+    | "purchase"
+    | "sale"
+    | "cash"
+    | "balance-change"
+    | "expense"
+    | "payment"
+    | "ingreso";
+  // ... existing code ...
+}

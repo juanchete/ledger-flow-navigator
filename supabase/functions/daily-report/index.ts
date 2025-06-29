@@ -20,6 +20,7 @@ const getTransactionEffect = (tx: any): number => {
   switch (tx.type) {
     case "sale":
     case "payment":
+    case "cash":
       return tx.debt_id ? -amount : amount; // Credit unless it's paying a debt
     case "purchase":
     case "expense":

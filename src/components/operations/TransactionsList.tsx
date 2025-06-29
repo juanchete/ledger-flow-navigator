@@ -48,8 +48,8 @@ const getTransactionTypeLabel = (type: string) => {
       return 'Compra';
     case 'sale':
       return 'Venta';
-    case 'banking':
-      return 'Bancario';
+    case 'cash':
+      return 'Efectivo';
     case 'balance-change':
       return 'Cambio de Saldo';
     case 'expense':
@@ -98,7 +98,7 @@ const getBadgeColor = (transactionType: string) => {
       return 'bg-finance-red-light text-white';
     case 'sale':
       return 'bg-finance-green text-white';
-    case 'banking':
+    case 'cash':
       return 'bg-finance-blue text-white';
     case 'balance-change':
       return 'bg-finance-yellow text-finance-gray-dark';
@@ -121,6 +121,25 @@ const getStatusBadgeColor = (status: string) => {
       return 'bg-finance-red text-white';
     default:
       return '';
+  }
+};
+
+const getTransactionIcon = (type: string) => {
+  switch(type) {
+    case 'purchase':
+      return '🛒';
+    case 'sale':
+      return '💰';
+    case 'cash':
+      return '💵';
+    case 'balance-change':
+      return '🔄';
+    case 'expense':
+      return '💸';
+    case 'payment':
+      return '💳';
+    default:
+      return '📝';
   }
 };
 

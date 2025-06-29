@@ -163,7 +163,7 @@ const HistoricalBalance = () => {
         return 'Compra';
       case 'sale':
         return 'Venta';
-      case 'banking':
+      case 'cash':
         return 'Bancario';
       case 'balance-change':
         return 'Cambio de Saldo';

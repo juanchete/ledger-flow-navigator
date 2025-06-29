@@ -15,6 +15,9 @@ import {
 } from "../integrations/supabase/transactionService"; // Correct path
 import { useToast } from "@/components/ui/use-toast";
 
+// Evento personalizado para notificar cambios en transacciones
+const TRANSACTION_UPDATED_EVENT = 'transactionUpdated';
+const BANK_BALANCE_UPDATED_EVENT = 'bankBalanceUpdated';
 
 interface TransactionContextType {
   transactions: Transaction[];
@@ -27,6 +30,9 @@ interface TransactionContextType {
   fetchTransactionById: (id: string) => Promise<Transaction | null>;
   searchTransactions: (searchTerm: string) => Promise<Transaction[]>;
   filterTransactions: (filters: TransactionFilter) => Promise<Transaction[]>;
+  // Nuevas funciones para eventos
+  onTransactionChange: (callback: (transaction: Transaction, action: 'created' | 'updated' | 'deleted') => void) => () => void;
+  onBankBalanceChange: (callback: (bankAccountId: string) => void) => () => void;
 }
 
 const TransactionContext = createContext<TransactionContextType | undefined>(undefined);
@@ -48,6 +54,22 @@ export const TransactionProvider: React.FC<TransactionProviderProps> = ({ childr
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Función para disparar eventos personalizados
+  const dispatchTransactionEvent = useCallback((transaction: Transaction, action: 'created' | 'updated' | 'deleted') => {
+    const event = new CustomEvent(TRANSACTION_UPDATED_EVENT, { 
+      detail: { transaction, action } 
+    });
+    window.dispatchEvent(event);
+    
+    // También disparar evento de actualización de balance bancario si la transacción afecta una cuenta
+    if (transaction.bank_account_id) {
+      const balanceEvent = new CustomEvent(BANK_BALANCE_UPDATED_EVENT, { 
+        detail: { bankAccountId: transaction.bank_account_id } 
+      });
+      window.dispatchEvent(balanceEvent);
+    }
+  }, []);
 
   const fetchTransactionsCallback = useCallback(async () => {
     setIsLoading(true);
@@ -71,12 +93,28 @@ export const TransactionProvider: React.FC<TransactionProviderProps> = ({ childr
     setIsLoading(true);
     try {
       const newTransaction = await apiCreateTransaction(transactionData); // Use direct function call
-      setTransactions((prev) => [...prev, newTransaction]);
+      setTransactions((prev) => [newTransaction, ...prev]); // Agregar al inicio para orden cronológico
+      
+      // Disparar eventos para notificar el cambio
+      dispatchTransactionEvent(newTransaction, 'created');
+      
+      toast({
+        title: "Transacción creada",
+        description: `Se ha registrado la transacción por ${newTransaction.currency || 'USD'} ${newTransaction.amount}`,
+      });
+      
       setIsLoading(false);
       return newTransaction;
     } catch (err) {
       console.error("Error creating transaction:", err);
       setError(err instanceof Error ? err.message : "Error desconocido al crear transacción");
+      
+      toast({
+        title: "Error",
+        description: "No se pudo crear la transacción",
+        variant: "destructive",
+      });
+      
       setIsLoading(false);
       return undefined;
     }
@@ -92,26 +130,63 @@ export const TransactionProvider: React.FC<TransactionProviderProps> = ({ childr
       setTransactions((prev) =>
         prev.map((t) => (t.id === id ? updatedTransaction : t))
       );
+      
+      // Disparar eventos para notificar el cambio
+      dispatchTransactionEvent(updatedTransaction, 'updated');
+      
+      toast({
+        title: "Transacción actualizada",
+        description: "Los cambios se han guardado correctamente",
+      });
+      
       setIsLoading(false);
       return updatedTransaction;
     } catch (err) {
       console.error("Error updating transaction:", err);
       setError(err instanceof Error ? err.message : "Error desconocido al actualizar transacción");
+      
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar la transacción",
+        variant: "destructive",
+      });
+      
       setIsLoading(false);
       return undefined;
     }
   };
 
   const removeTransaction = async (id: string) => {
+    // Obtener la transacción antes de eliminarla para los eventos
+    const transactionToDelete = transactions.find(t => t.id === id);
+    
     setIsLoading(true);
     try {
       await apiDeleteTransaction(id); // Use direct function call
       setTransactions((prev) => prev.filter((t) => t.id !== id));
+      
+      // Disparar eventos para notificar el cambio
+      if (transactionToDelete) {
+        dispatchTransactionEvent(transactionToDelete, 'deleted');
+      }
+      
+      toast({
+        title: "Transacción eliminada",
+        description: "La transacción se ha eliminado correctamente",
+      });
+      
       setIsLoading(false);
       return true;
     } catch (err) {
       console.error("Error deleting transaction:", err);
       setError(err instanceof Error ? err.message : "Error desconocido al eliminar transacción");
+      
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar la transacción",
+        variant: "destructive",
+      });
+      
       setIsLoading(false);
       return false;
     }
@@ -159,6 +234,35 @@ export const TransactionProvider: React.FC<TransactionProviderProps> = ({ childr
     }
   };
 
+  // Funciones para suscribirse a eventos
+  const onTransactionChange = useCallback((callback: (transaction: Transaction, action: 'created' | 'updated' | 'deleted') => void) => {
+    const handleEvent = (event: CustomEvent) => {
+      const { transaction, action } = event.detail;
+      callback(transaction, action);
+    };
+
+    window.addEventListener(TRANSACTION_UPDATED_EVENT, handleEvent as EventListener);
+    
+    // Retornar función de limpieza
+    return () => {
+      window.removeEventListener(TRANSACTION_UPDATED_EVENT, handleEvent as EventListener);
+    };
+  }, []);
+
+  const onBankBalanceChange = useCallback((callback: (bankAccountId: string) => void) => {
+    const handleEvent = (event: CustomEvent) => {
+      const { bankAccountId } = event.detail;
+      callback(bankAccountId);
+    };
+
+    window.addEventListener(BANK_BALANCE_UPDATED_EVENT, handleEvent as EventListener);
+    
+    // Retornar función de limpieza
+    return () => {
+      window.removeEventListener(BANK_BALANCE_UPDATED_EVENT, handleEvent as EventListener);
+    };
+  }, []);
+
   const value = {
     transactions,
     isLoading,
@@ -170,6 +274,8 @@ export const TransactionProvider: React.FC<TransactionProviderProps> = ({ childr
     fetchTransactionById,
     searchTransactions,
     filterTransactions,
+    onTransactionChange,
+    onBankBalanceChange,
   };
 
   return (

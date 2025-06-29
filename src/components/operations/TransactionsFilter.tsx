@@ -38,13 +38,12 @@ export const TransactionsFilter = ({
     <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:justify-between sm:items-center gap-0 sm:gap-4">
       <div className="w-full sm:w-auto">
         <Tabs defaultValue="all" value={selectedType} onValueChange={setSelectedType}>
-          <TabsList className="grid w-full grid-cols-7 sm:w-auto sm:flex">
-            <TabsTrigger value="all" className="text-xs sm:text-sm px-2 sm:px-3">Todo</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 gap-1">
+            <TabsTrigger value="all" className="text-xs sm:text-sm px-2 sm:px-3">Todas</TabsTrigger>
             <TabsTrigger value="purchase" className="text-xs sm:text-sm px-2 sm:px-3">Compras</TabsTrigger>
             <TabsTrigger value="sale" className="text-xs sm:text-sm px-2 sm:px-3">Ventas</TabsTrigger>
+            <TabsTrigger value="cash" className="text-xs sm:text-sm px-2 sm:px-3">Efectivo</TabsTrigger>
             <TabsTrigger value="expense" className="text-xs sm:text-sm px-2 sm:px-3">Gastos</TabsTrigger>
-            <TabsTrigger value="banking" className="text-xs sm:text-sm px-2 sm:px-3">Bancario</TabsTrigger>
-            <TabsTrigger value="balance-change" className="text-xs sm:text-sm px-2 sm:px-3">Saldo</TabsTrigger>
             <TabsTrigger value="payment" className="text-xs sm:text-sm px-2 sm:px-3">Pagos</TabsTrigger>
           </TabsList>
         </Tabs>
