@@ -3,10 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, RefreshCw } from "lucide-react";
+import { PlusCircle, RefreshCw, Sparkles } from "lucide-react";
+import { v4 as uuidv4 } from "uuid";
 import { TransactionFormOptimized } from "@/components/operations/TransactionFormOptimized";
 import { TransactionsList } from "@/components/operations/TransactionsList";
 import { TransactionsFilter } from "@/components/operations/TransactionsFilter";
+import { TransactionWizard } from "@/components/wizard";
+import { TransactionWizardData } from "@/types/wizard";
+import { createTransaction } from "@/integrations/supabase/transactionService";
 import { useTransactions } from "@/context/TransactionContext";
 import { toast } from "@/components/ui/use-toast";
 
@@ -15,6 +19,7 @@ const Operations = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [lastTransactionUpdate, setLastTransactionUpdate] = useState<Date | null>(null);
   
   const { 
@@ -73,6 +78,51 @@ const Operations = () => {
     }
   };
 
+  const handleWizardComplete = async (wizardData: TransactionWizardData) => {
+    try {
+      // Transformar los datos del wizard al formato de la API
+      const now = new Date().toISOString();
+      const transactionData = {
+        id: uuidv4(),
+        created_at: now,
+        updated_at: now,
+        type: wizardData.transactionType,
+        amount: parseFloat(wizardData.amount || '0'),
+        currency: wizardData.currency,
+        date: wizardData.date || new Date().toISOString().split('T')[0],
+        description: wizardData.description || wizardData.reference || '',
+        category: wizardData.category || undefined,
+        payment_method: wizardData.paymentMethod || 'transfer',
+        bank_account_id: wizardData.bankAccountId || undefined,
+        destination_bank_account_id: wizardData.destinationBankAccountId || undefined,
+        client_id: wizardData.clientId || undefined,
+        debt_id: wizardData.relatedType === 'debt' ? wizardData.relatedId : undefined,
+        receivable_id: wizardData.relatedType === 'receivable' ? wizardData.relatedId : undefined,
+        notes: wizardData.notes || undefined,
+        denominations: wizardData.denominations || undefined,
+        bank_commission: wizardData.bankCommission ? parseFloat(wizardData.bankCommission) : undefined,
+        transfer_count: wizardData.transferCount ? parseInt(wizardData.transferCount) : undefined,
+      };
+
+      await createTransaction(transactionData);
+      
+      toast({
+        title: "✅ Transacción creada exitosamente",
+        description: `Se registró la ${wizardData.transactionType} por ${wizardData.currency} ${wizardData.amount}`,
+      });
+      
+      setIsWizardOpen(false);
+    } catch (error) {
+      console.error('Error creating transaction:', error);
+      toast({
+        title: "❌ Error",
+        description: "No se pudo crear la transacción. Por favor, intenta de nuevo.",
+        variant: "destructive",
+      });
+      throw error; // Re-throw para que el wizard pueda manejar el error
+    }
+  };
+
   return (
     <div className="space-y-4 md:space-y-6">
       <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
@@ -91,22 +141,35 @@ const Operations = () => {
           </div>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <Button 
             variant="outline" 
             onClick={handleManualRefresh}
             disabled={isLoading}
-            className="gap-2"
+            className="gap-2 flex-shrink-0"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Sincronizar
+            <span className="hidden sm:inline">Sincronizar</span>
+            <span className="sm:hidden">Sync</span>
           </Button>
           
+          {/* Nuevo Transaction Wizard */}
+          <Button 
+            onClick={() => setIsWizardOpen(true)}
+            className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 flex-shrink-0"
+          >
+            <Sparkles className="h-4 w-4" />
+            <span className="hidden sm:inline">Wizard Transacción</span>
+            <span className="sm:hidden">Wizard</span>
+          </Button>
+          
+          {/* Formulario tradicional */}
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2">
+              <Button variant="outline" className="gap-2 flex-shrink-0">
                 <PlusCircle className="h-4 w-4" />
-                Nueva Transacción
+                <span className="hidden sm:inline">Formulario Clásico</span>
+                <span className="sm:hidden">Clásico</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
@@ -153,6 +216,13 @@ const Operations = () => {
           />
         </CardContent>
       </Card>
+
+      {/* Transaction Wizard */}
+      <TransactionWizard
+        isOpen={isWizardOpen}
+        onClose={() => setIsWizardOpen(false)}
+        onComplete={handleWizardComplete}
+      />
     </div>
   );
 };
