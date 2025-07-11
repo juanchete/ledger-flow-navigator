@@ -7,7 +7,7 @@ import { DebtTable } from '@/components/debts/DebtTable';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal, Loader2, Plus, Pencil, ArrowLeft } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { DebtFormModal } from '@/components/debts/DebtFormModal';
+import { DebtFormModalOptimized } from '@/components/debts/DebtFormModalOptimized';
 import { Link } from 'react-router-dom';
 
 import { useDebts } from '../contexts/DebtContext';
@@ -204,6 +204,7 @@ const AllDebts: React.FC = () => {
 
   const handleDebtSuccess = () => {
     fetchDebts();
+    handleDebtModalClose(); // Cerrar modal y limpiar estado
   };
 
   if (isLoadingDebts || isLoadingTransactions) {
@@ -300,7 +301,7 @@ const AllDebts: React.FC = () => {
       </Card>
 
       {isDebtModalOpen && (
-        <DebtFormModal 
+        <DebtFormModalOptimized 
           isOpen={isDebtModalOpen}
           onClose={handleDebtModalClose}
           debt={selectedDebt}

@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { ArrowLeft, BadgeDollarSign, Clock, Info, User, AlertTriangle } from "lucide-react";
+import { ArrowLeft, BadgeDollarSign, Clock, Info, User, AlertTriangle, Edit } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useTransactions } from "@/context/TransactionContext";
 import { useClients } from "@/context/ClientContext";
 import { Transaction, Client } from "@/types";
+import { TransactionFormOptimized } from "@/components/operations/TransactionFormOptimized";
 
 const TransactionDetail = () => {
   const { transactionId } = useParams();
@@ -18,6 +20,7 @@ const TransactionDetail = () => {
   const [client, setClient] = useState<Client | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchTransaction = async () => {
@@ -52,6 +55,9 @@ const TransactionDetail = () => {
           indirectForClientId: data.indirect_for_client_id,
           debtId: data.debt_id,
           receivableId: data.receivable_id,
+          bankAccountId: data.bank_account_id,
+          currency: data.currency,
+          commission: data.commission,
         };
         setTransaction(mappedTransaction);
         
@@ -74,6 +80,40 @@ const TransactionDetail = () => {
 
     fetchTransaction();
   }, []);
+
+  const handleEditSuccess = () => {
+    setIsEditModalOpen(false);
+    // Recargar la transacción después de editar
+    if (transactionId) {
+      fetchTransactionById(transactionId).then(data => {
+        if (data) {
+          setTransaction({
+            id: data.id,
+            type: data.type as Transaction["type"],
+            amount: data.amount,
+            description: data.description,
+            date: data.date ? new Date(data.date) : undefined,
+            clientId: data.client_id,
+            status: data.status as Transaction["status"],
+            receipt: data.receipt,
+            invoice: data.invoice,
+            deliveryNote: data.delivery_note,
+            paymentMethod: data.payment_method,
+            category: data.category,
+            notes: data.notes,
+            createdAt: data.created_at ? new Date(data.created_at) : undefined,
+            updatedAt: data.updated_at ? new Date(data.updated_at) : undefined,
+            indirectForClientId: data.indirect_for_client_id,
+            debtId: data.debt_id,
+            receivableId: data.receivable_id,
+            bankAccountId: data.bank_account_id,
+            currency: data.currency,
+            commission: data.commission,
+          });
+        }
+      });
+    }
+  };
   
   if (isLoading) {
     return (
@@ -193,9 +233,20 @@ const TransactionDetail = () => {
           </Link>
         </Button>
         <h1 className="text-3xl font-bold tracking-tight">Detalle de Transacción</h1>
-        <Badge className={getTypeColor(transaction.type)}>
-          {getTransactionTypeDisplay(transaction.type).label}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge className={getTypeColor(transaction.type)}>
+            {getTransactionTypeDisplay(transaction.type).label}
+          </Badge>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setIsEditModalOpen(true)}
+            className="gap-1"
+          >
+            <Edit size={16} />
+            Editar
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -233,6 +284,13 @@ const TransactionDetail = () => {
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Método de Pago:</span>
                 <span>{transaction.paymentMethod}</span>
+              </div>
+            )}
+
+            {transaction.commission && transaction.commission > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Comisión:</span>
+                <span>{transaction.commission}%</span>
               </div>
             )}
 
@@ -341,6 +399,21 @@ const TransactionDetail = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal de edición */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Transacción</DialogTitle>
+          </DialogHeader>
+          <TransactionFormOptimized
+            transaction={transaction}
+            isEditing={true}
+            onSuccess={handleEditSuccess}
+            showCancelButton={true}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

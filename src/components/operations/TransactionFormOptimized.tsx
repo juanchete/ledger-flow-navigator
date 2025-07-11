@@ -35,31 +35,38 @@ interface Denomination {
 interface TransactionFormProps {
   onSuccess?: () => void;
   showCancelButton?: boolean;
+  transaction?: Transaction; // Para modo edición
+  isEditing?: boolean;
 }
 
 export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
   onSuccess,
   showCancelButton = false,
+  transaction,
+  isEditing = false,
 }) => {
   const navigate = useNavigate();
-  const { addTransaction } = useTransactions();
+  const { addTransaction, modifyTransaction } = useTransactions();
 
   // Estados del formulario organizados como en PaymentFormModalOptimized
-  const [transactionType, setTransactionType] = useState<Transaction["type"]>("payment");
-  const [amount, setAmount] = useState('0');
-  const [currency, setCurrency] = useState('USD');
-  const [method, setMethod] = useState('transfer');
-  const [reference, setReference] = useState('');
+  const [transactionType, setTransactionType] = useState<Transaction["type"]>(transaction?.type || "payment");
+  const [amount, setAmount] = useState(transaction?.amount?.toString() || '0');
+  const [currency, setCurrency] = useState(transaction?.currency || 'USD');
+  const [method, setMethod] = useState(transaction?.paymentMethod || 'transfer');
+  const [reference, setReference] = useState(transaction?.description || '');
   const [receipt, setReceipt] = useState<File | null>(null);
-  const [category, setCategory] = useState('');
-  const [notes, setNotes] = useState('');
-  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [selectedClient, setSelectedClient] = useState('');
-  const [selectedBankAccount, setSelectedBankAccount] = useState('');
+  const [category, setCategory] = useState(transaction?.category || '');
+  const [notes, setNotes] = useState(transaction?.notes || '');
+  const [date, setDate] = useState<string>(
+    transaction?.date ? new Date(transaction.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+  );
+  const [selectedClient, setSelectedClient] = useState(transaction?.clientId || '');
+  const [selectedBankAccount, setSelectedBankAccount] = useState(transaction?.bankAccountId || '');
   const [denominations, setDenominations] = useState<Denomination[]>([{ id: uuidv4(), value: 0, count: 0 }]);
   const [bankAccounts, setBankAccounts] = useState<BankAccountApp[]>([]);
   const [loading, setLoading] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [commission, setCommission] = useState(transaction?.commission?.toString() || '0');
 
   // Estados específicos para balance-change
   const [bankCommission, setBankCommission] = useState('0'); // Ahora representa porcentaje
@@ -120,6 +127,33 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
       setAmount(denominationBasedAmount.toString());
     }
   }, [denominationBasedAmount, currency, method]);
+
+  // Cargar datos de la transacción cuando está en modo edición
+  useEffect(() => {
+    if (isEditing && transaction) {
+      console.log('Loading transaction data for editing:', transaction);
+      setTransactionType(transaction.type || "payment");
+      setAmount(transaction.amount?.toString() || '0');
+      setCurrency(transaction.currency || 'USD');
+      setMethod(transaction.paymentMethod || 'transfer');
+      setReference(transaction.description || '');
+      setCategory(transaction.category || '');
+      setNotes(transaction.notes || '');
+      setDate(transaction.date ? new Date(transaction.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+      setSelectedClient(transaction.clientId || '');
+      setSelectedBankAccount(transaction.bankAccountId || '');
+      setCommission(transaction.commission?.toString() || '0');
+      
+      // Reset los flujos cuando se está editando
+      setShowCashFlow(false);
+      setShowSaleFlow(false);
+      setShowPurchaseFlow(false);
+      setShowExpenseFlow(false);
+      setShowPaymentFlow(false);
+      setShowIngresoFlow(false);
+      setShowPagoFlow(false);
+    }
+  }, [isEditing, transaction]);
 
   // Manejar cambio de tipo de transacción
   const handleTransactionTypeChange = (value: Transaction["type"]) => {
@@ -418,47 +452,97 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
         }
       }
 
-      const newTransaction = {
-        id: uuidv4(),
-        type: transactionType,
-        amount: finalAmount,
-        description: reference,
-        date: now,
-        status: "completed" as const,
-        category: category || null,
-        notes: finalNotes || null,
-        payment_method: method || null,
-        client_id: selectedClient || null,
-        bank_account_id: selectedBankAccount || null,
-        currency: currency,
-        receipt: receiptUrl || null,
-        denominations: denominationsToSave || null,
-        created_at: now,
-        updated_at: now,
-        // Campos específicos para balance-change (ahora que existen en la DB)
-        bank_commission: transactionType === 'balance-change' && bankCommission ? 
-          parseFloat(bankCommission) : null,
-        transfer_count: transactionType === 'balance-change' ? 
-          parseInt(transferCount) || 1 : null,
-        destination_bank_account_id: transactionType === 'balance-change' ? 
-          destinationBankAccount || null : null,
-        // Campos específicos para operaciones de efectivo
-        debt_id: operationData?.relatedType === 'debt' ? operationData.relatedId : null,
-        receivable_id: operationData?.relatedType === 'receivable' ? operationData.relatedId : null,
-      };
-
-      const result = await addTransaction(newTransaction);
+      // Agregar comisión al objeto de transacción si es transferencia
+      const commissionValue = method === 'transfer' && commission ? parseFloat(commission) : null;
       
-      if (result) {
-        // El toast de éxito ahora se maneja en el TransactionContext
-        resetForm();
-        if (onSuccess) {
-          onSuccess();
+      if (isEditing && transaction) {
+        // Modo edición
+        const updatedTransaction = {
+          type: transactionType,
+          amount: finalAmount,
+          description: reference,
+          date: date,
+          status: "completed" as const,
+          category: category || null,
+          notes: finalNotes || null,
+          payment_method: method || null,
+          client_id: selectedClient || null,
+          bank_account_id: selectedBankAccount || null,
+          currency: currency,
+          receipt: receiptUrl || null,
+          denominations: denominationsToSave || null,
+          updated_at: now,
+          commission: commissionValue,
+          // Campos específicos para balance-change (ahora que existen en la DB)
+          bank_commission: transactionType === 'balance-change' && bankCommission ? 
+            parseFloat(bankCommission) : null,
+          transfer_count: transactionType === 'balance-change' ? 
+            parseInt(transferCount) || 1 : null,
+          destination_bank_account_id: transactionType === 'balance-change' ? 
+            destinationBankAccount || null : null,
+          // Campos específicos para operaciones de efectivo
+          debt_id: operationData?.relatedType === 'debt' ? operationData.relatedId : null,
+          receivable_id: operationData?.relatedType === 'receivable' ? operationData.relatedId : null,
+        };
+
+        const result = await modifyTransaction(transaction.id, updatedTransaction);
+        
+        if (result) {
+          toast({
+            title: "¡Éxito!",
+            description: "La transacción se ha actualizado correctamente.",
+          });
+          if (onSuccess) {
+            onSuccess();
+          }
         } else {
-          navigate(`/operations/transaction/${result.id}`);
+          throw new Error("No se pudo actualizar la transacción");
         }
       } else {
-        throw new Error("No se pudo crear la transacción");
+        // Modo creación
+        const newTransaction = {
+          id: uuidv4(),
+          type: transactionType,
+          amount: finalAmount,
+          description: reference,
+          date: now,
+          status: "completed" as const,
+          category: category || null,
+          notes: finalNotes || null,
+          payment_method: method || null,
+          client_id: selectedClient || null,
+          bank_account_id: selectedBankAccount || null,
+          currency: currency,
+          receipt: receiptUrl || null,
+          denominations: denominationsToSave || null,
+          created_at: now,
+          updated_at: now,
+          commission: commissionValue,
+          // Campos específicos para balance-change (ahora que existen en la DB)
+          bank_commission: transactionType === 'balance-change' && bankCommission ? 
+            parseFloat(bankCommission) : null,
+          transfer_count: transactionType === 'balance-change' ? 
+            parseInt(transferCount) || 1 : null,
+          destination_bank_account_id: transactionType === 'balance-change' ? 
+            destinationBankAccount || null : null,
+          // Campos específicos para operaciones de efectivo
+          debt_id: operationData?.relatedType === 'debt' ? operationData.relatedId : null,
+          receivable_id: operationData?.relatedType === 'receivable' ? operationData.relatedId : null,
+        };
+
+        const result = await addTransaction(newTransaction);
+        
+        if (result) {
+          // El toast de éxito ahora se maneja en el TransactionContext
+          resetForm();
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            navigate(`/operations/transaction/${result.id}`);
+          }
+        } else {
+          throw new Error("No se pudo crear la transacción");
+        }
       }
     } catch (error) {
       console.error("Error al crear la transacción:", error);
@@ -622,7 +706,19 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
       <div className="grid grid-cols-1 gap-4">
         <div>
           <Label htmlFor="method">Método de Pago</Label>
-          <Select value={method} onValueChange={setMethod} disabled={loading}>
+          <Select value={method} onValueChange={(value) => {
+            setMethod(value);
+            // Si se selecciona efectivo, auto-seleccionar cuenta de efectivo
+            if (value === 'cash') {
+              const cashAccount = bankAccounts.find(acc => 
+                acc.bank.toUpperCase().includes('CASH') || 
+                acc.account_number.toUpperCase().includes('CASH')
+              );
+              if (cashAccount) {
+                setSelectedBankAccount(cashAccount.id.toString());
+              }
+            }
+          }} disabled={loading}>
             <SelectTrigger id="method" className="h-10 sm:h-11 w-full">
               <SelectValue />
             </SelectTrigger>
@@ -635,6 +731,35 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
           </Select>
         </div>
       </div>
+
+      {/* Campo de comisión para transferencias */}
+      {method === 'transfer' && (
+        <div className="grid gap-2 w-full">
+          <Label htmlFor="commission">Comisión (%)</Label>
+          <div className="relative">
+            <Input
+              id="commission"
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              value={commission}
+              onChange={(e) => setCommission(e.target.value)}
+              placeholder="0.00"
+              disabled={loading}
+              className="h-10 sm:h-11 w-full pr-8"
+            />
+            <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">
+              %
+            </span>
+          </div>
+          {commission && parseFloat(commission) > 0 && amount && parseFloat(amount) > 0 && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Comisión: {currency} {(parseFloat(amount) * parseFloat(commission) / 100).toFixed(2)}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Componente optimizado para monto y moneda */}
       <AmountCurrencySection
@@ -818,24 +943,40 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
         <Label htmlFor="bank-account">
           {transactionType === 'balance-change' ? 'Cuenta Origen' : 'Cuenta Bancaria'}
         </Label>
-        <Select value={selectedBankAccount} onValueChange={setSelectedBankAccount} disabled={loading}>
+        <Select value={selectedBankAccount} onValueChange={(value) => {
+          setSelectedBankAccount(value);
+          // Auto-seleccionar método de pago como transferencia cuando se selecciona un banco
+          if (value && method !== 'transfer') {
+            setMethod('transfer');
+          }
+        }} disabled={loading}>
           <SelectTrigger id="bank-account" className="h-10 sm:h-11 w-full">
             <SelectValue placeholder="Seleccionar cuenta..." />
           </SelectTrigger>
           <SelectContent>
-            {bankAccounts.map(account => (
-              <SelectItem key={account.id} value={account.id.toString()}>
-                <div className="flex flex-col">
-                  <span className="font-medium">{account.bank}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {account.account_number} - {account.currency}
-                  </span>
-                  <span className="text-xs font-medium text-blue-600">
-                    Saldo: {account.currency} {account.amount.toLocaleString()}
-                  </span>
-                </div>
-              </SelectItem>
-            ))}
+            {bankAccounts
+              .filter(account => {
+                // Si el método es efectivo, solo mostrar cuentas que contengan "CASH"
+                if (method === 'cash') {
+                  return account.bank.toUpperCase().includes('CASH') || 
+                         account.account_number.toUpperCase().includes('CASH');
+                }
+                // Para otros métodos, mostrar todas las cuentas
+                return true;
+              })
+              .map(account => (
+                <SelectItem key={account.id} value={account.id.toString()}>
+                  <div className="flex flex-col">
+                    <span className="font-medium">{account.bank}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {account.account_number} - {account.currency}
+                    </span>
+                    <span className="text-xs font-medium text-blue-600">
+                      Saldo: {account.currency} {account.amount.toLocaleString()}
+                    </span>
+                  </div>
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
       </div>
@@ -937,7 +1078,7 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
               className="w-full sm:w-auto"
             >
               {loading && <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />}
-              {loading ? "Guardando..." : "Guardar Transacción"}
+              {loading ? "Guardando..." : isEditing ? "Actualizar Transacción" : "Guardar Transacción"}
             </Button>
           </div>
         </>

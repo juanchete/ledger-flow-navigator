@@ -106,6 +106,7 @@ CREATE TABLE transactions (
     payment_method VARCHAR(64),
     category VARCHAR(64),
     notes TEXT,
+    commission DECIMAL(5,2),
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
     indirect_for_client_id VARCHAR(64),

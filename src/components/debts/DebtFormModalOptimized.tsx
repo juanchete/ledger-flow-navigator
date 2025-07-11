@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { createDebt, updateDebt, type Debt } from "@/integrations/supabase/debtService";
+import { getBankAccounts, type BankAccountApp } from "@/integrations/supabase/bankAccountService";
 
 // Componentes optimizados
 import { useExchangeRate } from '@/hooks/useExchangeRate';
@@ -48,16 +49,34 @@ export const DebtFormModalOptimized: React.FC<DebtFormModalOptimizedProps> = ({
   const [interestRate, setInterestRate] = useState('');
   const [installments, setInstallments] = useState('1');
   const [loading, setLoading] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('transfer');
+  const [bankAccountId, setBankAccountId] = useState('');
+  const [commission, setCommission] = useState('0');
+  const [bankAccounts, setBankAccounts] = useState<BankAccountApp[]>([]);
 
   const isEditing = !!debt;
 
   // Hook para manejo de tasa de cambio
   const exchangeRateHook = useExchangeRate();
 
+  // Cargar cuentas bancarias
+  useEffect(() => {
+    const loadBankAccounts = async () => {
+      try {
+        const accounts = await getBankAccounts();
+        setBankAccounts(accounts);
+      } catch (error) {
+        console.error('Error loading bank accounts:', error);
+      }
+    };
+    loadBankAccounts();
+  }, []);
+
   // Resetear formulario cuando cambia el debt o se abre el modal
   useEffect(() => {
     if (isOpen) {
       if (debt) {
+        console.log('Loading debt data:', debt);
         setClientId(debt.client_id || '');
         setAmount(debt.amount?.toString() || '');
         setCurrency(debt.currency || 'USD');
@@ -68,7 +87,11 @@ export const DebtFormModalOptimized: React.FC<DebtFormModalOptimizedProps> = ({
         setNotes(debt.notes || '');
         setInterestRate(debt.interest_rate?.toString() || '');
         setInstallments(debt.installments?.toString() || '1');
+        setPaymentMethod(debt.payment_method || 'transfer');
+        setBankAccountId(debt.bank_account_id || '');
+        setCommission(debt.commission?.toString() || '0');
       } else {
+        console.log('No debt data, resetting form');
         resetForm();
       }
     }
@@ -86,6 +109,9 @@ export const DebtFormModalOptimized: React.FC<DebtFormModalOptimizedProps> = ({
     setNotes('');
     setInterestRate('');
     setInstallments('1');
+    setPaymentMethod('transfer');
+    setBankAccountId('');
+    setCommission('0');
   };
 
   const handleSubmit = async () => {
@@ -112,6 +138,8 @@ export const DebtFormModalOptimized: React.FC<DebtFormModalOptimizedProps> = ({
         finalAmount = finalAmount / rate;
       }
 
+      const commissionValue = paymentMethod === 'transfer' && commission ? parseFloat(commission) : null;
+      
       const debtData = {
         creditor: reference,
         client_id: clientId === "" || clientId === "none" ? null : clientId,
@@ -122,7 +150,10 @@ export const DebtFormModalOptimized: React.FC<DebtFormModalOptimizedProps> = ({
         notes: notes || null,
         currency: currency || null,
         interest_rate: interestRate ? parseFloat(interestRate) : null,
-        installments: installments ? parseInt(installments) : 1
+        installments: installments ? parseInt(installments) : 1,
+        commission: commissionValue,
+        payment_method: paymentMethod || null,
+        bank_account_id: bankAccountId || null
       };
 
       if (isEditing && debt) {
@@ -299,6 +330,99 @@ export const DebtFormModalOptimized: React.FC<DebtFormModalOptimizedProps> = ({
               className="h-10 sm:h-11 text-base"
             />
           </div>
+
+          {/* Método de Pago */}
+          <div className="grid gap-2">
+            <Label className="text-sm font-medium">Método de Pago</Label>
+            <Select value={paymentMethod} onValueChange={(value) => {
+              setPaymentMethod(value);
+              // Si se selecciona efectivo, auto-seleccionar cuenta de efectivo
+              if (value === 'cash') {
+                const cashAccount = bankAccounts.find(acc => 
+                  acc.bank.toUpperCase().includes('CASH') || 
+                  acc.account_number.toUpperCase().includes('CASH')
+                );
+                if (cashAccount) {
+                  setBankAccountId(cashAccount.id);
+                }
+              }
+            }}>
+              <SelectTrigger className="h-10 sm:h-11">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cash">Efectivo</SelectItem>
+                <SelectItem value="transfer">Transferencia</SelectItem>
+                <SelectItem value="credit_card">Tarjeta de Crédito</SelectItem>
+                <SelectItem value="other">Otro</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Cuenta Bancaria */}
+          <div className="grid gap-2">
+            <Label className="text-sm font-medium">Cuenta Bancaria</Label>
+            <Select value={bankAccountId} onValueChange={(value) => {
+              setBankAccountId(value);
+              // Auto-seleccionar método de pago como transferencia
+              if (value && paymentMethod !== 'transfer') {
+                setPaymentMethod('transfer');
+              }
+            }}>
+              <SelectTrigger className="h-10 sm:h-11">
+                <SelectValue placeholder="Seleccionar cuenta..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Sin cuenta bancaria</SelectItem>
+                {bankAccounts
+                  .filter(account => {
+                    if (paymentMethod === 'cash') {
+                      return account.bank.toUpperCase().includes('CASH') || 
+                             account.account_number.toUpperCase().includes('CASH');
+                    }
+                    return true;
+                  })
+                  .map(account => (
+                    <SelectItem key={account.id} value={account.id}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{account.bank}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {account.account_number} - {account.currency}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Comisión para transferencias */}
+          {paymentMethod === 'transfer' && (
+            <div className="grid gap-2">
+              <Label htmlFor="commission" className="text-sm font-medium">Comisión (%)</Label>
+              <div className="relative">
+                <Input
+                  id="commission"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={commission}
+                  onChange={(e) => setCommission(e.target.value)}
+                  placeholder="0.00"
+                  className="h-10 sm:h-11 pr-8"
+                />
+                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">
+                  %
+                </span>
+              </div>
+              {commission && parseFloat(commission) > 0 && amount && parseFloat(amount) > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Comisión: {currency} {(parseFloat(amount) * parseFloat(commission) / 100).toFixed(2)}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Campos opcionales en dos columnas */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

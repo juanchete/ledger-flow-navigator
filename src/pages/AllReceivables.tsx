@@ -12,10 +12,10 @@ import { DebtDetailsModal } from '@/components/operations/DebtDetailsModal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
-import { getReceivables, type Receivable as SupabaseReceivableType } from "@/integrations/supabase/receivableService";
+import { getReceivables, getReceivableById, type Receivable as SupabaseReceivableType } from "@/integrations/supabase/receivableService";
 import { getTransactions } from "@/integrations/supabase/transactionService";
 import { getClients } from '@/integrations/supabase/clientService';
-import { ReceivableFormModal } from '@/components/receivables/ReceivableFormModal';
+import { ReceivableFormModalOptimized } from '@/components/receivables/ReceivableFormModalOptimized';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { useHistoricalExchangeRates } from '@/hooks/useHistoricalExchangeRates';
 
@@ -234,23 +234,17 @@ const AllReceivables: React.FC = () => {
     setIsFormModalOpen(true);
   };
 
-  const handleEditReceivable = (receivable: Receivable) => {
-    // Convert from our local format to Supabase format
-    const supabaseFormat: SupabaseReceivableType = {
-      id: receivable.id,
-      client_id: receivable.clientId,
-      amount: receivable.amount,
-      due_date: receivable.dueDate.toISOString(),
-      status: receivable.status,
-      description: receivable.description,
-      notes: receivable.notes,
-      commission: null,
-      currency: "USD",
-      interest_rate: null,
-      installments: null
-    };
-    setEditingReceivable(supabaseFormat);
-    setIsFormModalOpen(true);
+  const handleEditReceivable = async (receivable: Receivable) => {
+    // Fetch the complete receivable data from the database
+    try {
+      const fullReceivable = await getReceivableById(receivable.id);
+      if (fullReceivable) {
+        setEditingReceivable(fullReceivable);
+        setIsFormModalOpen(true);
+      }
+    } catch (error) {
+      console.error('Error loading receivable for editing:', error);
+    }
   };
 
   const handleFormClose = () => {
@@ -259,6 +253,8 @@ const AllReceivables: React.FC = () => {
   };
 
   const handleFormSuccess = () => {
+    // Close the modal first
+    handleFormClose();
     // Reload receivables after a successful form submission
     getReceivables().then((data) => {
       setReceivables(
@@ -622,7 +618,7 @@ const AllReceivables: React.FC = () => {
         />
       )}
 
-      <ReceivableFormModal
+      <ReceivableFormModalOptimized
         isOpen={isFormModalOpen}
         onClose={handleFormClose}
         receivable={editingReceivable}

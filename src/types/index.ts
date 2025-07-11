@@ -58,6 +58,7 @@ export interface Transaction {
   bankCommission?: number;
   transferCount?: number;
   destinationBankAccountId?: string;
+  commission?: number;
   createdAt: Date;
   updatedAt: Date;
   indirectForClientId?: string;
