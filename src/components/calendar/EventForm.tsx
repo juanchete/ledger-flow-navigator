@@ -220,7 +220,7 @@ export const EventForm = ({ onSave, onCancel, selectedDate, initialData }: Event
               <SelectValue placeholder="Seleccionar cliente" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Ninguno</SelectItem>
+              <SelectItem value="none">Ninguno</SelectItem>
               {clients.map(client => (
                 <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
               ))}

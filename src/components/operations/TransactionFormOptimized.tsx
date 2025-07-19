@@ -22,7 +22,9 @@ import { ExpenseOperationFlow } from "./transaction/ExpenseOperationFlow";
 import { PaymentOperationFlow } from "./transaction/PaymentOperationFlow";
 import { IngresoOperationFlow } from "./transaction/IngresoOperationFlow";
 import { PagoOperationFlow } from "./transaction/PagoOperationFlow";
+import { AutoDebtReceivableSection } from "./transaction/AutoDebtReceivableSection";
 import { getBankAccounts, BankAccountApp } from "@/integrations/supabase/bankAccountService";
+import { createTransactionWithDebtReceivable } from "@/integrations/supabase/transactionWithDebtReceivableService";
 import { useTransactions } from "@/context/TransactionContext";
 import type { Transaction } from "@/types";
 
@@ -72,6 +74,12 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
   const [bankCommission, setBankCommission] = useState('0'); // Ahora representa porcentaje
   const [transferCount, setTransferCount] = useState('1');
   const [destinationBankAccount, setDestinationBankAccount] = useState('');
+
+  // Estados para auto crear deuda/cuenta por cobrar
+  const [autoCreateDebtReceivable, setAutoCreateDebtReceivable] = useState(false);
+  const [debtReceivableDueDate, setDebtReceivableDueDate] = useState('');
+  const [debtReceivableInterestRate, setDebtReceivableInterestRate] = useState('0');
+  const [debtReceivableNotes, setDebtReceivableNotes] = useState('');
 
   // Estados para los flujos interactivos
   const [showCashFlow, setShowCashFlow] = useState(false);
@@ -530,18 +538,47 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
           receivable_id: operationData?.relatedType === 'receivable' ? operationData.relatedId : null,
         };
 
-        const result = await addTransaction(newTransaction);
-        
-        if (result) {
-          // El toast de éxito ahora se maneja en el TransactionContext
-          resetForm();
-          if (onSuccess) {
-            onSuccess();
+        // Check if we should create debt/receivable automatically
+        if (autoCreateDebtReceivable && debtReceivableDueDate) {
+          const result = await createTransactionWithDebtReceivable({
+            transaction: newTransaction,
+            createDebtReceivable: true,
+            debtReceivableData: {
+              dueDate: debtReceivableDueDate,
+              interestRate: parseFloat(debtReceivableInterestRate) || 0,
+              notes: debtReceivableNotes
+            }
+          });
+
+          if (result) {
+            toast({
+              title: "¡Éxito!",
+              description: `La transacción y la ${['purchase', 'expense'].includes(transactionType) ? 'deuda' : 'cuenta por cobrar'} se han creado correctamente.`,
+            });
+            resetForm();
+            if (onSuccess) {
+              onSuccess();
+            } else {
+              navigate(`/operations/transaction/${result.id}`);
+            }
           } else {
-            navigate(`/operations/transaction/${result.id}`);
+            throw new Error("No se pudo crear la transacción");
           }
         } else {
-          throw new Error("No se pudo crear la transacción");
+          // Normal transaction creation without debt/receivable
+          const result = await addTransaction(newTransaction);
+          
+          if (result) {
+            // El toast de éxito ahora se maneja en el TransactionContext
+            resetForm();
+            if (onSuccess) {
+              onSuccess();
+            } else {
+              navigate(`/operations/transaction/${result.id}`);
+            }
+          } else {
+            throw new Error("No se pudo crear la transacción");
+          }
         }
       }
     } catch (error) {
@@ -570,6 +607,12 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
     setBankCommission('0');
     setTransferCount('1');
     setDestinationBankAccount('');
+    
+    // Reset campos de auto deuda/cuenta por cobrar
+    setAutoCreateDebtReceivable(false);
+    setDebtReceivableDueDate('');
+    setDebtReceivableInterestRate('0');
+    setDebtReceivableNotes('');
     
     // Reset flujos interactivos - compra por defecto
     setShowCashFlow(false);
@@ -1045,6 +1088,19 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
           </p>
         )}
       </div>
+
+      {/* Auto crear deuda/cuenta por cobrar */}
+      <AutoDebtReceivableSection
+        transactionType={transactionType}
+        enabled={autoCreateDebtReceivable}
+        onEnabledChange={setAutoCreateDebtReceivable}
+        dueDate={debtReceivableDueDate}
+        onDueDateChange={setDebtReceivableDueDate}
+        interestRate={debtReceivableInterestRate}
+        onInterestRateChange={setDebtReceivableInterestRate}
+        notes={debtReceivableNotes}
+        onNotesChange={setDebtReceivableNotes}
+      />
       
       {/* Notas */}
       <div className="w-full">

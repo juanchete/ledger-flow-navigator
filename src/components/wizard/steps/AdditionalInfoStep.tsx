@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Upload, Calendar, FileText, DollarSign, Repeat } from 'lucide-react';
+import { AutoDebtReceivableSection } from '@/components/operations/transaction/AutoDebtReceivableSection';
 
 export const AdditionalInfoStep: React.FC = () => {
   const { data, updateData } = useTransactionWizard();
@@ -239,6 +240,19 @@ export const AdditionalInfoStep: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Auto crear deuda/cuenta por cobrar */}
+        <AutoDebtReceivableSection
+          transactionType={data.transactionType || ''}
+          enabled={data.autoCreateDebtReceivable || false}
+          onEnabledChange={(enabled) => updateData({ autoCreateDebtReceivable: enabled })}
+          dueDate={data.debtReceivableDueDate || ''}
+          onDueDateChange={(date) => updateData({ debtReceivableDueDate: date })}
+          interestRate={data.debtReceivableInterestRate || '0'}
+          onInterestRateChange={(rate) => updateData({ debtReceivableInterestRate: rate })}
+          notes={data.debtReceivableNotes || ''}
+          onNotesChange={(notes) => updateData({ debtReceivableNotes: notes })}
+        />
 
         {/* Resumen de información adicional */}
         <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">

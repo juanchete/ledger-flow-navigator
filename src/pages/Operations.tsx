@@ -11,6 +11,7 @@ import { TransactionsFilter } from "@/components/operations/TransactionsFilter";
 import { TransactionWizard } from "@/components/wizard";
 import { TransactionWizardData } from "@/types/wizard";
 import { createTransaction } from "@/integrations/supabase/transactionService";
+import { createTransactionWithDebtReceivable } from "@/integrations/supabase/transactionWithDebtReceivableService";
 import { useTransactions } from "@/context/TransactionContext";
 import { toast } from "@/components/ui/use-toast";
 
@@ -104,12 +105,31 @@ const Operations = () => {
         transfer_count: wizardData.transferCount ? parseInt(wizardData.transferCount) : undefined,
       };
 
-      await createTransaction(transactionData);
-      
-      toast({
-        title: "✅ Transacción creada exitosamente",
-        description: `Se registró la ${wizardData.transactionType} por ${wizardData.currency} ${wizardData.amount}`,
-      });
+      // Check if we should auto-create debt/receivable
+      if (wizardData.autoCreateDebtReceivable && wizardData.debtReceivableDueDate) {
+        await createTransactionWithDebtReceivable({
+          transaction: transactionData,
+          createDebtReceivable: true,
+          debtReceivableData: {
+            dueDate: wizardData.debtReceivableDueDate,
+            interestRate: parseFloat(wizardData.debtReceivableInterestRate || '0'),
+            notes: wizardData.debtReceivableNotes || ''
+          }
+        });
+
+        const debtReceivableType = ['purchase', 'expense'].includes(wizardData.transactionType || '') ? 'deuda' : 'cuenta por cobrar';
+        toast({
+          title: "✅ Transacción y " + debtReceivableType + " creadas exitosamente",
+          description: `Se registró la ${wizardData.transactionType} por ${wizardData.currency} ${wizardData.amount} y se creó la ${debtReceivableType} asociada`,
+        });
+      } else {
+        await createTransaction(transactionData);
+        
+        toast({
+          title: "✅ Transacción creada exitosamente",
+          description: `Se registró la ${wizardData.transactionType} por ${wizardData.currency} ${wizardData.amount}`,
+        });
+      }
       
       setIsWizardOpen(false);
     } catch (error) {

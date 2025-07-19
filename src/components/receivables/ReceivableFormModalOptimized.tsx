@@ -336,10 +336,10 @@ export const ReceivableFormModalOptimized: React.FC<ReceivableFormModalOptimized
           {/* Cuenta Bancaria */}
           <div className="grid gap-2">
             <Label className="text-sm font-medium">Cuenta Bancaria</Label>
-            <Select value={bankAccountId} onValueChange={(value) => {
-              setBankAccountId(value);
+            <Select value={bankAccountId || "none"} onValueChange={(value) => {
+              setBankAccountId(value === "none" ? "" : value);
               // Auto-seleccionar método de pago como transferencia
-              if (value && paymentMethod !== 'transfer') {
+              if (value && value !== "none" && paymentMethod !== 'transfer') {
                 setPaymentMethod('transfer');
               }
             }}>
@@ -347,7 +347,7 @@ export const ReceivableFormModalOptimized: React.FC<ReceivableFormModalOptimized
                 <SelectValue placeholder="Seleccionar cuenta..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Sin cuenta bancaria</SelectItem>
+                <SelectItem value="none">Sin cuenta bancaria</SelectItem>
                 {bankAccounts
                   .filter(account => {
                     if (paymentMethod === 'cash') {

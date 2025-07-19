@@ -55,6 +55,12 @@ export interface TransactionWizardData {
   notes?: string;
   bankCommission?: string;
   transferCount?: string;
+
+  // Auto crear deuda/cuenta por cobrar
+  autoCreateDebtReceivable?: boolean;
+  debtReceivableDueDate?: string;
+  debtReceivableInterestRate?: string;
+  debtReceivableNotes?: string;
 }
 
 export interface WizardContextType {

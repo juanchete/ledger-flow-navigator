@@ -194,12 +194,12 @@ export const DebtFormModalOptimized: React.FC<DebtFormModalOptimizedProps> = ({
           {/* Selección de Cliente (Opcional) */}
           <div className="grid gap-2">
             <Label className="text-sm font-medium">Cliente (Opcional)</Label>
-            <Select value={clientId} onValueChange={setClientId}>
+            <Select value={clientId || "none"} onValueChange={(value) => setClientId(value === "none" ? "" : value)}>
               <SelectTrigger className="h-10 sm:h-11">
                 <SelectValue placeholder="Seleccionar cliente" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Sin cliente</SelectItem>
+                <SelectItem value="none">Sin cliente</SelectItem>
                 {clients.map((client) => (
                   <SelectItem key={client.id} value={client.id}>
                     {client.name}
@@ -362,10 +362,10 @@ export const DebtFormModalOptimized: React.FC<DebtFormModalOptimizedProps> = ({
           {/* Cuenta Bancaria */}
           <div className="grid gap-2">
             <Label className="text-sm font-medium">Cuenta Bancaria</Label>
-            <Select value={bankAccountId} onValueChange={(value) => {
-              setBankAccountId(value);
+            <Select value={bankAccountId || "none"} onValueChange={(value) => {
+              setBankAccountId(value === "none" ? "" : value);
               // Auto-seleccionar método de pago como transferencia
-              if (value && paymentMethod !== 'transfer') {
+              if (value && value !== "none" && paymentMethod !== 'transfer') {
                 setPaymentMethod('transfer');
               }
             }}>
@@ -373,7 +373,7 @@ export const DebtFormModalOptimized: React.FC<DebtFormModalOptimizedProps> = ({
                 <SelectValue placeholder="Seleccionar cuenta..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Sin cuenta bancaria</SelectItem>
+                <SelectItem value="none">Sin cuenta bancaria</SelectItem>
                 {bankAccounts
                   .filter(account => {
                     if (paymentMethod === 'cash') {
