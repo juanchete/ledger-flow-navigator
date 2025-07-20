@@ -25,7 +25,7 @@ import {
   type BankAccountUpdate
 } from "@/integrations/supabase/bankAccountService";
 import { v4 as uuidv4 } from 'uuid';
-import { useExchangeRate } from "@/hooks/useExchangeRate";
+import { useExchangeRates } from "@/hooks/useExchangeRates";
 
 interface BankAccountFormData {
   bank: string;
@@ -51,7 +51,7 @@ const BankAccounts: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
   const { toast } = useToast();
-  const { convertVESToUSD } = useExchangeRate();
+  const { convertVESToUSD, rates } = useExchangeRates();
 
   const fetchAccounts = async () => {
     setLoading(true);
@@ -396,37 +396,35 @@ const BankAccounts: React.FC = () => {
               <Coins className="mr-2 h-4 w-4" />
               Total en VES
             </CardTitle>
-            <CardDescription>
-              <div className="text-xl sm:text-2xl font-bold">
-                Bs. {new Intl.NumberFormat('es-VE').format(totalVES)}
-              </div>
-              {convertVESToUSD && totalVES > 0 && (
-                <div className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
-                  <span>≈ {formatCurrency(convertVESToUSD(totalVES, 'parallel') || 0)} USD</span>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="cursor-help text-muted-foreground/70 hover:text-muted-foreground transition-colors">
-                        <HelpCircle className="h-3 w-3" />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <div className="text-sm">
-                        <p className="font-medium">Conversión VES → USD</p>
-                        <p>Tasa paralela actual</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          1 USD = {new Intl.NumberFormat('es-VE').format(convertVESToUSD(1, 'parallel', true) || 0)} VES
-                        </p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              )}
+            <CardDescription className="text-xl sm:text-2xl font-bold">
+              Bs. {new Intl.NumberFormat('es-VE').format(totalVES)}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-sm text-muted-foreground">
               {vesAccounts.length} cuenta{vesAccounts.length !== 1 ? 's' : ''}
             </div>
+            {convertVESToUSD && totalVES !== 0 && (
+              <div className="text-sm text-muted-foreground mt-2 flex items-center gap-1">
+                <span>≈ {formatCurrency(convertVESToUSD(totalVES, 'parallel') || 0)} USD</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-help text-muted-foreground/70 hover:text-muted-foreground transition-colors">
+                      <HelpCircle className="h-3 w-3" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="text-sm">
+                      <p className="font-medium">Conversión VES → USD</p>
+                      <p>Tasa paralela actual</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        1 USD = {rates ? new Intl.NumberFormat('es-VE').format(rates.usd_to_ves_parallel) : 'N/A'} VES
+                      </p>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -468,7 +466,7 @@ const BankAccounts: React.FC = () => {
                         <TableCell className="text-right font-semibold">
                           <div>
                             {formatCurrencyByType(account.amount, account.currency)}
-                            {account.currency === 'VES' && convertVESToUSD && account.amount > 0 && (
+                            {account.currency === 'VES' && convertVESToUSD && account.amount !== 0 && (
                               <div className="text-xs text-muted-foreground font-normal flex items-center gap-1">
                                 <span>≈ {formatCurrency(convertVESToUSD(account.amount, 'parallel') || 0)}</span>
                                 <Tooltip>
@@ -482,7 +480,7 @@ const BankAccounts: React.FC = () => {
                                       <p className="font-medium">Conversión VES → USD</p>
                                       <p>Tasa paralela actual</p>
                                       <p className="text-xs text-muted-foreground mt-1">
-                                        1 USD = {new Intl.NumberFormat('es-VE').format(convertVESToUSD(1, 'parallel', true) || 0)} VES
+                                        1 USD = {rates ? new Intl.NumberFormat('es-VE').format(rates.usd_to_ves_parallel) : 'N/A'} VES
                                       </p>
                                     </div>
                                   </TooltipContent>
@@ -566,7 +564,7 @@ const BankAccounts: React.FC = () => {
                         <span className="font-semibold text-lg block">
                           {formatCurrencyByType(account.amount, account.currency)}
                         </span>
-                        {account.currency === 'VES' && convertVESToUSD && account.amount > 0 && (
+                        {account.currency === 'VES' && convertVESToUSD && account.amount !== 0 && (
                           <div className="flex items-center gap-1">
                             <span className="text-xs text-muted-foreground">
                               ≈ {formatCurrency(convertVESToUSD(account.amount, 'parallel') || 0)}
@@ -582,7 +580,7 @@ const BankAccounts: React.FC = () => {
                                   <p className="font-medium">Conversión VES → USD</p>
                                   <p>Tasa paralela actual</p>
                                   <p className="text-xs text-muted-foreground mt-1">
-                                    1 USD = {new Intl.NumberFormat('es-VE').format(convertVESToUSD(1, 'parallel', true) || 0)} VES
+                                    1 USD = {rates ? new Intl.NumberFormat('es-VE').format(rates.usd_to_ves_parallel) : 'N/A'} VES
                                   </p>
                                 </div>
                               </TooltipContent>
