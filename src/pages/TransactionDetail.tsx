@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { ArrowLeft, BadgeDollarSign, Clock, Info, User, AlertTriangle, Edit, HelpCircle } from "lucide-react";
+import { ArrowLeft, BadgeDollarSign, Clock, Info, User, AlertTriangle, Edit, HelpCircle, Calculator, Landmark, CreditCard, Receipt, Percent } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,9 @@ import { useExchangeRate } from "@/hooks/useExchangeRate";
 import { Transaction, Client } from "@/types";
 import { TransactionFormOptimized } from "@/components/operations/TransactionFormOptimized";
 import { TransactionIndicators, getAmountColorClass } from "@/components/operations/TransactionIndicators";
+import { getBankAccounts } from "@/integrations/supabase/bankAccountService";
+import { getDebtById } from "@/integrations/supabase/debtService";
+import { getReceivableById } from "@/integrations/supabase/receivableService";
 
 const TransactionDetail = () => {
   const { transactionId } = useParams();
@@ -22,6 +25,11 @@ const TransactionDetail = () => {
   const { convertVESToUSD } = useExchangeRate();
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [client, setClient] = useState<Client | null>(null);
+  const [bankAccount, setBankAccount] = useState<any>(null);
+  const [destinationBankAccount, setDestinationBankAccount] = useState<any>(null);
+  const [debt, setDebt] = useState<any>(null);
+  const [receivable, setReceivable] = useState<any>(null);
+  const [rawTransactionData, setRawTransactionData] = useState<any>(null); // Para campos adicionales
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -38,6 +46,9 @@ const TransactionDetail = () => {
         if (!data) {
           throw new Error("Transacción no encontrada");
         }
+        
+        // Guardar los datos crudos para campos adicionales
+        setRawTransactionData(data);
         
         // Mapeo de campos snake_case a camelCase y conversión de fechas
         const mappedTransaction: Transaction = {
@@ -73,6 +84,40 @@ const TransactionDetail = () => {
             setClient(clientData);
           }
         }
+        
+        // Cargar información adicional
+        const loadAdditionalData = async () => {
+          try {
+            // Cargar cuentas bancarias
+            if (data.bank_account_id || data.destination_bank_account_id) {
+              const accounts = await getBankAccounts();
+              if (data.bank_account_id) {
+                const account = accounts.find(acc => acc.id === data.bank_account_id);
+                setBankAccount(account);
+              }
+              if (data.destination_bank_account_id) {
+                const destAccount = accounts.find(acc => acc.id === data.destination_bank_account_id);
+                setDestinationBankAccount(destAccount);
+              }
+            }
+            
+            // Cargar deuda si existe
+            if (data.debt_id) {
+              const debtData = await getDebtById(data.debt_id);
+              setDebt(debtData);
+            }
+            
+            // Cargar cuenta por cobrar si existe
+            if (data.receivable_id) {
+              const receivableData = await getReceivableById(data.receivable_id);
+              setReceivable(receivableData);
+            }
+          } catch (err) {
+            console.error("Error loading additional data:", err);
+          }
+        };
+        
+        loadAdditionalData();
         
         setError(null);
       } catch (err) {
@@ -255,9 +300,15 @@ const TransactionDetail = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Monto:</span>
-              <div className="flex items-center gap-2">
+            {/* Sección de Montos y Cálculos */}
+            <div className="bg-muted/30 p-4 rounded-lg space-y-3">
+              <h4 className="font-medium flex items-center gap-2 mb-3">
+                <Calculator className="h-4 w-4" />
+                Desglose de Montos
+              </h4>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Monto Original:</span>
                 <div className="flex items-center gap-1">
                   <span className={`font-medium ${getAmountColorClass(transaction.type)}`}>
                     {formatCurrency(transaction.amount, transaction.currency || 'USD')}
@@ -281,14 +332,38 @@ const TransactionDetail = () => {
                     </Tooltip>
                   )}
                 </div>
-                <TransactionIndicators
-                  transactionType={transaction.type}
-                  commission={transaction.commission}
-                  amount={transaction.amount}
-                  showLabels={true}
-                  size="md"
-                />
               </div>
+
+              {transaction.commission && transaction.commission > 0 && (
+                <>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground flex items-center gap-1">
+                      <Percent className="h-3 w-3" />
+                      Comisión Bancaria ({transaction.commission}%):
+                    </span>
+                    <span className="text-red-600 font-medium">
+                      + {formatCurrency((transaction.amount * transaction.commission) / 100, transaction.currency || 'USD')}
+                    </span>
+                  </div>
+                  
+                  <div className="border-t pt-2">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Total Debitado de la Cuenta:</span>
+                      <span className="font-bold text-lg text-red-600">
+                        {formatCurrency(transaction.amount + (transaction.amount * transaction.commission) / 100, transaction.currency || 'USD')}
+                      </span>
+                    </div>
+                    {transaction.currency === 'VES' && convertVESToUSD && (
+                      <div className="flex justify-between items-center text-sm text-muted-foreground mt-1">
+                        <span>Total Debitado en USD:</span>
+                        <span>
+                          ≈ {formatCurrency(convertVESToUSD(transaction.amount + (transaction.amount * transaction.commission) / 100, 'parallel') || 0, 'USD')}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
             
             <div className="flex justify-between items-center">
@@ -324,10 +399,141 @@ const TransactionDetail = () => {
               </div>
             )}
 
+            {transaction.installments && transaction.installments > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Número de Cuotas:</span>
+                <Badge variant="secondary">{transaction.installments} cuotas</Badge>
+              </div>
+            )}
+
+            {rawTransactionData?.transfer_count && rawTransactionData.transfer_count > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Número de Transferencias:</span>
+                <Badge variant="secondary">{rawTransactionData.transfer_count} {rawTransactionData.transfer_count === 1 ? 'transferencia' : 'transferencias'}</Badge>
+              </div>
+            )}
+
+            {rawTransactionData?.exchange_rate_id && (
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Tasa de Cambio:</span>
+                <Badge variant="outline">
+                  {rawTransactionData.exchange_rate ? `Bs. ${rawTransactionData.exchange_rate}/USD` : 'Aplicada'}
+                </Badge>
+              </div>
+            )}
+
             {transaction.category && (
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Categoría:</span>
                 <span>{transaction.category}</span>
+              </div>
+            )}
+
+            {/* Información de Cuentas Bancarias */}
+            {(bankAccount || destinationBankAccount) && (
+              <div className="pt-4 border-t space-y-3">
+                <h4 className="font-medium flex items-center gap-2">
+                  <Landmark className="h-4 w-4" />
+                  Cuentas Bancarias
+                </h4>
+                
+                {bankAccount && (
+                  <div className="bg-muted/30 p-3 rounded-md">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-sm font-medium">Cuenta Origen:</p>
+                        <p className="text-sm text-muted-foreground">{bankAccount.bank}</p>
+                        <p className="text-xs text-muted-foreground">{bankAccount.account_number}</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        {bankAccount.currency === 'VES' ? '🇻🇪 VES' : '💵 USD'}
+                      </Badge>
+                    </div>
+                  </div>
+                )}
+                
+                {destinationBankAccount && (
+                  <div className="bg-muted/30 p-3 rounded-md">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-sm font-medium">Cuenta Destino:</p>
+                        <p className="text-sm text-muted-foreground">{destinationBankAccount.bank}</p>
+                        <p className="text-xs text-muted-foreground">{destinationBankAccount.account_number}</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        {destinationBankAccount.currency === 'VES' ? '🇻🇪 VES' : '💵 USD'}
+                      </Badge>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Información de Deuda */}
+            {debt && (
+              <div className="pt-4 border-t">
+                <h4 className="font-medium flex items-center gap-2 mb-3">
+                  <Receipt className="h-4 w-4" />
+                  Deuda Relacionada
+                </h4>
+                <div className="bg-red-50 p-3 rounded-md space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Acreedor:</span>
+                    <span className="text-sm font-medium">{debt.creditor}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Monto Original:</span>
+                    <span className="text-sm font-medium">
+                      {formatCurrency(debt.amount, debt.currency || 'USD')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Estado:</span>
+                    <Badge variant={debt.status === 'pending' ? 'destructive' : 'default'} className="text-xs">
+                      {debt.status === 'pending' ? 'Pendiente' : 'Pagado'}
+                    </Badge>
+                  </div>
+                  {debt.due_date && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Vencimiento:</span>
+                      <span className="text-sm">{format(new Date(debt.due_date), 'dd/MM/yyyy')}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Información de Cuenta por Cobrar */}
+            {receivable && (
+              <div className="pt-4 border-t">
+                <h4 className="font-medium flex items-center gap-2 mb-3">
+                  <CreditCard className="h-4 w-4" />
+                  Cuenta por Cobrar Relacionada
+                </h4>
+                <div className="bg-green-50 p-3 rounded-md space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Deudor:</span>
+                    <span className="text-sm font-medium">{receivable.debtor}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Monto Original:</span>
+                    <span className="text-sm font-medium">
+                      {formatCurrency(receivable.amount, receivable.currency || 'USD')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Estado:</span>
+                    <Badge variant={receivable.status === 'pending' ? 'destructive' : 'default'} className="text-xs">
+                      {receivable.status === 'pending' ? 'Pendiente' : 'Cobrado'}
+                    </Badge>
+                  </div>
+                  {receivable.due_date && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Vencimiento:</span>
+                      <span className="text-sm">{format(new Date(receivable.due_date), 'dd/MM/yyyy')}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -340,6 +546,17 @@ const TransactionDetail = () => {
               <div className="pt-4 border-t">
                 <h4 className="font-medium mb-2">Notas Adicionales</h4>
                 <p className="text-muted-foreground">{transaction.notes}</p>
+              </div>
+            )}
+
+            {rawTransactionData?.denominations && (
+              <div className="pt-4 border-t">
+                <h4 className="font-medium mb-2">Denominaciones</h4>
+                <div className="bg-muted/30 p-3 rounded-md">
+                  <pre className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {JSON.stringify(rawTransactionData.denominations, null, 2)}
+                  </pre>
+                </div>
               </div>
             )}
           </CardContent>
