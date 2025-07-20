@@ -1,21 +1,25 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { ArrowLeft, BadgeDollarSign, Clock, Info, User, AlertTriangle, Edit } from "lucide-react";
+import { ArrowLeft, BadgeDollarSign, Clock, Info, User, AlertTriangle, Edit, HelpCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTransactions } from "@/context/TransactionContext";
 import { useClients } from "@/context/ClientContext";
+import { useExchangeRate } from "@/hooks/useExchangeRate";
 import { Transaction, Client } from "@/types";
 import { TransactionFormOptimized } from "@/components/operations/TransactionFormOptimized";
+import { TransactionIndicators, getAmountColorClass } from "@/components/operations/TransactionIndicators";
 
 const TransactionDetail = () => {
   const { transactionId } = useParams();
   const navigate = useNavigate();
   const { fetchTransactionById } = useTransactions();
   const { clients } = useClients();
+  const { convertVESToUSD } = useExchangeRate();
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,6 +62,7 @@ const TransactionDetail = () => {
           bankAccountId: data.bank_account_id,
           currency: data.currency,
           commission: data.commission,
+          exchangeRateId: data.exchange_rate_id,
         };
         setTransaction(mappedTransaction);
         
@@ -109,6 +114,7 @@ const TransactionDetail = () => {
             bankAccountId: data.bank_account_id,
             currency: data.currency,
             commission: data.commission,
+            exchangeRateId: data.exchange_rate_id,
           });
         }
       });
@@ -135,7 +141,13 @@ const TransactionDetail = () => {
     );
   }
   
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number, currency: string = 'USD') => {
+    if (currency === 'VES') {
+      return `Bs. ${new Intl.NumberFormat('es-VE', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(amount)}`;
+    }
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -207,21 +219,6 @@ const TransactionDetail = () => {
     }
   };
 
-  const getAmountColor = (type: string, amount: number) => {
-    switch (type) {
-      case 'sale':
-      case 'cash':
-      case 'payment':
-        return 'text-green-600'; // Ingresos
-      case 'purchase':
-      case 'expense':
-        return 'text-red-600'; // Egresos
-      case 'balance-change':
-        return 'text-blue-600'; // Transferencias
-      default:
-        return amount > 0 ? 'text-green-600' : 'text-red-600';
-    }
-  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -260,7 +257,38 @@ const TransactionDetail = () => {
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Monto:</span>
-              <span className={getAmountColor(transaction.type, transaction.amount)}>{formatCurrency(transaction.amount)}</span>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <span className={`font-medium ${getAmountColorClass(transaction.type)}`}>
+                    {formatCurrency(transaction.amount, transaction.currency || 'USD')}
+                  </span>
+                  {transaction.currency === 'VES' && convertVESToUSD && (
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <span className="cursor-help text-muted-foreground/70 hover:text-muted-foreground transition-colors">
+                          <HelpCircle className="h-3.5 w-3.5" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div className="text-sm">
+                          <p className="font-medium">Equivalente en USD</p>
+                          <p>≈ {formatCurrency(convertVESToUSD(transaction.amount, 'parallel') || 0, 'USD')}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Tasa paralela: 1 USD = {new Intl.NumberFormat('es-VE').format(convertVESToUSD(1, 'parallel', true) || 0)} VES
+                          </p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
+                <TransactionIndicators
+                  transactionType={transaction.type}
+                  commission={transaction.commission}
+                  amount={transaction.amount}
+                  showLabels={true}
+                  size="md"
+                />
+              </div>
             </div>
             
             <div className="flex justify-between items-center">
@@ -280,17 +308,19 @@ const TransactionDetail = () => {
               <span>{format(new Date(transaction.createdAt), 'PPP')}</span>
             </div>
 
+            {transaction.currency && (
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Moneda:</span>
+                <Badge variant="outline">
+                  {transaction.currency === 'VES' ? '🇻🇪 VES' : '💵 USD'}
+                </Badge>
+              </div>
+            )}
+
             {transaction.paymentMethod && (
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Método de Pago:</span>
                 <span>{transaction.paymentMethod}</span>
-              </div>
-            )}
-
-            {transaction.commission && transaction.commission > 0 && (
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Comisión:</span>
-                <span>{transaction.commission}%</span>
               </div>
             )}
 

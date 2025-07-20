@@ -3,11 +3,15 @@ import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { HelpCircle } from "lucide-react";
 import { useTransactions } from "@/context/TransactionContext";
 import { useClients } from "@/context/ClientContext";
+import { useExchangeRate } from "@/hooks/useExchangeRate";
 import { type Transaction } from "@/integrations/supabase/transactionService";
 import { Client } from "@/types";
 import { mockDetailedDebts, mockDetailedReceivables } from "@/data/mockData";
+import { TransactionIndicators, getAmountColorClass } from "./TransactionIndicators";
 
 interface TransactionsListProps {
   selectedType: string;
@@ -34,7 +38,13 @@ const normalizePaymentMethod = (method: string): string => {
   }
 };
 
-const formatCurrency = (amount: number) => {
+const formatCurrency = (amount: number, currency: string = 'USD') => {
+  if (currency === 'VES') {
+    return `Bs. ${new Intl.NumberFormat('es-VE', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount)}`;
+  }
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -146,6 +156,7 @@ const getTransactionIcon = (type: string) => {
 export const TransactionsList = ({ selectedType, searchQuery, selectedPaymentMethod }: TransactionsListProps) => {
   const { transactions, isLoading, error } = useTransactions();
   const { clients } = useClients();
+  const { convertVESToUSD } = useExchangeRate();
 
   // ✅ DEBUGGING: Según React docs - console.log para debuggear dependencias
   console.log('[DEBUG] TransactionsList dependencies:', {
@@ -279,8 +290,38 @@ export const TransactionsList = ({ selectedType, searchQuery, selectedPaymentMet
                     {transaction.date ? format(new Date(transaction.date), 'MMM d, yyyy') : 'Sin fecha'}
                   </div>
                   
-                  <div className="col-span-2 font-medium">
-                    {formatCurrency(transaction.amount)}
+                  <div className="col-span-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <span className={`font-medium ${getAmountColorClass(transaction.type || '')}`}>
+                          {formatCurrency(transaction.amount, transaction.currency || 'USD')}
+                        </span>
+                        {transaction.currency === 'VES' && convertVESToUSD && (
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <span className="cursor-help text-muted-foreground/70 hover:text-muted-foreground transition-colors">
+                                <HelpCircle className="h-3 w-3" />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <div className="text-sm">
+                                <p className="font-medium">Equivalente en USD</p>
+                                <p>≈ {formatCurrency(convertVESToUSD(transaction.amount, 'parallel') || 0, 'USD')}</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Tasa paralela: 1 USD = {new Intl.NumberFormat('es-VE').format(convertVESToUSD(1, 'parallel', true) || 0)} VES
+                                </p>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
+                      <TransactionIndicators
+                        transactionType={transaction.type}
+                        commission={transaction.commission}
+                        amount={transaction.amount}
+                        size="sm"
+                      />
+                    </div>
                   </div>
                   
                   <div className="col-span-2 text-sm">
@@ -348,7 +389,35 @@ export const TransactionsList = ({ selectedType, searchQuery, selectedPaymentMet
                   </div>
                   <div>
                     <span className="text-muted-foreground">Monto: </span>
-                    <span className="font-medium">{formatCurrency(transaction.amount)}</span>
+                    <div className="flex items-center gap-1 inline-flex">
+                      <span className={`font-medium ${getAmountColorClass(transaction.type || '')}`}>
+                        {formatCurrency(transaction.amount, transaction.currency || 'USD')}
+                      </span>
+                      {transaction.currency === 'VES' && convertVESToUSD && (
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <span className="cursor-help text-muted-foreground/70 hover:text-muted-foreground transition-colors">
+                              <HelpCircle className="h-3 w-3" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <div className="text-sm">
+                              <p className="font-medium">Equivalente en USD</p>
+                              <p>≈ {formatCurrency(convertVESToUSD(transaction.amount, 'parallel') || 0, 'USD')}</p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Tasa paralela: 1 USD = {new Intl.NumberFormat('es-VE').format(convertVESToUSD(1, 'parallel', true) || 0)} VES
+                              </p>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+                    <TransactionIndicators
+                      transactionType={transaction.type}
+                      commission={transaction.commission}
+                      amount={transaction.amount}
+                      size="sm"
+                    />
                   </div>
                   <div>
                     <span className="text-muted-foreground">Método: </span>

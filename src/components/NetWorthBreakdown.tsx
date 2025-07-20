@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronUp, DollarSign, Landmark, CreditCard, ArrowUp, ArrowDown } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ChevronDown, ChevronUp, DollarSign, Landmark, CreditCard, ArrowUp, ArrowDown, HelpCircle } from "lucide-react";
 import { useExchangeRates } from "@/hooks/useExchangeRates";
 
 interface BankAccountUI {
@@ -215,9 +216,24 @@ export const NetWorthBreakdown = ({
                     <Badge variant="outline" className="text-xs">
                       Bs. {new Intl.NumberFormat('es-VE').format(totalVES)}
                     </Badge>
-                    <Badge variant="secondary" className="text-xs">
-                      ≈ {formatCurrencyUSD(totalVESInUSD)}
-                    </Badge>
+                    <div className="flex items-center gap-1">
+                      <Badge variant="secondary" className="text-xs">
+                        ≈ {formatCurrencyUSD(totalVESInUSD)}
+                      </Badge>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <span className="cursor-help text-muted-foreground/70 hover:text-muted-foreground transition-colors">
+                            <HelpCircle className="h-3 w-3" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <div className="text-sm">
+                            <p className="font-medium">Conversión VES → USD</p>
+                            <p>Tasa paralela: Bs. {exchangeRates?.usd_to_ves_parallel.toFixed(2)}/USD</p>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
                   </div>
                   {vesAccounts.map((account) => (
                     <div key={account.id} className="flex items-center justify-between py-3 px-4 bg-blue-50 rounded-lg">
@@ -231,8 +247,21 @@ export const NetWorthBreakdown = ({
                         <div className="text-sm font-bold text-blue-700">
                           {formatCurrency(account.amount, 'VES')}
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          ≈ {formatCurrencyUSD(convertVESToUSD ? convertVESToUSD(account.amount, 'parallel') || 0 : 0)}
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          <span>≈ {formatCurrencyUSD(convertVESToUSD ? convertVESToUSD(account.amount, 'parallel') || 0 : 0)}</span>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="cursor-help">
+                                <HelpCircle className="h-2 w-2" />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <div className="text-sm">
+                                <p className="font-medium">Conversión VES → USD</p>
+                                <p>Tasa paralela: Bs. {exchangeRates?.usd_to_ves_parallel.toFixed(2)}/USD</p>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
                         </div>
                       </div>
                     </div>
@@ -319,9 +348,24 @@ export const NetWorthBreakdown = ({
                   <Badge variant="outline" className="text-xs">
                     Bs. {new Intl.NumberFormat('es-VE').format(totalVES)}
                   </Badge>
-                  <Badge variant="secondary" className="text-xs">
-                    ≈ {formatCurrencyUSD(totalVESInUSD)}
-                  </Badge>
+                  <div className="flex items-center gap-1">
+                    <Badge variant="secondary" className="text-xs">
+                      ≈ {formatCurrencyUSD(totalVESInUSD)}
+                    </Badge>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <span className="cursor-help text-muted-foreground/70 hover:text-muted-foreground transition-colors">
+                          <HelpCircle className="h-3 w-3" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div className="text-sm">
+                          <p className="font-medium">Conversión VES → USD</p>
+                          <p>Tasa paralela: Bs. {exchangeRates?.usd_to_ves_parallel.toFixed(2)}/USD</p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                 </div>
                 {vesAccounts.map((account) => (
                   <div key={account.id} className="flex items-center justify-between py-2 px-3 bg-blue-50 rounded-md">
@@ -335,8 +379,21 @@ export const NetWorthBreakdown = ({
                       <div className="text-sm font-bold text-blue-700">
                         {formatCurrency(account.amount, 'VES')}
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        ≈ {formatCurrencyUSD(convertVESToUSD ? convertVESToUSD(account.amount, 'parallel') || 0 : 0)}
+                      <div className="text-xs text-muted-foreground flex items-center gap-1">
+                        <span>≈ {formatCurrencyUSD(convertVESToUSD ? convertVESToUSD(account.amount, 'parallel') || 0 : 0)}</span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-help">
+                              <HelpCircle className="h-2 w-2" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <div className="text-sm">
+                              <p className="font-medium">Conversión VES → USD</p>
+                              <p>Tasa paralela: Bs. {exchangeRates?.usd_to_ves_parallel.toFixed(2)}/USD</p>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                     </div>
                   </div>

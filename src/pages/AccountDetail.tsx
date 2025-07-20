@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { useEffect, useState } from "react";
 import { getTransactionsByBankAccountId } from "@/integrations/supabase/transactionService";
 import type { Transaction } from "@/integrations/supabase/transactionService";
+import { TransactionIndicators, getAmountColorClass, getAmountBackgroundClass } from "@/components/operations/TransactionIndicators";
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -51,8 +52,10 @@ export default function AccountDetail() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Fecha</TableHead>
+                  <TableHead>Tipo</TableHead>
                   <TableHead>Descripción</TableHead>
                   <TableHead>Monto</TableHead>
+                  <TableHead>Comisión</TableHead>
                   <TableHead>Balance</TableHead>
                 </TableRow>
               </TableHeader>
@@ -60,20 +63,64 @@ export default function AccountDetail() {
                 {(() => {
                   let runningBalance = 0;
                   return transactions.map((transaction, idx) => {
-                    // Si la transacción tiene balance, úsalo; si no, calcula acumulando
-                    if (typeof transaction.balance === 'number') {
-                      runningBalance = transaction.balance;
-                    } else {
+                    // Calculate running balance based on transaction type
+                    const isIncome = ['sale', 'payment', 'cash', 'ingreso'].includes(transaction.type || '');
+                    if (isIncome) {
+                      runningBalance += transaction.amount;
+                    } else if (transaction.type !== 'balance-change') {
+                      runningBalance -= transaction.amount;
+                    }
+                    
+                    // For balance-change, the amount is already adjusted by the trigger
+                    if (transaction.type === 'balance-change') {
+                      // For balance changes, the trigger handles the amount adjustment
+                      // so we just add/subtract the amount as stored
                       runningBalance += transaction.amount;
                     }
+
+                    const getTransactionTypeLabel = (type: string) => {
+                      const labels: Record<string, string> = {
+                        'purchase': 'Compra',
+                        'sale': 'Venta',
+                        'cash': 'Efectivo',
+                        'balance-change': 'Transferencia',
+                        'expense': 'Gasto',
+                        'payment': 'Pago',
+                        'ingreso': 'Ingreso'
+                      };
+                      return labels[type] || type;
+                    };
+
                     return (
-                      <TableRow key={transaction.id}>
+                      <TableRow key={transaction.id} className={getAmountBackgroundClass(transaction.type || '', true)}>
                         <TableCell>{format(new Date(transaction.date), 'dd/MM/yyyy')}</TableCell>
-                        <TableCell>{transaction.description}</TableCell>
-                        <TableCell className={transaction.type === 'credit' ? 'text-green-600' : 'text-red-600'}>
-                          {transaction.type === 'credit' ? '+' : '-'} {formatCurrency(Math.abs(transaction.amount))}
+                        <TableCell className="font-medium">
+                          {getTransactionTypeLabel(transaction.type || '')}
                         </TableCell>
-                        <TableCell>{formatCurrency(runningBalance)}</TableCell>
+                        <TableCell>{transaction.description}</TableCell>
+                        <TableCell className={getAmountColorClass(transaction.type || '')}>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">
+                              {isIncome ? '+' : '-'} {formatCurrency(Math.abs(transaction.amount))}
+                            </span>
+                            <TransactionIndicators
+                              transactionType={transaction.type}
+                              commission={transaction.commission}
+                              amount={transaction.amount}
+                              size="sm"
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {transaction.commission && transaction.commission > 0 ? (
+                            <span className="text-sm text-muted-foreground">
+                              {transaction.commission}% ({formatCurrency((transaction.amount * transaction.commission) / 100)})
+                            </span>
+                          ) : (
+                            '-'
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium">{formatCurrency(runningBalance)}</TableCell>
                       </TableRow>
                     );
                   });
