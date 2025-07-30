@@ -32,6 +32,8 @@ import AllExpenses from "./pages/AllObras";
 import CreateInvestmentProject from "./pages/CreateObra";
 import InvestmentProjectDetail from "./pages/ObraDetail";
 import { TestFunctionality } from "./components/TestFunctionality";
+import Invoices from "./pages/Invoices";
+// import { SetupInvoices } from "./components/SetupInvoices";
 
 const queryClient = new QueryClient();
 
@@ -76,6 +78,8 @@ const App = () => (
                     <Route path="/obras" element={<AllExpenses />} />
                     <Route path="/obras/new" element={<CreateInvestmentProject />} />
                     <Route path="/obras/:id" element={<InvestmentProjectDetail />} />
+                    <Route path="/invoices" element={<Invoices />} />
+                    {/* <Route path="/setup-invoices" element={<SetupInvoices />} /> */}
                     <Route path="/test-functionality" element={<TestFunctionality />} />
                   </Route>
                   <Route path="*" element={<NotFound />} />

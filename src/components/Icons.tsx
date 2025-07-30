@@ -13,6 +13,7 @@ import {
   Calculator,
   Building,
   Receipt,
+  FileSpreadsheet,
   LucideIcon,
   LucideProps,
   Loader2,
@@ -37,6 +38,7 @@ type IconsType = {
   calculator: LucideIcon;
   building: LucideIcon;
   receipt: LucideIcon;
+  invoice: LucideIcon;
   spinner: LucideIcon;
 };
 
@@ -78,5 +80,6 @@ export const Icons: IconsType = {
   calculator: Calculator,
   building: Building,
   receipt: Receipt,
+  invoice: FileSpreadsheet,
   spinner: Loader2,
 };

@@ -46,6 +46,11 @@ const sidebarItems = [
     label: "Operaciones",
   },
   {
+    href: "/invoices",
+    icon: "invoice",
+    label: "Facturas",
+  },
+  {
     href: "/accounts",
     icon: "creditCard",
     label: "Cuentas Bancarias",

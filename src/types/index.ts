@@ -214,3 +214,6 @@ interface CommonTransactionFormData {
     | "ingreso";
   // ... existing code ...
 }
+
+// Export invoice types
+export * from './invoice';

@@ -1,0 +1,333 @@
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Loader2, Download, Eye, Building2, MapPin, Phone, Mail, Calendar, FileText } from 'lucide-react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { GeneratedInvoice, InvoiceCompany, InvoiceLineItem, InvoiceItemGenerationParams } from '@/types/invoice';
+import { generateInvoiceItems, getInvoiceCompany } from '@/integrations/supabase/invoiceService';
+import { InvoiceGenerator } from './InvoiceGenerator';
+import { toast } from '@/components/ui/use-toast';
+
+interface InvoicePreviewProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  amount: number;
+  currency: 'USD' | 'EUR' | 'VES' | 'COP';
+  companyId: string;
+  clientName?: string;
+  clientTaxId?: string;
+  clientAddress?: string;
+  clientPhone?: string;
+  clientEmail?: string;
+  onConfirm?: (items: Partial<InvoiceLineItem>[]) => void;
+}
+
+export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
+  open,
+  onOpenChange,
+  amount,
+  currency,
+  companyId,
+  clientName = 'Cliente General',
+  clientTaxId,
+  clientAddress,
+  clientPhone,
+  clientEmail,
+  onConfirm
+}) => {
+  const [loading, setLoading] = useState(true);
+  const [company, setCompany] = useState<InvoiceCompany | null>(null);
+  const [previewItems, setPreviewItems] = useState<Partial<InvoiceLineItem>[]>([]);
+  const [regenerating, setRegenerating] = useState(false);
+
+  useEffect(() => {
+    if (open && companyId) {
+      loadCompanyAndGenerateItems();
+    }
+  }, [open, companyId, amount]);
+
+  const loadCompanyAndGenerateItems = async () => {
+    setLoading(true);
+    try {
+      // Load company info
+      const companyData = await getInvoiceCompany(companyId);
+      if (!companyData) {
+        throw new Error('Company not found');
+      }
+      setCompany(companyData);
+
+      // Generate items
+      const params: InvoiceItemGenerationParams = {
+        companyType: companyData.type,
+        targetAmount: amount,
+        itemCount: Math.floor(Math.random() * 6) + 3, // 3-8 items
+        includeTax: true,
+        taxRate: 16
+      };
+
+      const items = await generateInvoiceItems(params);
+      setPreviewItems(items);
+    } catch (error) {
+      console.error('Error loading invoice preview:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo cargar la vista previa de la factura',
+        variant: 'destructive'
+      });
+      onOpenChange(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const regenerateItems = async () => {
+    if (!company) return;
+    
+    setRegenerating(true);
+    try {
+      const params: InvoiceItemGenerationParams = {
+        companyType: company.type,
+        targetAmount: amount,
+        itemCount: Math.floor(Math.random() * 6) + 3, // 3-8 items
+        includeTax: true,
+        taxRate: 16
+      };
+
+      const items = await generateInvoiceItems(params);
+      setPreviewItems(items);
+      
+      toast({
+        title: 'Items regenerados',
+        description: 'Se han generado nuevos items para la factura'
+      });
+    } catch (error) {
+      console.error('Error regenerating items:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudieron regenerar los items',
+        variant: 'destructive'
+      });
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  const handleConfirm = () => {
+    if (onConfirm) {
+      onConfirm(previewItems);
+    }
+    onOpenChange(false);
+  };
+
+  const formatCurrency = (value: number) => {
+    return `${currency} ${value.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  // Calculate totals
+  const subtotal = previewItems.reduce((sum, item) => sum + (item.subtotal || 0), 0);
+  const taxAmount = previewItems.reduce((sum, item) => sum + (item.taxAmount || 0), 0);
+  const total = subtotal + taxAmount;
+
+  // Mock invoice data for preview
+  const mockInvoice: GeneratedInvoice = {
+    id: 'preview',
+    userId: '',
+    companyId: companyId,
+    invoiceNumber: 'PREVIEW-2024-00001',
+    invoiceDate: new Date(),
+    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+    clientName: clientName,
+    clientTaxId: clientTaxId,
+    clientAddress: clientAddress,
+    clientPhone: clientPhone,
+    clientEmail: clientEmail,
+    subtotal: subtotal,
+    taxAmount: taxAmount,
+    totalAmount: total,
+    currency: currency,
+    status: 'draft',
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+
+  // Mock line items with IDs for preview
+  const mockLineItems: InvoiceLineItem[] = previewItems.map((item, index) => ({
+    id: `preview-item-${index}`,
+    invoiceId: 'preview',
+    ...item,
+    createdAt: new Date()
+  } as InvoiceLineItem));
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Vista Previa de Factura
+          </DialogTitle>
+        </DialogHeader>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : company && (
+          <ScrollArea className="h-[60vh] pr-4">
+            <div className="space-y-6">
+              {/* Company Header */}
+              <div className="flex justify-between items-start">
+                <div>
+                  <h2 className="text-2xl font-bold">{company.legalName}</h2>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                    <Building2 className="h-4 w-4" />
+                    <span>RIF: {company.taxId}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <MapPin className="h-4 w-4" />
+                    <span>{company.address}</span>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {company.city}, {company.state} {company.postalCode}
+                  </div>
+                  {company.phone && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Phone className="h-4 w-4" />
+                      <span>{company.phone}</span>
+                    </div>
+                  )}
+                  {company.email && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Mail className="h-4 w-4" />
+                      <span>{company.email}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-right">
+                  <h3 className="text-xl font-semibold">FACTURA</h3>
+                  <Badge variant="secondary" className="mt-1">Vista Previa</Badge>
+                  <div className="mt-2 space-y-1 text-sm">
+                    <div className="flex items-center gap-2 justify-end">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span>{format(new Date(), 'dd/MM/yyyy', { locale: es })}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Client Info */}
+              <div>
+                <h4 className="font-semibold mb-2">Facturar a:</h4>
+                <div className="text-sm space-y-1">
+                  <p className="font-medium">{clientName}</p>
+                  {clientTaxId && <p>RIF/CI: {clientTaxId}</p>}
+                  {clientAddress && <p>{clientAddress}</p>}
+                  {clientPhone && <p>Tel: {clientPhone}</p>}
+                  {clientEmail && <p>Email: {clientEmail}</p>}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Items Table */}
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="font-semibold">Items de la Factura</h4>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={regenerateItems}
+                    disabled={regenerating}
+                  >
+                    {regenerating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      'Regenerar Items'
+                    )}
+                  </Button>
+                </div>
+
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-muted">
+                      <tr>
+                        <th className="text-left p-3 text-sm font-medium">Descripción</th>
+                        <th className="text-center p-3 text-sm font-medium">Cant.</th>
+                        <th className="text-center p-3 text-sm font-medium">Unidad</th>
+                        <th className="text-right p-3 text-sm font-medium">Precio Unit.</th>
+                        <th className="text-right p-3 text-sm font-medium">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewItems.map((item, index) => (
+                        <tr key={index} className="border-t">
+                          <td className="p-3 text-sm">{item.description}</td>
+                          <td className="p-3 text-sm text-center">{item.quantity}</td>
+                          <td className="p-3 text-sm text-center">{item.unit}</td>
+                          <td className="p-3 text-sm text-right">
+                            {formatCurrency(item.unitPrice || 0)}
+                          </td>
+                          <td className="p-3 text-sm text-right">
+                            {formatCurrency(item.subtotal || 0)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Totals */}
+              <div className="flex justify-end">
+                <div className="w-64 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Subtotal:</span>
+                    <span>{formatCurrency(subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>IVA (16%):</span>
+                    <span>{formatCurrency(taxAmount)}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between font-semibold">
+                    <span>Total:</span>
+                    <span>{formatCurrency(total)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+        )}
+
+        <DialogFooter className="flex gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          
+          {company && (
+            <>
+              <InvoiceGenerator
+                invoice={mockInvoice}
+                company={company}
+                lineItems={mockLineItems}
+                fileName="factura-preview.pdf"
+              />
+              
+              <Button onClick={handleConfirm} disabled={loading}>
+                <Eye className="h-4 w-4 mr-2" />
+                Confirmar y Continuar
+              </Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
