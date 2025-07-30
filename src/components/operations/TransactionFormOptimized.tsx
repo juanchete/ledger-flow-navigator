@@ -27,6 +27,11 @@ import { getBankAccounts, BankAccountApp } from "@/integrations/supabase/bankAcc
 import { createTransactionWithDebtReceivable } from "@/integrations/supabase/transactionWithDebtReceivableService";
 import { useTransactions } from "@/context/TransactionContext";
 import type { Transaction } from "@/types";
+import { Switch } from "@/components/ui/switch";
+import { InvoiceCompanySelector } from "@/components/invoice/InvoiceCompanySelector";
+import { createInvoice } from "@/integrations/supabase/invoiceService";
+import { InvoiceGenerationRequest } from "@/types/invoice";
+import { getClientById } from "@/integrations/supabase/clientService";
 
 interface Denomination {
   id: string;
@@ -80,6 +85,11 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
   const [debtReceivableDueDate, setDebtReceivableDueDate] = useState('');
   const [debtReceivableInterestRate, setDebtReceivableInterestRate] = useState('0');
   const [debtReceivableNotes, setDebtReceivableNotes] = useState('');
+
+  // Estados para generación de factura
+  const [generateInvoice, setGenerateInvoice] = useState(false);
+  const [invoiceCompanyId, setInvoiceCompanyId] = useState('');
+  const [invoiceDueInDays, setInvoiceDueInDays] = useState('30');
 
   // Estados para los flujos interactivos
   const [showCashFlow, setShowCashFlow] = useState(false);
@@ -398,6 +408,16 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
       }
     }
 
+    // Validación de generación de factura
+    if (generateInvoice && transactionType === 'sale' && !invoiceCompanyId) {
+      toast({
+        title: "Error en generación de factura",
+        description: "Por favor seleccione una empresa para generar la factura.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Calcular monto final incluyendo número de transferencias y comisión por porcentaje
     let finalAmount = baseAmount;
     if (transactionType === 'balance-change') {
@@ -569,6 +589,51 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
           const result = await addTransaction(newTransaction);
           
           if (result) {
+            // Generate invoice if requested and transaction type is sale
+            if (generateInvoice && transactionType === 'sale' && invoiceCompanyId) {
+              try {
+                // Get client info
+                const clientInfo = selectedClient && selectedClient !== '' 
+                  ? await getClientById(selectedClient)
+                  : null;
+
+                const invoiceRequest: InvoiceGenerationRequest = {
+                  companyId: invoiceCompanyId,
+                  transactionId: result.id,
+                  clientId: selectedClient || undefined,
+                  clientName: clientInfo?.name || 'Cliente General',
+                  clientTaxId: clientInfo?.identificationDoc?.number,
+                  clientAddress: clientInfo?.address,
+                  clientPhone: clientInfo?.phone,
+                  clientEmail: clientInfo?.email,
+                  amount: finalAmount,
+                  currency: currency as 'USD' | 'EUR' | 'VES' | 'COP',
+                  exchangeRate: exchangeRateHook.useCustomRate ? exchangeRateHook.customRate : exchangeRateHook.exchangeRate,
+                  dueInDays: parseInt(invoiceDueInDays) || 30,
+                  notes: `Factura generada automáticamente para la transacción ${result.id}`,
+                  autoGenerateItems: true,
+                  useAIGeneration: true, // Use AI to generate invoice items
+                  itemCount: Math.floor(Math.random() * 6) + 3, // 3-8 items
+                  includeTax: true,
+                  taxRate: 16
+                };
+
+                const invoice = await createInvoice(invoiceRequest);
+                
+                toast({
+                  title: "Factura generada",
+                  description: `Se ha generado la factura ${invoice.invoiceNumber} exitosamente`,
+                });
+              } catch (error) {
+                console.error('Error generating invoice:', error);
+                toast({
+                  title: "Error al generar factura",
+                  description: "La transacción fue creada pero no se pudo generar la factura",
+                  variant: "destructive",
+                });
+              }
+            }
+
             // El toast de éxito ahora se maneja en el TransactionContext
             resetForm();
             if (onSuccess) {
@@ -613,6 +678,11 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
     setDebtReceivableDueDate('');
     setDebtReceivableInterestRate('0');
     setDebtReceivableNotes('');
+    
+    // Reset campos de generación de factura
+    setGenerateInvoice(false);
+    setInvoiceCompanyId('');
+    setInvoiceDueInDays('30');
     
     // Reset flujos interactivos - compra por defecto
     setShowCashFlow(false);
@@ -1101,6 +1171,56 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
         notes={debtReceivableNotes}
         onNotesChange={setDebtReceivableNotes}
       />
+      
+      {/* Generación de factura */}
+      {transactionType === 'sale' && (
+        <div className="space-y-4 border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="generate-invoice" className="text-base font-medium">
+                Generar Factura con IA
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Crear automáticamente una factura con items generados por inteligencia artificial
+              </p>
+            </div>
+            <Switch
+              id="generate-invoice"
+              checked={generateInvoice}
+              onCheckedChange={setGenerateInvoice}
+              disabled={loading}
+            />
+          </div>
+
+          {generateInvoice && (
+            <div className="space-y-4 pt-2">
+              <InvoiceCompanySelector
+                value={invoiceCompanyId}
+                onChange={setInvoiceCompanyId}
+                disabled={loading}
+              />
+
+              <div className="grid gap-2">
+                <Label htmlFor="invoice-due-days">Días de vencimiento</Label>
+                <Input
+                  id="invoice-due-days"
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={invoiceDueInDays}
+                  onChange={(e) => setInvoiceDueInDays(e.target.value)}
+                  placeholder="30"
+                  disabled={loading}
+                  className="h-10 sm:h-11"
+                />
+                <p className="text-xs text-muted-foreground">
+                  La factura vencerá en {invoiceDueInDays || '30'} días desde la fecha de emisión
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       
       {/* Notas */}
       <div className="w-full">

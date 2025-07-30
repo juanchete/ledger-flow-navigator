@@ -11,6 +11,7 @@ import {
   INVOICE_PREFIXES,
   INVOICE_ITEM_CATEGORIES
 } from "@/types/invoice";
+import { generateAIInvoiceItems, validateAIItems } from "@/services/aiInvoiceService";
 
 // Helper function to convert snake_case to camelCase
 const snakeToCamel = (obj: any): any => {
@@ -269,13 +270,38 @@ export const createInvoice = async (request: InvoiceGenerationRequest): Promise<
     const company = await getInvoiceCompany(request.companyId);
     if (!company) throw new Error('Company not found');
     
-    lineItems = await generateInvoiceItems({
+    const generationParams = {
       companyType: company.type,
       targetAmount: request.amount,
       itemCount: request.itemCount,
       includeTax: request.includeTax ?? true,
       taxRate: request.taxRate ?? 16
-    });
+    };
+    
+    // Try AI generation if requested
+    if (request.useAIGeneration) {
+      try {
+        const aiContext = {
+          currency: request.currency,
+          clientName: request.clientName,
+          language: 'es' as const
+        };
+        
+        lineItems = await generateAIInvoiceItems(generationParams, aiContext);
+        
+        // Validate AI-generated items
+        if (!validateAIItems(lineItems)) {
+          throw new Error('Invalid AI-generated items');
+        }
+      } catch (error) {
+        console.error('AI generation failed, falling back to catalog:', error);
+        // Fallback to catalog-based generation
+        lineItems = await generateInvoiceItems(generationParams);
+      }
+    } else {
+      // Use catalog-based generation
+      lineItems = await generateInvoiceItems(generationParams);
+    }
     
     // Calculate totals from generated items
     lineItems.forEach(item => {

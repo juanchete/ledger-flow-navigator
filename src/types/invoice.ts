@@ -133,6 +133,7 @@ export interface InvoiceGenerationRequest {
   notes?: string;
   // Auto-generation settings
   autoGenerateItems?: boolean;
+  useAIGeneration?: boolean; // Use AI for item generation
   itemCount?: number; // Number of items to generate (3-8 by default)
   includeTax?: boolean;
   taxRate?: number;

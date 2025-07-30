@@ -4,19 +4,14 @@ import { GeneratedInvoice, InvoiceCompany, InvoiceLineItem } from '@/types/invoi
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-// Register fonts if needed (optional)
-// Font.register({
-//   family: 'Roboto',
-//   src: 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-regular-webfont.ttf'
-// });
-
 // Define styles for the PDF
 const styles = StyleSheet.create({
   page: {
     flexDirection: 'column',
     backgroundColor: '#FFFFFF',
-    padding: 30,
+    padding: 40,
     fontFamily: 'Helvetica',
+    fontSize: 10,
   },
   header: {
     marginBottom: 20,
@@ -24,165 +19,179 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 15,
+  },
+  logoSection: {
+    width: 150,
+    marginRight: 20,
+  },
+  logo: {
+    width: 140,
+    height: 56,
   },
   companySection: {
     flex: 1,
   },
-  invoiceSection: {
-    flex: 1,
+  companyRightSection: {
+    width: 200,
     alignItems: 'flex-end',
   },
-  companyName: {
-    fontSize: 20,
+  companyTitle: {
+    fontSize: 11,
     fontWeight: 'bold',
-    color: '#1a1a1a',
-    marginBottom: 5,
+    marginBottom: 8,
   },
   companyDetails: {
-    fontSize: 10,
-    color: '#666666',
+    fontSize: 9,
+    marginBottom: 1,
+    lineHeight: 1.3,
+  },
+  controlInfo: {
+    marginTop: 15,
+    fontSize: 9,
+  },
+  controlRow: {
+    flexDirection: 'row',
     marginBottom: 2,
   },
-  invoiceTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1a1a1a',
-    marginBottom: 10,
+  controlLabel: {
+    width: 80,
   },
-  invoiceNumber: {
-    fontSize: 12,
-    color: '#333333',
-    marginBottom: 3,
+  controlValue: {
+    fontWeight: 'bold',
+    color: '#FF0000',
   },
   separator: {
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
-    marginVertical: 20,
+    borderBottomColor: '#000000',
+    marginVertical: 15,
   },
   billToSection: {
-    marginBottom: 20,
+    marginBottom: 15,
   },
   sectionTitle: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: 'bold',
-    color: '#1a1a1a',
     marginBottom: 5,
   },
   clientInfo: {
-    fontSize: 10,
-    color: '#333333',
+    fontSize: 9,
     marginBottom: 2,
+    lineHeight: 1.3,
   },
   table: {
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#000000',
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#F5F5F5',
-    padding: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
+    borderBottomColor: '#000000',
+    padding: 5,
   },
   tableHeaderCell: {
     fontSize: 10,
     fontWeight: 'bold',
-    color: '#333333',
+    paddingHorizontal: 5,
   },
   tableRow: {
     flexDirection: 'row',
-    padding: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    minHeight: 300, // Fixed height for content area
+    padding: 10,
+    alignItems: 'flex-start',
   },
   tableCell: {
-    fontSize: 10,
-    color: '#333333',
+    fontSize: 9,
+    paddingHorizontal: 5,
   },
   // Column widths
-  itemColumn: {
-    flex: 4,
-  },
   quantityColumn: {
-    flex: 1,
+    width: 60,
     textAlign: 'center',
   },
-  unitColumn: {
+  descriptionColumn: {
     flex: 1,
-    textAlign: 'center',
+    paddingRight: 10,
   },
   priceColumn: {
-    flex: 1.5,
+    width: 80,
     textAlign: 'right',
   },
   totalColumn: {
-    flex: 1.5,
+    width: 80,
     textAlign: 'right',
   },
   totalsSection: {
-    marginTop: 20,
     alignItems: 'flex-end',
+    marginBottom: 20,
   },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: 250,
-    marginBottom: 5,
+    width: 200,
+    marginBottom: 3,
   },
   totalLabel: {
     fontSize: 10,
-    color: '#666666',
+    textAlign: 'right',
+    marginRight: 20,
   },
   totalValue: {
     fontSize: 10,
-    color: '#333333',
     textAlign: 'right',
+    width: 100,
   },
   grandTotalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: 250,
-    marginTop: 5,
+    width: 200,
+    marginTop: 10,
     paddingTop: 5,
     borderTopWidth: 2,
-    borderTopColor: '#333333',
+    borderTopColor: '#000000',
   },
   grandTotalLabel: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 'bold',
-    color: '#1a1a1a',
   },
   grandTotalValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'right',
+    width: 100,
+  },
+  paymentConditions: {
+    marginTop: 20,
+    marginBottom: 30,
+  },
+  paymentConditionsText: {
+    fontSize: 9,
+  },
+  legalBox: {
+    marginTop: 30,
+    marginBottom: 20,
+    marginLeft: 0,
+    marginRight: 0,
+    borderWidth: 1,
+    borderColor: '#000000',
+    padding: 10,
+  },
+  legalText: {
+    fontSize: 8,
+    textAlign: 'center',
+    lineHeight: 1.4,
+    marginBottom: 2,
+  },
+  originalText: {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    textAlign: 'center',
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#1a1a1a',
-    textAlign: 'right',
-  },
-  notesSection: {
-    marginTop: 30,
-  },
-  notesText: {
-    fontSize: 10,
-    color: '#666666',
-    marginTop: 5,
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 30,
-    left: 30,
-    right: 30,
-  },
-  footerText: {
-    fontSize: 8,
-    color: '#999999',
-    textAlign: 'center',
-  },
-  logo: {
-    width: 100,
-    height: 40,
-    marginBottom: 10,
+    color: '#FF0000',
   },
 });
 
@@ -194,9 +203,23 @@ interface InvoicePDFProps {
 }
 
 const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice, company, lineItems }) => {
-  const formatCurrency = (amount: number, currency: string) => {
-    return `${currency} ${amount.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatCurrency = (amount: number, currency?: string) => {
+    const formattedNumber = amount.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return currency ? `${currency} ${formattedNumber}` : formattedNumber;
   };
+
+  // Generate control and invoice numbers
+  const controlNumber = invoice.id ? invoice.id.slice(-8).toUpperCase() : '00-000000';
+  const invoiceNumberFormatted = invoice.invoiceNumber || '00-000000';
+  const invoiceDate = format(new Date(invoice.invoiceDate), 'dd/MM/yyyy', { locale: es });
+
+  // Construction company logo as base64 SVG
+  const constructionLogoBase64 = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjgwIiB2aWV3Qm94PSIwIDAgMjAwIDgwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgogIDwhLS0gVG93ZXIgQ3JhbmUgU2lsaG91ZXR0ZSAtLT4KICA8ZyBmaWxsPSIjMWExYTFhIj4KICAgIDwhLS0gVmVydGljYWwgbWFzdCAtLT4KICAgIDxyZWN0IHg9IjMwIiB5PSIyMCIgd2lkdGg9IjQiIGhlaWdodD0iNDAiIC8+CiAgICAKICAgIDwhLS0gSG9yaXpvbnRhbCBqaWIgLS0+CiAgICA8cmVjdCB4PSIzMiIgeT0iMjAiIHdpZHRoPSI3MCIgaGVpZ2h0PSIzIiAvPgogICAgCiAgICA8IS0tIENvdW50ZXItamliIC0tPgogICAgPHJlY3QgeD0iMTAiIHk9IjIwIiB3aWR0aD0iMjIiIGhlaWdodD0iMyIgLz4KICAgIAogICAgPCEtLSBUaWUgcm9kcyAtLT4KICAgIDxwYXRoIGQ9Ik0zMiwyMCBMNTAsMTAgTDcwLDEwIEwxMDIsMjAiIHN0cm9rZT0iIzFhMWExYSIgc3Ryb2tlLXdpZHRoPSIxIiBmaWxsPSJub25lIi8+CiAgICA8cGF0aCBkPSJNMzIsMjAgTDIwLDEwIEwxMCwyMCIgc3Ryb2tlPSIjMWExYTFhIiBzdHJva2Utd2lkdGg9IjEiIGZpbGw9Im5vbmUiLz4KICAgIAogICAgPCEtLSBIb29rIGFuZCBjYWJsZSAtLT4KICAgIDxyZWN0IHg9IjkwIiB5PSIyMyIgd2lkdGg9IjEiIGhlaWdodD0iMTUiIC8+CiAgICA8cmVjdCB4PSI4OCIgeT0iMzgiIHdpZHRoPSI1IiBoZWlnaHQ9IjUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzFhMWExYSIgc3Ryb2tlLXdpZHRoPSIxIi8+CiAgICAKICAgIDwhLS0gQmFzZSAtLT4KICAgIDxyZWN0IHg9IjI1IiB5PSI2MCIgd2lkdGg9IjE0IiBoZWlnaHQ9IjMiIC8+CiAgPC9nPgogIAogIDwhLS0gQ29tcGFueSBUZXh0IC0tPgogIDx0ZXh0IHg9IjEyMCIgeT0iMzUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIyNCIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IiMxYTFhMWEiPk1YVDwvdGV4dD4KICA8dGV4dCB4PSIxMjAiIHk9IjUwIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTAiIGZpbGw9IiMxYTFhMWEiPkNPTlNUUlVDVE9SQTwvdGV4dD4KICA8dGV4dCB4PSIxMjAiIHk9IjYyIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iOCIgZmlsbD0iIzY2NiI+Si00MTI2NDcwNy01PC90ZXh0PgogIAogIDwhLS0gWWVhciAtLT4KICA8dGV4dCB4PSIxNzAiIHk9IjM1IiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiMxYTFhMWEiPjIwMjA8L3RleHQ+Cjwvc3ZnPg==';
+  
+  // Use construction logo for construction companies, otherwise use company logo or default
+  const logoUrl = company.type === 'construction' 
+    ? constructionLogoBase64 
+    : (company.logoUrl || constructionLogoBase64);
 
   return (
     <Document>
@@ -204,29 +227,45 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice, company, lineItems }) 
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerRow}>
-            {/* Company Info */}
-            <View style={styles.companySection}>
-              {company.logoUrl && (
-                <Image style={styles.logo} src={company.logoUrl} />
-              )}
-              <Text style={styles.companyName}>{company.legalName}</Text>
-              <Text style={styles.companyDetails}>RIF: {company.taxId}</Text>
-              <Text style={styles.companyDetails}>{company.address}</Text>
-              <Text style={styles.companyDetails}>{company.city}, {company.state} {company.postalCode}</Text>
-              {company.phone && <Text style={styles.companyDetails}>Tel: {company.phone}</Text>}
-              {company.email && <Text style={styles.companyDetails}>Email: {company.email}</Text>}
+            {/* Logo */}
+            <View style={styles.logoSection}>
+              <Image style={styles.logo} src={logoUrl} />
             </View>
 
-            {/* Invoice Info */}
-            <View style={styles.invoiceSection}>
-              <Text style={styles.invoiceTitle}>FACTURA</Text>
-              <Text style={styles.invoiceNumber}>Nº {invoice.invoiceNumber}</Text>
-              <Text style={styles.invoiceNumber}>
-                Fecha: {format(new Date(invoice.invoiceDate), 'dd/MM/yyyy', { locale: es })}
-              </Text>
-              <Text style={styles.invoiceNumber}>
-                Vence: {format(new Date(invoice.dueDate), 'dd/MM/yyyy', { locale: es })}
-              </Text>
+            {/* Left Company Info */}
+            <View style={styles.companySection}>
+              <Text style={styles.sectionTitle}>De</Text>
+              <Text style={styles.companyTitle}>{company.legalName}</Text>
+              <Text style={styles.companyDetails}>{company.address}</Text>
+              <Text style={styles.companyDetails}>{company.city} - {company.state}</Text>
+              <Text style={styles.companyDetails}>Código Postal {company.postalCode}</Text>
+              <Text style={styles.companyDetails}>Telf: {company.phone}</Text>
+              <Text style={styles.companyDetails}>e-mail: {company.email}</Text>
+            </View>
+
+            {/* Right Company Info */}
+            <View style={styles.companyRightSection}>
+              <Text style={styles.companyTitle}>{company.name}</Text>
+              <Text style={styles.companyDetails}>Rif: {company.taxId}</Text>
+              <Text style={styles.companyDetails}>{company.address}</Text>
+              <Text style={styles.companyDetails}>{company.city} {company.postalCode}</Text>
+              <Text style={styles.companyDetails}>{company.phone}</Text>
+              <Text style={styles.companyDetails}>email:{company.email}</Text>
+              
+              <View style={styles.controlInfo}>
+                <View style={styles.controlRow}>
+                  <Text style={styles.controlLabel}>N° de control</Text>
+                  <Text style={styles.controlValue}>{controlNumber}</Text>
+                </View>
+                <View style={styles.controlRow}>
+                  <Text style={styles.controlLabel}>N° de factura</Text>
+                  <Text style={styles.controlValue}>{invoiceNumberFormatted}</Text>
+                </View>
+                <View style={styles.controlRow}>
+                  <Text style={styles.controlLabel}>Fecha</Text>
+                  <Text style={styles.companyDetails}>{invoiceDate}</Text>
+                </View>
+              </View>
             </View>
           </View>
         </View>
@@ -235,85 +274,90 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice, company, lineItems }) 
 
         {/* Bill To Section */}
         <View style={styles.billToSection}>
-          <Text style={styles.sectionTitle}>FACTURAR A:</Text>
-          <Text style={styles.clientInfo}>{invoice.clientName}</Text>
-          {invoice.clientTaxId && <Text style={styles.clientInfo}>RIF/CI: {invoice.clientTaxId}</Text>}
-          {invoice.clientAddress && <Text style={styles.clientInfo}>{invoice.clientAddress}</Text>}
+          <Text style={styles.sectionTitle}>Facturar a</Text>
+          <Text style={styles.companyTitle}>{invoice.clientName}</Text>
+          <Text style={styles.clientInfo}>J-{invoice.clientTaxId || '00000000-0'}</Text>
+          <Text style={styles.clientInfo}>{invoice.clientAddress || 'Caracas - Venezuela'}</Text>
           {invoice.clientPhone && <Text style={styles.clientInfo}>Tel: {invoice.clientPhone}</Text>}
-          {invoice.clientEmail && <Text style={styles.clientInfo}>Email: {invoice.clientEmail}</Text>}
         </View>
 
         {/* Items Table */}
         <View style={styles.table}>
           {/* Table Header */}
           <View style={styles.tableHeader}>
-            <Text style={[styles.tableHeaderCell, styles.itemColumn]}>Descripción</Text>
-            <Text style={[styles.tableHeaderCell, styles.quantityColumn]}>Cant.</Text>
-            <Text style={[styles.tableHeaderCell, styles.unitColumn]}>Unidad</Text>
-            <Text style={[styles.tableHeaderCell, styles.priceColumn]}>Precio Unit.</Text>
-            <Text style={[styles.tableHeaderCell, styles.totalColumn]}>Total</Text>
+            <Text style={[styles.tableHeaderCell, styles.quantityColumn]}>Cantidad</Text>
+            <Text style={[styles.tableHeaderCell, styles.descriptionColumn]}>Descripción</Text>
+            <Text style={[styles.tableHeaderCell, styles.priceColumn]}>Precio Unitario</Text>
+            <Text style={[styles.tableHeaderCell, styles.totalColumn]}>Importe</Text>
           </View>
 
-          {/* Table Rows */}
-          {lineItems
-            .sort((a, b) => a.sortOrder - b.sortOrder)
-            .map((item, index) => (
-              <View key={item.id || index} style={styles.tableRow}>
-                <Text style={[styles.tableCell, styles.itemColumn]}>{item.description}</Text>
-                <Text style={[styles.tableCell, styles.quantityColumn]}>{item.quantity}</Text>
-                <Text style={[styles.tableCell, styles.unitColumn]}>{item.unit}</Text>
-                <Text style={[styles.tableCell, styles.priceColumn]}>
-                  {formatCurrency(item.unitPrice, invoice.currency)}
-                </Text>
-                <Text style={[styles.tableCell, styles.totalColumn]}>
-                  {formatCurrency(item.subtotal, invoice.currency)}
-                </Text>
-              </View>
-            ))}
+          {/* Table Content */}
+          <View style={styles.tableRow}>
+            <View style={styles.quantityColumn}>
+              <Text style={styles.tableCell}>1</Text>
+            </View>
+            
+            <View style={styles.descriptionColumn}>
+              <Text style={styles.tableCell}>
+                {lineItems.length > 0 
+                  ? lineItems.map(item => item.description.toUpperCase()).join(' - ')
+                  : 'SERVICIOS PROFESIONALES'}
+              </Text>
+            </View>
+            
+            <View style={styles.priceColumn}>
+              <Text style={styles.tableCell}>
+                {formatCurrency(invoice.subtotal)}
+              </Text>
+            </View>
+            
+            <View style={styles.totalColumn}>
+              <Text style={styles.tableCell}>
+                {formatCurrency(invoice.subtotal)}
+              </Text>
+            </View>
+          </View>
         </View>
 
         {/* Totals Section */}
         <View style={styles.totalsSection}>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Subtotal:</Text>
-            <Text style={styles.totalValue}>{formatCurrency(invoice.subtotal, invoice.currency)}</Text>
+            <Text style={styles.totalValue}>{formatCurrency(invoice.subtotal)}</Text>
           </View>
           
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>IVA (16%):</Text>
-            <Text style={styles.totalValue}>{formatCurrency(invoice.taxAmount, invoice.currency)}</Text>
+            <Text style={styles.totalLabel}>IVA 16.0%:</Text>
+            <Text style={styles.totalValue}>{formatCurrency(invoice.taxAmount)}</Text>
           </View>
           
           <View style={styles.grandTotalRow}>
-            <Text style={styles.grandTotalLabel}>TOTAL:</Text>
-            <Text style={styles.grandTotalValue}>{formatCurrency(invoice.totalAmount, invoice.currency)}</Text>
+            <Text style={styles.grandTotalLabel}>Total</Text>
+            <Text style={styles.grandTotalValue}>{formatCurrency(invoice.totalAmount)}</Text>
           </View>
-
-          {invoice.exchangeRate && invoice.currency === 'VES' && (
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Tasa de cambio:</Text>
-              <Text style={styles.totalValue}>1 USD = {invoice.exchangeRate} VES</Text>
-            </View>
-          )}
         </View>
 
-        {/* Notes Section */}
-        {invoice.notes && (
-          <View style={styles.notesSection}>
-            <Text style={styles.sectionTitle}>Notas:</Text>
-            <Text style={styles.notesText}>{invoice.notes}</Text>
-          </View>
-        )}
+        {/* Payment Conditions */}
+        <View style={styles.paymentConditions}>
+          <Text style={styles.sectionTitle}>Condiciones y forma de pago</Text>
+          <Text style={styles.paymentConditionsText}>100%</Text>
+        </View>
 
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Esta factura fue generada electrónicamente y es válida sin firma.
+        {/* Legal Box */}
+        <View style={styles.legalBox}>
+          <Text style={styles.legalText}>
+            SEGUN GACETA OFICIAL 39.795 DE FECHA 08/11/2011 , PROVIDENCIA ADMINISTRATIVA N°071 , DEBE CUMPLIR CON LA LEY.
           </Text>
-          <Text style={styles.footerText}>
-            {company.name} - {company.website || company.email}
+          <Text style={styles.legalText}>
+            Telfs.: (0212) 870.48.83 / 870.48.91 - 6316 DOCUMENTO VÁ SIN TACHADURAS NI ENMENDADURAS./ Cantidad enmenda: 100
+          </Text>
+          <Text style={styles.legalText}>
+            Fecha: 25-02-2022 - Control: 00-00152 desde el N°00-00300    Fecha Límite: Providencia  SENAIT: 01000001 / Régimen Capital Gaceta desde el Nº 22-02-2008
           </Text>
         </View>
+
+        {/* Original Text */}
+        <Text style={styles.originalText}>ORIGINAL</Text>
       </Page>
     </Document>
   );
