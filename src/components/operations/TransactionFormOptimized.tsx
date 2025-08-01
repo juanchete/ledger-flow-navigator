@@ -29,8 +29,9 @@ import { useTransactions } from "@/context/TransactionContext";
 import type { Transaction } from "@/types";
 import { Switch } from "@/components/ui/switch";
 import { InvoiceCompanySelector } from "@/components/invoice/InvoiceCompanySelector";
+import { InvoicePreview } from "@/components/invoice/InvoicePreview";
 import { createInvoice } from "@/integrations/supabase/invoiceService";
-import { InvoiceGenerationRequest } from "@/types/invoice";
+import { InvoiceGenerationRequest, InvoiceLineItem } from "@/types/invoice";
 import { getClientById } from "@/integrations/supabase/clientService";
 
 interface Denomination {
@@ -99,6 +100,11 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
   const [showPaymentFlow, setShowPaymentFlow] = useState(false);
   const [showIngresoFlow, setShowIngresoFlow] = useState(false);
   const [showPagoFlow, setShowPagoFlow] = useState(true);
+  
+  // Estados para la vista previa de factura
+  const [showInvoicePreview, setShowInvoicePreview] = useState(false);
+  const [pendingTransactionData, setPendingTransactionData] = useState<any>(null);
+  const [previewClientInfo, setPreviewClientInfo] = useState<any>(null);
   
   const [operationData, setOperationData] = useState<{
     type: 'sale' | 'purchase' | 'payment' | 'expense';
@@ -418,6 +424,48 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
       return;
     }
 
+    // Si se debe generar factura, mostrar vista previa en lugar de guardar directamente
+    if (generateInvoice && transactionType === 'sale' && invoiceCompanyId) {
+      // Obtener información del cliente si está seleccionado
+      let clientInfo = null;
+      if (selectedClient && selectedClient !== '') {
+        try {
+          clientInfo = await getClientById(selectedClient);
+          setPreviewClientInfo(clientInfo);
+        } catch (error) {
+          console.error('Error loading client info:', error);
+        }
+      }
+      
+      // Guardar todos los datos de la transacción para usarlos después
+      const transactionData = {
+        transactionType,
+        baseAmount,
+        finalAmount: baseAmount, // Para ventas no hay comisiones ni multiplicadores
+        reference,
+        date,
+        category,
+        notes,
+        method,
+        selectedClient,
+        selectedBankAccount,
+        currency,
+        commission: method === 'transfer' && commission ? parseFloat(commission) : null,
+        operationData,
+        autoCreateDebtReceivable,
+        debtReceivableDueDate,
+        debtReceivableInterestRate,
+        debtReceivableNotes,
+        invoiceCompanyId,
+        invoiceDueInDays,
+        exchangeRate: exchangeRateHook.useCustomRate ? exchangeRateHook.customRate : exchangeRateHook.exchangeRate
+      };
+      
+      setPendingTransactionData(transactionData);
+      setShowInvoicePreview(true);
+      return;
+    }
+
     // Calcular monto final incluyendo número de transferencias y comisión por porcentaje
     let finalAmount = baseAmount;
     if (transactionType === 'balance-change') {
@@ -649,6 +697,113 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
     } catch (error) {
       console.error("Error al crear la transacción:", error);
       // El toast de error se maneja en el TransactionContext
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para manejar la confirmación de la factura desde la vista previa
+  const handleInvoiceConfirm = async (invoiceItems: Partial<InvoiceLineItem>[]) => {
+    if (!pendingTransactionData) return;
+    
+    setShowInvoicePreview(false);
+    setLoading(true);
+
+    try {
+      const now = new Date().toISOString();
+      
+      const newTransaction = {
+        id: uuidv4(),
+        type: pendingTransactionData.transactionType,
+        amount: pendingTransactionData.finalAmount,
+        description: pendingTransactionData.reference,
+        date: pendingTransactionData.date,
+        status: "completed" as const,
+        category: pendingTransactionData.category || null,
+        notes: pendingTransactionData.notes || null,
+        payment_method: pendingTransactionData.method || null,
+        client_id: pendingTransactionData.selectedClient || null,
+        bank_account_id: pendingTransactionData.selectedBankAccount || null,
+        currency: pendingTransactionData.currency,
+        exchange_rate_id: null, // La tasa se maneja en el backend
+        created_at: now,
+        updated_at: now,
+        receipt: null,
+        denominations: null,
+        commission: pendingTransactionData.commission,
+        // Campos específicos para balance-change
+        bank_commission: null,
+        transfer_count: null,
+        destination_bank_account_id: null,
+        // Campos específicos para operaciones de efectivo
+        debt_id: pendingTransactionData.operationData?.relatedType === 'debt' ? pendingTransactionData.operationData.relatedId : null,
+        receivable_id: pendingTransactionData.operationData?.relatedType === 'receivable' ? pendingTransactionData.operationData.relatedId : null,
+      };
+
+      // Crear la transacción
+      const result = await addTransaction(newTransaction);
+      
+      if (result) {
+        // Generar la factura con los items confirmados
+        try {
+          // Get client info
+          const clientInfo = pendingTransactionData.selectedClient && pendingTransactionData.selectedClient !== '' 
+            ? await getClientById(pendingTransactionData.selectedClient)
+            : null;
+
+          const invoiceRequest: InvoiceGenerationRequest = {
+            companyId: pendingTransactionData.invoiceCompanyId,
+            transactionId: result.id,
+            clientId: pendingTransactionData.selectedClient || undefined,
+            clientName: clientInfo?.name || 'Cliente General',
+            clientTaxId: clientInfo?.identificationDoc?.number,
+            clientAddress: clientInfo?.address,
+            clientPhone: clientInfo?.phone,
+            clientEmail: clientInfo?.email,
+            amount: pendingTransactionData.finalAmount,
+            currency: pendingTransactionData.currency as 'USD' | 'EUR' | 'VES' | 'COP',
+            exchangeRate: pendingTransactionData.exchangeRate,
+            dueInDays: parseInt(pendingTransactionData.invoiceDueInDays) || 30,
+            notes: `Factura generada automáticamente para la transacción ${result.id}`,
+            autoGenerateItems: true,
+            useAIGeneration: true,
+            itemCount: invoiceItems.length, // Usar el número de items confirmados
+            includeTax: true,
+            taxRate: 16
+          };
+
+          const invoice = await createInvoice(invoiceRequest);
+          
+          toast({
+            title: "¡Éxito!",
+            description: `Transacción creada y factura ${invoice.invoiceNumber} generada exitosamente`,
+          });
+        } catch (error) {
+          console.error('Error generating invoice:', error);
+          toast({
+            title: "Error al generar factura",
+            description: "La transacción fue creada pero no se pudo generar la factura",
+            variant: "destructive",
+          });
+        }
+
+        resetForm();
+        setPendingTransactionData(null);
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          navigate(`/operations/transaction/${result.id}`);
+        }
+      } else {
+        throw new Error("No se pudo crear la transacción");
+      }
+    } catch (error) {
+      console.error("Error al crear la transacción:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo crear la transacción",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -1258,6 +1413,29 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
             </Button>
           </div>
         </>
+      )}
+
+      {/* Vista previa de factura */}
+      {pendingTransactionData && (
+        <InvoicePreview
+          open={showInvoicePreview}
+          onOpenChange={(open) => {
+            setShowInvoicePreview(open);
+            if (!open) {
+              setPendingTransactionData(null);
+              setPreviewClientInfo(null);
+            }
+          }}
+          amount={pendingTransactionData.finalAmount}
+          currency={pendingTransactionData.currency}
+          companyId={pendingTransactionData.invoiceCompanyId}
+          clientName={previewClientInfo?.name || 'Cliente General'}
+          clientTaxId={previewClientInfo?.identificationDoc?.number}
+          clientAddress={previewClientInfo?.address}
+          clientPhone={previewClientInfo?.phone}
+          clientEmail={previewClientInfo?.email}
+          onConfirm={handleInvoiceConfirm}
+        />
       )}
     </div>
   );

@@ -162,34 +162,77 @@ export const generateInvoiceItems = async (params: InvoiceItemGenerationParams):
     throw new Error('No items found in catalog for company type');
   }
 
-  // Group items by category
+  // Calculate target amount per item (before tax)
+  const targetSubtotal = params.includeTax 
+    ? params.targetAmount / (1 + params.taxRate / 100)
+    : params.targetAmount;
+
+  // Determine realistic price ranges based on total amount
+  let priceRange: { min: number; max: number };
+  let suggestedItemCount: number;
+  
+  if (targetSubtotal < 50) {
+    // Very small invoice - basic supplies
+    priceRange = { min: 0.5, max: 15 };
+    suggestedItemCount = 2 + Math.floor(Math.random() * 2); // 2-3 items
+  } else if (targetSubtotal < 200) {
+    // Small invoice - mix of supplies and small services
+    priceRange = { min: 5, max: 50 };
+    suggestedItemCount = 3 + Math.floor(Math.random() * 3); // 3-5 items
+  } else if (targetSubtotal < 1000) {
+    // Medium invoice - services and materials
+    priceRange = { min: 20, max: 200 };
+    suggestedItemCount = 4 + Math.floor(Math.random() * 4); // 4-7 items
+  } else if (targetSubtotal < 5000) {
+    // Large invoice - professional services or bulk materials
+    priceRange = { min: 50, max: 500 };
+    suggestedItemCount = 5 + Math.floor(Math.random() * 5); // 5-9 items
+  } else {
+    // Very large invoice - major projects
+    priceRange = { min: 100, max: 2000 };
+    suggestedItemCount = 6 + Math.floor(Math.random() * 6); // 6-11 items
+  }
+
+  // Use suggested count or parameter count
+  const itemCount = params.itemCount || suggestedItemCount;
+
+  // Filter catalog items by price range
+  const affordableItems = catalogItems.filter(item => 
+    item.maxPrice >= priceRange.min && item.minPrice <= priceRange.max
+  );
+
+  if (affordableItems.length === 0) {
+    // Fallback to all items if no affordable ones found
+    affordableItems.push(...catalogItems);
+  }
+
+  // Group filtered items by category
   const itemsByCategory: Record<string, InvoiceItemCatalog[]> = {};
-  catalogItems.forEach(item => {
+  affordableItems.forEach(item => {
     if (!itemsByCategory[item.category]) {
       itemsByCategory[item.category] = [];
     }
     itemsByCategory[item.category].push(item);
   });
 
-  // Determine number of items to generate
-  const itemCount = params.itemCount || Math.floor(Math.random() * 6) + 3; // 3-8 items
   const items: Partial<InvoiceLineItem>[] = [];
-  
-  // Calculate target amount per item (before tax)
-  const targetSubtotal = params.includeTax 
-    ? params.targetAmount / (1 + params.taxRate / 100)
-    : params.targetAmount;
-  
   let remainingAmount = targetSubtotal;
   const categories = Object.keys(itemsByCategory);
+  const usedItems = new Set<string>(); // Track used items to avoid duplicates
 
-  for (let i = 0; i < itemCount; i++) {
+  for (let i = 0; i < itemCount && remainingAmount > 0; i++) {
     // Select random category
     const category = categories[Math.floor(Math.random() * categories.length)];
-    const categoryItems = itemsByCategory[category];
+    const categoryItems = itemsByCategory[category].filter(item => !usedItems.has(item.id));
+    
+    if (categoryItems.length === 0) {
+      // If all items in category are used, allow duplicates
+      categoryItems.push(...itemsByCategory[category]);
+    }
     
     // Select random item from category
     const catalogItem = categoryItems[Math.floor(Math.random() * categoryItems.length)];
+    usedItems.add(catalogItem.id);
     
     // Calculate quantity and price
     const isLastItem = i === itemCount - 1;
@@ -197,18 +240,28 @@ export const generateInvoiceItems = async (params: InvoiceItemGenerationParams):
       ? remainingAmount 
       : remainingAmount * (0.15 + Math.random() * 0.35); // 15-50% of remaining
     
-    // Generate price within item's range
-    const unitPrice = catalogItem.minPrice + 
-      Math.random() * (catalogItem.maxPrice - catalogItem.minPrice);
+    // Generate price within item's range and price constraints
+    const adjustedMinPrice = Math.max(catalogItem.minPrice, priceRange.min);
+    const adjustedMaxPrice = Math.min(catalogItem.maxPrice, priceRange.max);
+    const unitPrice = adjustedMinPrice + 
+      Math.random() * (adjustedMaxPrice - adjustedMinPrice);
     
     // Calculate quantity based on target amount and unit price
     let quantity = Math.max(1, Math.round(itemTargetAmount / unitPrice));
     
-    // Adjust quantity for realistic values based on unit type
+    // Adjust quantity for realistic values based on unit type and total amount
     if (catalogItem.unit === 'hora' || catalogItem.unit === 'día') {
-      quantity = Math.min(quantity, 8); // Max 8 hours/days
+      // For time-based units, be more conservative
+      const maxTime = targetSubtotal < 500 ? 8 : targetSubtotal < 2000 ? 20 : 40;
+      quantity = Math.min(quantity, maxTime);
     } else if (catalogItem.unit === 'm³' || catalogItem.unit === 'm²') {
-      quantity = Math.min(quantity, 100); // Max 100 cubic/square meters
+      // For area/volume units, scale with invoice size
+      const maxVolume = targetSubtotal < 500 ? 10 : targetSubtotal < 2000 ? 50 : 200;
+      quantity = Math.min(quantity, maxVolume);
+    } else if (catalogItem.unit === 'unidad' || catalogItem.unit === 'paquete') {
+      // For units/packages, ensure reasonable quantities
+      const maxUnits = targetSubtotal < 200 ? 20 : targetSubtotal < 1000 ? 100 : 500;
+      quantity = Math.min(quantity, maxUnits);
     }
     
     const subtotal = quantity * unitPrice;
@@ -236,6 +289,12 @@ export const generateInvoiceItems = async (params: InvoiceItemGenerationParams):
     const lastItem = items[items.length - 1];
     lastItem.subtotal! += remainingAmount;
     lastItem.quantity = parseFloat((lastItem.subtotal! / lastItem.unitPrice!).toFixed(2));
+    
+    // Ensure quantity is at least 1
+    if (lastItem.quantity < 1) {
+      lastItem.quantity = 1;
+      lastItem.unitPrice = lastItem.subtotal!;
+    }
     
     if (params.includeTax) {
       lastItem.taxAmount = parseFloat((lastItem.subtotal! * params.taxRate / 100).toFixed(2));

@@ -9,17 +9,20 @@ const styles = StyleSheet.create({
   page: {
     flexDirection: 'column',
     backgroundColor: '#FFFFFF',
-    padding: 40,
+    padding: 25,
+    paddingBottom: 65,
     fontFamily: 'Helvetica',
     fontSize: 10,
+    position: 'relative',
+    height: '100%',
   },
   header: {
-    marginBottom: 20,
+    marginBottom: 10,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 15,
+    marginBottom: 10,
   },
   logoSection: {
     width: 150,
@@ -32,6 +35,9 @@ const styles = StyleSheet.create({
   companySection: {
     flex: 1,
   },
+  logoWithText: {
+    marginBottom: 10,
+  },
   companyRightSection: {
     width: 200,
     alignItems: 'flex-end',
@@ -42,12 +48,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   companyDetails: {
-    fontSize: 9,
+    fontSize: 8,
     marginBottom: 1,
-    lineHeight: 1.3,
+    lineHeight: 1.2,
   },
   controlInfo: {
-    marginTop: 15,
+    marginTop: 10,
     fontSize: 9,
   },
   controlRow: {
@@ -64,15 +70,15 @@ const styles = StyleSheet.create({
   separator: {
     borderBottomWidth: 1,
     borderBottomColor: '#000000',
-    marginVertical: 15,
+    marginVertical: 8,
   },
   billToSection: {
-    marginBottom: 15,
+    marginBottom: 8,
   },
   sectionTitle: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: 'bold',
-    marginBottom: 5,
+    marginBottom: 3,
   },
   clientInfo: {
     fontSize: 9,
@@ -80,7 +86,7 @@ const styles = StyleSheet.create({
     lineHeight: 1.3,
   },
   table: {
-    marginBottom: 20,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: '#000000',
   },
@@ -97,9 +103,9 @@ const styles = StyleSheet.create({
   },
   tableRow: {
     flexDirection: 'row',
-    minHeight: 300, // Fixed height for content area
-    padding: 10,
-    alignItems: 'flex-start',
+    minHeight: 25,
+    padding: 6,
+    alignItems: 'center',
   },
   tableCell: {
     fontSize: 9,
@@ -124,7 +130,7 @@ const styles = StyleSheet.create({
   },
   totalsSection: {
     alignItems: 'flex-end',
-    marginBottom: 20,
+    marginBottom: 10,
   },
   totalRow: {
     flexDirection: 'row',
@@ -162,26 +168,27 @@ const styles = StyleSheet.create({
     width: 100,
   },
   paymentConditions: {
-    marginTop: 20,
-    marginBottom: 30,
+    marginTop: 8,
+    marginBottom: 10,
   },
   paymentConditionsText: {
     fontSize: 9,
   },
   legalBox: {
-    marginTop: 30,
-    marginBottom: 20,
-    marginLeft: 0,
-    marginRight: 0,
+    position: 'absolute',
+    bottom: 45,
+    left: 25,
+    right: 25,
     borderWidth: 1,
     borderColor: '#000000',
-    padding: 10,
+    padding: 6,
+    backgroundColor: '#FFFFFF',
   },
   legalText: {
-    fontSize: 8,
+    fontSize: 6,
     textAlign: 'center',
-    lineHeight: 1.4,
-    marginBottom: 2,
+    lineHeight: 1.2,
+    marginBottom: 0,
   },
   originalText: {
     position: 'absolute',
@@ -189,7 +196,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     textAlign: 'center',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 'bold',
     color: '#FF0000',
   },
@@ -213,13 +220,10 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice, company, lineItems }) 
   const invoiceNumberFormatted = invoice.invoiceNumber || '00-000000';
   const invoiceDate = format(new Date(invoice.invoiceDate), 'dd/MM/yyyy', { locale: es });
 
-  // Construction company logo as base64 SVG
-  const constructionLogoBase64 = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjgwIiB2aWV3Qm94PSIwIDAgMjAwIDgwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgogIDwhLS0gVG93ZXIgQ3JhbmUgU2lsaG91ZXR0ZSAtLT4KICA8ZyBmaWxsPSIjMWExYTFhIj4KICAgIDwhLS0gVmVydGljYWwgbWFzdCAtLT4KICAgIDxyZWN0IHg9IjMwIiB5PSIyMCIgd2lkdGg9IjQiIGhlaWdodD0iNDAiIC8+CiAgICAKICAgIDwhLS0gSG9yaXpvbnRhbCBqaWIgLS0+CiAgICA8cmVjdCB4PSIzMiIgeT0iMjAiIHdpZHRoPSI3MCIgaGVpZ2h0PSIzIiAvPgogICAgCiAgICA8IS0tIENvdW50ZXItamliIC0tPgogICAgPHJlY3QgeD0iMTAiIHk9IjIwIiB3aWR0aD0iMjIiIGhlaWdodD0iMyIgLz4KICAgIAogICAgPCEtLSBUaWUgcm9kcyAtLT4KICAgIDxwYXRoIGQ9Ik0zMiwyMCBMNTAsMTAgTDcwLDEwIEwxMDIsMjAiIHN0cm9rZT0iIzFhMWExYSIgc3Ryb2tlLXdpZHRoPSIxIiBmaWxsPSJub25lIi8+CiAgICA8cGF0aCBkPSJNMzIsMjAgTDIwLDEwIEwxMCwyMCIgc3Ryb2tlPSIjMWExYTFhIiBzdHJva2Utd2lkdGg9IjEiIGZpbGw9Im5vbmUiLz4KICAgIAogICAgPCEtLSBIb29rIGFuZCBjYWJsZSAtLT4KICAgIDxyZWN0IHg9IjkwIiB5PSIyMyIgd2lkdGg9IjEiIGhlaWdodD0iMTUiIC8+CiAgICA8cmVjdCB4PSI4OCIgeT0iMzgiIHdpZHRoPSI1IiBoZWlnaHQ9IjUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzFhMWExYSIgc3Ryb2tlLXdpZHRoPSIxIi8+CiAgICAKICAgIDwhLS0gQmFzZSAtLT4KICAgIDxyZWN0IHg9IjI1IiB5PSI2MCIgd2lkdGg9IjE0IiBoZWlnaHQ9IjMiIC8+CiAgPC9nPgogIAogIDwhLS0gQ29tcGFueSBUZXh0IC0tPgogIDx0ZXh0IHg9IjEyMCIgeT0iMzUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIyNCIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IiMxYTFhMWEiPk1YVDwvdGV4dD4KICA8dGV4dCB4PSIxMjAiIHk9IjUwIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTAiIGZpbGw9IiMxYTFhMWEiPkNPTlNUUlVDVE9SQTwvdGV4dD4KICA8dGV4dCB4PSIxMjAiIHk9IjYyIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iOCIgZmlsbD0iIzY2NiI+Si00MTI2NDcwNy01PC90ZXh0PgogIAogIDwhLS0gWWVhciAtLT4KICA8dGV4dCB4PSIxNzAiIHk9IjM1IiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiMxYTFhMWEiPjIwMjA8L3RleHQ+Cjwvc3ZnPg==';
-  
-  // Use construction logo for construction companies, otherwise use company logo or default
+  // Use the construction logo from public directory
   const logoUrl = company.type === 'construction' 
-    ? constructionLogoBase64 
-    : (company.logoUrl || constructionLogoBase64);
+    ? '/construction-logo.png'
+    : (company.logoUrl || '/construction-logo.png');
 
   return (
     <Document>
@@ -227,20 +231,22 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice, company, lineItems }) 
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerRow}>
-            {/* Logo */}
-            <View style={styles.logoSection}>
-              <Image style={styles.logo} src={logoUrl} />
-            </View>
-
-            {/* Left Company Info */}
-            <View style={styles.companySection}>
-              <Text style={styles.sectionTitle}>De</Text>
-              <Text style={styles.companyTitle}>{company.legalName}</Text>
-              <Text style={styles.companyDetails}>{company.address}</Text>
-              <Text style={styles.companyDetails}>{company.city} - {company.state}</Text>
-              <Text style={styles.companyDetails}>Código Postal {company.postalCode}</Text>
-              <Text style={styles.companyDetails}>Telf: {company.phone}</Text>
-              <Text style={styles.companyDetails}>e-mail: {company.email}</Text>
+            {/* Left side with Logo and Company Info below */}
+            <View style={styles.logoWithText}>
+              <View style={styles.logoSection}>
+                <Image style={styles.logo} src={logoUrl} />
+              </View>
+              
+              {/* Company Info below logo */}
+              <View style={{marginTop: 5}}>
+                <Text style={styles.sectionTitle}>De</Text>
+                <Text style={styles.companyTitle}>{company.legalName}</Text>
+                <Text style={styles.companyDetails}>{company.address}</Text>
+                <Text style={styles.companyDetails}>{company.city} - {company.state}</Text>
+                <Text style={styles.companyDetails}>Código Postal {company.postalCode}</Text>
+                <Text style={styles.companyDetails}>Telf: {company.phone}</Text>
+                <Text style={styles.companyDetails}>e-mail: {company.email}</Text>
+              </View>
             </View>
 
             {/* Right Company Info */}
@@ -292,31 +298,31 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice, company, lineItems }) 
           </View>
 
           {/* Table Content */}
-          <View style={styles.tableRow}>
-            <View style={styles.quantityColumn}>
-              <Text style={styles.tableCell}>1</Text>
+          {lineItems.map((item, index) => (
+            <View key={index} style={[styles.tableRow, index > 0 && { borderTopWidth: 1, borderTopColor: '#E0E0E0' }]}>
+              <View style={styles.quantityColumn}>
+                <Text style={styles.tableCell}>{item.quantity}</Text>
+              </View>
+              
+              <View style={styles.descriptionColumn}>
+                <Text style={styles.tableCell}>
+                  {item.description.toUpperCase()}
+                </Text>
+              </View>
+              
+              <View style={styles.priceColumn}>
+                <Text style={styles.tableCell}>
+                  {formatCurrency(item.unitPrice)}
+                </Text>
+              </View>
+              
+              <View style={styles.totalColumn}>
+                <Text style={styles.tableCell}>
+                  {formatCurrency(item.subtotal)}
+                </Text>
+              </View>
             </View>
-            
-            <View style={styles.descriptionColumn}>
-              <Text style={styles.tableCell}>
-                {lineItems.length > 0 
-                  ? lineItems.map(item => item.description.toUpperCase()).join(' - ')
-                  : 'SERVICIOS PROFESIONALES'}
-              </Text>
-            </View>
-            
-            <View style={styles.priceColumn}>
-              <Text style={styles.tableCell}>
-                {formatCurrency(invoice.subtotal)}
-              </Text>
-            </View>
-            
-            <View style={styles.totalColumn}>
-              <Text style={styles.tableCell}>
-                {formatCurrency(invoice.subtotal)}
-              </Text>
-            </View>
-          </View>
+          ))}
         </View>
 
         {/* Totals Section */}

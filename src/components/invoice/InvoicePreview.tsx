@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Download, Eye, Building2, MapPin, Phone, Mail, Calendar, FileText } from 'lucide-react';
+import { Loader2, Download, Eye, Building2, MapPin, Phone, Mail, Calendar, FileText, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { GeneratedInvoice, InvoiceCompany, InvoiceLineItem, InvoiceItemGenerationParams } from '@/types/invoice';
@@ -239,17 +239,29 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
               {/* Items Table */}
               <div>
                 <div className="flex justify-between items-center mb-4">
-                  <h4 className="font-semibold">Items de la Factura</h4>
+                  <div>
+                    <h4 className="font-semibold">Items de la Factura</h4>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {previewItems.length} productos generados automáticamente
+                    </p>
+                  </div>
                   <Button 
                     variant="outline" 
                     size="sm"
                     onClick={regenerateItems}
                     disabled={regenerating}
+                    className="gap-2"
                   >
                     {regenerating ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Generando...
+                      </>
                     ) : (
-                      'Regenerar Items'
+                      <>
+                        <RefreshCw className="h-4 w-4" />
+                        Generar Otros Productos
+                      </>
                     )}
                   </Button>
                 </div>
@@ -258,27 +270,38 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
                   <table className="w-full">
                     <thead className="bg-muted">
                       <tr>
-                        <th className="text-left p-3 text-sm font-medium">Descripción</th>
-                        <th className="text-center p-3 text-sm font-medium">Cant.</th>
-                        <th className="text-center p-3 text-sm font-medium">Unidad</th>
-                        <th className="text-right p-3 text-sm font-medium">Precio Unit.</th>
-                        <th className="text-right p-3 text-sm font-medium">Subtotal</th>
+                        <th className="text-left p-3 text-sm font-medium w-[5%]">#</th>
+                        <th className="text-left p-3 text-sm font-medium w-[45%]">Descripción</th>
+                        <th className="text-center p-3 text-sm font-medium w-[10%]">Cant.</th>
+                        <th className="text-center p-3 text-sm font-medium w-[15%]">Unidad</th>
+                        <th className="text-right p-3 text-sm font-medium w-[12.5%]">Precio Unit.</th>
+                        <th className="text-right p-3 text-sm font-medium w-[12.5%]">Subtotal</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {previewItems.map((item, index) => (
-                        <tr key={index} className="border-t">
-                          <td className="p-3 text-sm">{item.description}</td>
-                          <td className="p-3 text-sm text-center">{item.quantity}</td>
-                          <td className="p-3 text-sm text-center">{item.unit}</td>
-                          <td className="p-3 text-sm text-right">
-                            {formatCurrency(item.unitPrice || 0)}
-                          </td>
-                          <td className="p-3 text-sm text-right">
-                            {formatCurrency(item.subtotal || 0)}
+                      {previewItems.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                            Generando productos...
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        previewItems.map((item, index) => (
+                          <tr key={index} className="border-t hover:bg-muted/50 transition-colors">
+                            <td className="p-3 text-sm text-muted-foreground">{index + 1}</td>
+                            <td className="p-3 text-sm font-medium">{item.description}</td>
+                            <td className="p-3 text-sm text-center">{item.quantity}</td>
+                            <td className="p-3 text-sm text-center">{item.unit}</td>
+                            <td className="p-3 text-sm text-right">
+                              {formatCurrency(item.unitPrice || 0)}
+                            </td>
+                            <td className="p-3 text-sm text-right font-medium">
+                              {formatCurrency(item.subtotal || 0)}
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -299,6 +322,19 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
                   <div className="flex justify-between font-semibold">
                     <span>Total:</span>
                     <span>{formatCurrency(total)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Information Note */}
+              <div className="bg-muted/50 rounded-lg p-4 mt-4">
+                <div className="flex items-start gap-2">
+                  <FileText className="h-4 w-4 text-muted-foreground mt-0.5" />
+                  <div className="text-sm text-muted-foreground">
+                    <p className="font-medium text-foreground mb-1">Nota sobre los productos:</p>
+                    <p>Los productos se generan automáticamente basándose en el monto total de la factura. 
+                       Si no está satisfecho con los productos mostrados, puede hacer clic en "Generar Otros Productos" 
+                       para obtener una nueva combinación.</p>
                   </div>
                 </div>
               </div>
