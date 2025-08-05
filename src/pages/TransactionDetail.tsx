@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { ArrowLeft, BadgeDollarSign, Clock, Info, User, AlertTriangle, Edit, HelpCircle, Calculator, Landmark, CreditCard, Receipt, Percent } from "lucide-react";
+import { ArrowLeft, BadgeDollarSign, Clock, Info, User, AlertTriangle, Edit, HelpCircle, Calculator, Landmark, CreditCard, Receipt, Percent, FileText, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,9 @@ import { TransactionIndicators, getAmountColorClass } from "@/components/operati
 import { getBankAccounts } from "@/integrations/supabase/bankAccountService";
 import { getDebtById } from "@/integrations/supabase/debtService";
 import { getReceivableById } from "@/integrations/supabase/receivableService";
+import { getInvoices, getInvoice } from "@/integrations/supabase/invoiceService";
+import { InvoiceGenerator } from "@/components/invoice/InvoiceGenerator";
+import { GeneratedInvoice } from "@/types/invoice";
 
 const TransactionDetail = () => {
   const { transactionId } = useParams();
@@ -29,6 +32,7 @@ const TransactionDetail = () => {
   const [destinationBankAccount, setDestinationBankAccount] = useState<any>(null);
   const [debt, setDebt] = useState<any>(null);
   const [receivable, setReceivable] = useState<any>(null);
+  const [invoice, setInvoice] = useState<GeneratedInvoice | null>(null);
   const [rawTransactionData, setRawTransactionData] = useState<any>(null); // Para campos adicionales
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -111,6 +115,18 @@ const TransactionDetail = () => {
             if (data.receivable_id) {
               const receivableData = await getReceivableById(data.receivable_id);
               setReceivable(receivableData);
+            }
+            
+            // Cargar factura si existe
+            try {
+              const invoices = await getInvoices();
+              const transactionInvoice = invoices.find(inv => inv.transactionId === data.id);
+              if (transactionInvoice) {
+                const fullInvoice = await getInvoice(transactionInvoice.id);
+                setInvoice(fullInvoice);
+              }
+            } catch (err) {
+              console.error("Error loading invoice:", err);
             }
           } catch (err) {
             console.error("Error loading additional data:", err);
@@ -599,6 +615,74 @@ const TransactionDetail = () => {
                   )}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {invoice && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText size={20} />
+                Factura Generada
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-muted/30 p-4 rounded-lg space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Número de Factura:</span>
+                  <span className="font-mono font-medium">{invoice.invoiceNumber}</span>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Fecha de Emisión:</span>
+                  <span>{format(new Date(invoice.invoiceDate), 'dd/MM/yyyy')}</span>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Fecha de Vencimiento:</span>
+                  <span>{format(new Date(invoice.dueDate), 'dd/MM/yyyy')}</span>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Cliente:</span>
+                  <span>{invoice.clientName}</span>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Monto Total:</span>
+                  <span className="font-medium text-lg">
+                    {invoice.currency} {invoice.totalAmount.toLocaleString('es-VE', { 
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2 
+                    })}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Estado:</span>
+                  <Badge variant={
+                    invoice.status === 'paid' ? 'success' : 
+                    invoice.status === 'sent' ? 'default' : 
+                    invoice.status === 'cancelled' ? 'destructive' : 'secondary'
+                  }>
+                    {invoice.status === 'draft' ? 'Borrador' :
+                     invoice.status === 'sent' ? 'Enviada' :
+                     invoice.status === 'paid' ? 'Pagada' : 'Cancelada'}
+                  </Badge>
+                </div>
+              </div>
+              
+              <div className="flex justify-center pt-2">
+                {invoice.company && invoice.lineItems && (
+                  <InvoiceGenerator
+                    invoice={invoice}
+                    company={invoice.company}
+                    lineItems={invoice.lineItems}
+                    fileName={`factura-${invoice.invoiceNumber}.pdf`}
+                  />
+                )}
+              </div>
             </CardContent>
           </Card>
         )}
