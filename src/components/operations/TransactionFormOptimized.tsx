@@ -21,7 +21,6 @@ import { PurchaseOperationFlow } from "./transaction/PurchaseOperationFlow";
 import { ExpenseOperationFlow } from "./transaction/ExpenseOperationFlow";
 import { PaymentOperationFlow } from "./transaction/PaymentOperationFlow";
 import { IngresoOperationFlow } from "./transaction/IngresoOperationFlow";
-import { PagoOperationFlow } from "./transaction/PagoOperationFlow";
 import { AutoDebtReceivableSection } from "./transaction/AutoDebtReceivableSection";
 import { getBankAccounts, BankAccountApp } from "@/integrations/supabase/bankAccountService";
 import { createTransactionWithDebtReceivable } from "@/integrations/supabase/transactionWithDebtReceivableService";
@@ -93,13 +92,13 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
   const [invoiceDueInDays, setInvoiceDueInDays] = useState('30');
 
   // Estados para los flujos interactivos
+  // Inicializar showPaymentFlow en true si el tipo inicial es payment y no estamos editando
   const [showCashFlow, setShowCashFlow] = useState(false);
   const [showSaleFlow, setShowSaleFlow] = useState(false);
   const [showPurchaseFlow, setShowPurchaseFlow] = useState(false);
   const [showExpenseFlow, setShowExpenseFlow] = useState(false);
-  const [showPaymentFlow, setShowPaymentFlow] = useState(false);
+  const [showPaymentFlow, setShowPaymentFlow] = useState(!isEditing && (transaction?.type || "payment") === "payment");
   const [showIngresoFlow, setShowIngresoFlow] = useState(false);
-  const [showPagoFlow, setShowPagoFlow] = useState(true);
   
   // Estados para la vista previa de factura
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
@@ -107,13 +106,14 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
   const [previewClientInfo, setPreviewClientInfo] = useState<any>(null);
   
   const [operationData, setOperationData] = useState<{
-    type: 'sale' | 'purchase' | 'payment' | 'expense';
+    type: 'sale' | 'purchase' | 'payment' | 'expense' | 'cash' | 'ingreso';
     relatedId?: string;
     relatedType?: 'debt' | 'receivable';
     clientId?: string;
     description: string;
     category?: string;
     paymentType?: string;
+    cashFlow?: 'in' | 'out';
   } | null>(null);
 
   // Hook para manejo de tasa de cambio
@@ -175,7 +175,6 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
       setShowExpenseFlow(false);
       setShowPaymentFlow(false);
       setShowIngresoFlow(false);
-      setShowPagoFlow(false);
     }
   }, [isEditing, transaction]);
 
@@ -189,7 +188,6 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
     setShowExpenseFlow(false);
     setShowPaymentFlow(false);
     setShowIngresoFlow(false);
-    setShowPagoFlow(false);
     setOperationData(null);
     
     // Mostrar el flujo correspondiente
@@ -202,7 +200,7 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
     } else if (value === 'expense') {
       setShowExpenseFlow(true);
     } else if (value === 'payment') {
-      setShowPagoFlow(true);
+      setShowPaymentFlow(true);
     } else if (value === 'ingreso') {
       setShowIngresoFlow(true);
     }
@@ -211,54 +209,45 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
 
   // Manejar selección de operación de efectivo
   const handleCashOperationSelect = (operation: {
-    type: 'sale' | 'purchase' | 'payment' | 'expense';
-    relatedId?: string;
-    relatedType?: 'debt' | 'receivable';
-    clientId?: string;
+    type: 'cash';
     description: string;
+    cashFlow: 'in' | 'out';
   }) => {
-    setOperationData(operation);
-    setTransactionType(operation.type);
+    setOperationData({ ...operation, relatedId: undefined, relatedType: undefined, clientId: undefined, category: undefined, paymentType: undefined });
+    setTransactionType('cash');
     setReference(operation.description);
-    setMethod('cash'); // Establecer automáticamente el método de pago como efectivo
-    if (operation.clientId) {
-      setSelectedClient(operation.clientId);
-    }
+    setMethod('cash');
     setShowCashFlow(false);
   };
 
   // Manejar selección de operación de venta
   const handleSaleOperationSelect = (operation: {
-    type: 'sale' | 'payment';
-    relatedId?: string;
-    relatedType?: 'receivable';
-    clientId?: string;
+    type: 'sale';
     description: string;
+    category?: string;
   }) => {
-    setOperationData(operation);
+    setOperationData({ ...operation, relatedId: undefined, relatedType: undefined, clientId: undefined });
     setTransactionType(operation.type);
     setReference(operation.description);
     setMethod('transfer'); // Mantener transferencia por defecto
-    if (operation.clientId) {
-      setSelectedClient(operation.clientId);
+    if (operation.category) {
+      setCategory(operation.category);
     }
     setShowSaleFlow(false);
   };
 
   // Manejar selección de operación de compra
   const handlePurchaseOperationSelect = (operation: {
-    type: 'purchase' | 'payment';
-    relatedId?: string;
-    relatedType?: 'debt';
-    clientId?: string;
+    type: 'purchase';
     description: string;
+    category?: string;
   }) => {
-    setOperationData(operation);
+    setOperationData({ ...operation, relatedId: undefined, relatedType: undefined, clientId: undefined });
     setTransactionType(operation.type);
     setReference(operation.description);
     setMethod('transfer'); // Mantener transferencia por defecto
-    if (operation.clientId) {
-      setSelectedClient(operation.clientId);
+    if (operation.category) {
+      setCategory(operation.category);
     }
     setShowPurchaseFlow(false);
   };
@@ -300,43 +289,26 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
 
   // Manejar selección de operación de ingreso
   const handleIngresoOperationSelect = (operation: {
-    type: 'sale' | 'payment';
+    type: 'ingreso';
+    description: string;
+    category?: string;
     relatedId?: string;
     relatedType?: 'receivable';
     clientId?: string;
-    description: string;
   }) => {
-    setOperationData(operation);
+    setOperationData({ ...operation, cashFlow: undefined, paymentType: undefined });
     setTransactionType(operation.type);
     setReference(operation.description);
-    setMethod('cash'); // Establecer automáticamente el método de pago como efectivo para ingresos
+    setMethod('transfer'); // Cambiar a transferencia por defecto para ingresos
+    if (operation.category) {
+      setCategory(operation.category);
+    }
     if (operation.clientId) {
       setSelectedClient(operation.clientId);
     }
     setShowIngresoFlow(false);
   };
 
-  // Manejar selección de operación de pago completo
-  const handlePagoOperationSelect = (operation: {
-    type: 'purchase' | 'payment' | 'expense';
-    relatedId?: string;
-    relatedType?: 'debt';
-    clientId?: string;
-    description: string;
-    category?: string;
-  }) => {
-    setOperationData(operation);
-    setTransactionType(operation.type);
-    setReference(operation.description);
-    setMethod('cash'); // Establecer automáticamente el método de pago como efectivo para pagos
-    if (operation.clientId) {
-      setSelectedClient(operation.clientId);
-    }
-    if (operation.category) {
-      setCategory(operation.category);
-    }
-    setShowPagoFlow(false);
-  };
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -372,29 +344,35 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
       }
     }
 
-    const baseAmount = (currency === 'USD' || currency === 'EUR') && method === 'cash' 
+    let baseAmount = (currency === 'USD' || currency === 'EUR') && method === 'cash' 
       ? denominationBasedAmount 
       : parseFloat(amount);
+    
+    // Para operaciones de efectivo, ajustar el monto según el flujo
+    if (transactionType === 'cash' && operationData?.cashFlow === 'out') {
+      baseAmount = -Math.abs(baseAmount); // Hacer negativo para salidas de efectivo
+    }
 
-    if (isNaN(baseAmount) || baseAmount <= 0) {
+    if (isNaN(baseAmount) || baseAmount === 0) {
       toast({
         title: "Monto inválido",
-        description: "Por favor ingrese un monto válido mayor que cero.",
+        description: "Por favor ingrese un monto válido.",
         variant: "destructive",
       });
       return;
     }
 
     // Validación de saldo para transacciones que requieren dinero (excluimos 'sale' e 'ingreso' porque suman dinero)
-    const shouldValidateBalance = ['purchase', 'expense', 'payment', 'balance-change'].includes(transactionType);
+    const shouldValidateBalance = ['purchase', 'expense', 'payment', 'balance-change'].includes(transactionType) || 
+      (transactionType === 'cash' && operationData?.cashFlow === 'out');
     if (shouldValidateBalance && selectedBankAccount) {
       const selectedAccount = bankAccounts.find(acc => acc.id.toString() === selectedBankAccount);
       if (selectedAccount) {
         // Calcular monto final incluyendo transferencias y comisiones
-        let finalAmountForValidation = baseAmount;
+        let finalAmountForValidation = Math.abs(baseAmount); // Usar valor absoluto para validación
         if (transactionType === 'balance-change') {
           const transferMultiplier = parseInt(transferCount) || 1;
-          finalAmountForValidation = baseAmount * transferMultiplier;
+          finalAmountForValidation = Math.abs(baseAmount) * transferMultiplier;
           
           if (bankCommission) {
             const commissionPercentage = parseFloat(bankCommission) || 0;
@@ -645,6 +623,12 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
                   ? await getClientById(selectedClient)
                   : null;
 
+                // Convertir el monto a bolívares para la factura
+                const currentExchangeRate = exchangeRateHook.useCustomRate ? exchangeRateHook.customRate : exchangeRateHook.exchangeRate;
+                const invoiceAmountInVES = currency === 'VES' 
+                  ? finalAmount 
+                  : finalAmount * currentExchangeRate; // Convertir USD/EUR a VES
+
                 const invoiceRequest: InvoiceGenerationRequest = {
                   companyId: invoiceCompanyId,
                   transactionId: result.id,
@@ -654,9 +638,9 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
                   clientAddress: clientInfo?.address,
                   clientPhone: clientInfo?.phone,
                   clientEmail: clientInfo?.email,
-                  amount: finalAmount,
-                  currency: currency as 'USD' | 'EUR' | 'VES' | 'COP',
-                  exchangeRate: exchangeRateHook.useCustomRate ? exchangeRateHook.customRate : exchangeRateHook.exchangeRate,
+                  amount: invoiceAmountInVES, // Siempre en bolívares
+                  currency: 'VES', // Siempre facturar en bolívares
+                  exchangeRate: currentExchangeRate,
                   dueInDays: parseInt(invoiceDueInDays) || 30,
                   notes: `Factura generada automáticamente para la transacción ${result.id}`,
                   autoGenerateItems: true,
@@ -751,6 +735,11 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
             ? await getClientById(pendingTransactionData.selectedClient)
             : null;
 
+          // Convertir el monto a bolívares para la factura
+          const invoiceAmountInVES = pendingTransactionData.currency === 'VES' 
+            ? pendingTransactionData.finalAmount 
+            : pendingTransactionData.finalAmount * pendingTransactionData.exchangeRate;
+
           const invoiceRequest: InvoiceGenerationRequest = {
             companyId: pendingTransactionData.invoiceCompanyId,
             transactionId: result.id,
@@ -760,8 +749,8 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
             clientAddress: clientInfo?.address,
             clientPhone: clientInfo?.phone,
             clientEmail: clientInfo?.email,
-            amount: pendingTransactionData.finalAmount,
-            currency: pendingTransactionData.currency as 'USD' | 'EUR' | 'VES' | 'COP',
+            amount: invoiceAmountInVES, // Siempre en bolívares
+            currency: 'VES', // Siempre facturar en bolívares
             exchangeRate: pendingTransactionData.exchangeRate,
             dueInDays: parseInt(pendingTransactionData.invoiceDueInDays) || 30,
             notes: `Factura generada automáticamente para la transacción ${result.id}`,
@@ -810,7 +799,7 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
   };
 
   const resetForm = () => {
-    setTransactionType("purchase");
+    setTransactionType("payment");
     setAmount('0');
     setCurrency('USD');
     setMethod('transfer');
@@ -839,14 +828,13 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
     setInvoiceCompanyId('');
     setInvoiceDueInDays('30');
     
-    // Reset flujos interactivos - compra por defecto
+    // Reset flujos interactivos - pago por defecto
     setShowCashFlow(false);
     setShowSaleFlow(false);
-    setShowPurchaseFlow(true);
+    setShowPurchaseFlow(false);
     setShowExpenseFlow(false);
-    setShowPaymentFlow(false);
+    setShowPaymentFlow(true);
     setShowIngresoFlow(false);
-    setShowPagoFlow(false);
     setOperationData(null);
   };
 
@@ -930,11 +918,6 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
           <h3 className="text-lg font-semibold mb-4 text-emerald-800">💰 Operación de Ingreso</h3>
           <IngresoOperationFlow onOperationSelect={handleIngresoOperationSelect} />
         </div>
-      ) : showPagoFlow ? (
-        <div className="mt-4 p-4 border border-rose-200 rounded-lg bg-rose-50">
-          <h3 className="text-lg font-semibold mb-4 text-rose-800">💸 Operación de Pago</h3>
-          <PagoOperationFlow onOperationSelect={handlePagoOperationSelect} />
-        </div>
       ) : (
         <>
           {/* Mostrar información de la operación seleccionada */}
@@ -959,7 +942,7 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
                     else if (transactionType === 'sale') setShowSaleFlow(true);
                     else if (transactionType === 'purchase') setShowPurchaseFlow(true);
                     else if (transactionType === 'expense') setShowExpenseFlow(true);
-                    else if (transactionType === 'payment') setShowPagoFlow(true);
+                    else if (transactionType === 'payment') setShowPaymentFlow(true);
                     else if (transactionType === 'ingreso') setShowIngresoFlow(true);
                   }}
                   className="text-blue-600"
@@ -1434,6 +1417,7 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
           clientAddress={previewClientInfo?.address}
           clientPhone={previewClientInfo?.phone}
           clientEmail={previewClientInfo?.email}
+          exchangeRate={pendingTransactionData.exchangeRate}
           onConfirm={handleInvoiceConfirm}
         />
       )}

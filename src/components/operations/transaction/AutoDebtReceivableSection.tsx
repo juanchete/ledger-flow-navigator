@@ -32,13 +32,18 @@ export const AutoDebtReceivableSection: React.FC<AutoDebtReceivableProps> = ({
   // Determinar el tipo basado en el tipo de transacción
   const getDebtReceivableType = () => {
     switch (transactionType) {
-      case 'purchase':
-      case 'expense':
-        return { type: 'debt', label: 'deuda', color: 'text-red-600' };
       case 'sale':
+        // Para ventas: crear deuda (dinero recibido que se debe a alguien)
+        return { type: 'debt', label: 'deuda', color: 'text-red-600' };
+      case 'purchase':
+        // Para compras: crear cuenta por cobrar (dinero gastado que será reembolsado)
+        return { type: 'receivable', label: 'cuenta por cobrar', color: 'text-green-600' };
+      case 'payment':
+      case 'expense':
       case 'ingreso':
       case 'cash':
-        return { type: 'receivable', label: 'cuenta por cobrar', color: 'text-green-600' };
+        // Estos tipos no crean deudas ni cuentas por cobrar
+        return null;
       default:
         return null;
     }
@@ -47,7 +52,7 @@ export const AutoDebtReceivableSection: React.FC<AutoDebtReceivableProps> = ({
   const debtReceivableInfo = getDebtReceivableType();
 
   // No mostrar para tipos que no aplican
-  if (!debtReceivableInfo || ['payment', 'balance-change'].includes(transactionType)) {
+  if (!debtReceivableInfo || ['balance-change'].includes(transactionType)) {
     return null;
   }
 
@@ -60,7 +65,9 @@ export const AutoDebtReceivableSection: React.FC<AutoDebtReceivableProps> = ({
               Crear {debtReceivableInfo.label} automáticamente
             </CardTitle>
             <CardDescription>
-              Al activar esta opción, se creará una {debtReceivableInfo.label} asociada a esta transacción
+              {debtReceivableInfo.type === 'debt' 
+                ? 'Este dinero recibido se debe a alguien y será registrado como deuda'
+                : 'Este gasto será reembolsado y se registrará como cuenta por cobrar'}
             </CardDescription>
           </div>
           <Switch

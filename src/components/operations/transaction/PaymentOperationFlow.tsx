@@ -6,11 +6,9 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
 import { getDebts } from '@/integrations/supabase/debtService';
-import { getReceivables } from '@/integrations/supabase/receivableService';
 import { getClients } from '@/integrations/supabase/clientService';
 import { getTransactions } from '@/integrations/supabase/transactionService';
 import type { Debt } from '@/integrations/supabase/debtService';
-import type { Receivable } from '@/integrations/supabase/receivableService';
 import type { Client } from '@/integrations/supabase/clientService';
 import type { Transaction } from '@/integrations/supabase/transactionService';
 
@@ -18,7 +16,7 @@ interface PaymentOperationFlowProps {
   onOperationSelect: (operation: {
     type: 'payment';
     relatedId?: string;
-    relatedType?: 'debt' | 'receivable';
+    relatedType?: 'debt';
     clientId?: string;
     paymentType?: string;
     description: string;
@@ -30,38 +28,31 @@ interface PendingDebt extends Debt {
   clientName?: string;
 }
 
-interface PendingReceivable extends Receivable {
-  remainingAmount: number;
-  clientName?: string;
-}
-
 const paymentTypes = [
   { value: 'debt-payment', label: 'Pago de Deuda', icon: '💳', description: 'Pagar una deuda existente' },
-  { value: 'receivable-collection', label: 'Cobro de Venta', icon: '💰', description: 'Cobrar una cuenta por cobrar' },
   { value: 'supplier-payment', label: 'Pago a Proveedor', icon: '🏭', description: 'Pago directo a proveedor' },
   { value: 'salary-payment', label: 'Pago de Nómina', icon: '👥', description: 'Pago de salarios y empleados' },
   { value: 'service-payment', label: 'Pago de Servicio', icon: '⚡', description: 'Pago de servicios contratados' },
+  { value: 'tax-payment', label: 'Pago de Impuestos', icon: '🏛️', description: 'Pagos tributarios y fiscales' },
   { value: 'other-payment', label: 'Otro Pago', icon: '📝', description: 'Otros tipos de pagos' }
 ];
 
 export const PaymentOperationFlow: React.FC<PaymentOperationFlowProps> = ({ onOperationSelect }) => {
   const [paymentType, setPaymentType] = useState<string>('');
   const [pendingDebts, setPendingDebts] = useState<PendingDebt[]>([]);
-  const [pendingReceivables, setPendingReceivables] = useState<PendingReceivable[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    loadPendingItems();
+    loadPendingDebts();
   }, []);
 
-  const loadPendingItems = async () => {
+  const loadPendingDebts = async () => {
     setLoading(true);
     try {
-      const [debtsData, receivablesData, clientsData, transactionsData] = await Promise.all([
+      const [debtsData, clientsData, transactionsData] = await Promise.all([
         getDebts(),
-        getReceivables(),
         getClients(),
         getTransactions()
       ]);
@@ -71,13 +62,25 @@ export const PaymentOperationFlow: React.FC<PaymentOperationFlowProps> = ({ onOp
         type: t.type,
         amount: t.amount,
         debt_id: t.debt_id,
-        receivable_id: t.receivable_id,
         status: t.status
       }));
 
       // Calcular deudas pendientes
+      // Solo incluir las que tienen estado 'pending' o 'active' y NO están en 'paid' o 'cancelled'
       const debtsWithRemaining = debtsData
-        .filter(debt => debt.status === 'pending')
+        .filter(debt => {
+          // Filtrar por estados activos
+          const activeStatuses = ['pending', 'active'];
+          const inactiveStatuses = ['paid', 'cancelled', 'completed'];
+          
+          // Si el estado está en la lista de inactivos, no incluir
+          if (inactiveStatuses.includes(debt.status)) {
+            return false;
+          }
+          
+          // Si no tiene estado o está en estados activos, incluir para calcular
+          return !debt.status || activeStatuses.includes(debt.status);
+        })
         .map(debt => {
           const payments = transactions.filter(
             t => t.type === 'payment' && t.debt_id === debt.id && t.status === 'completed'
@@ -94,30 +97,10 @@ export const PaymentOperationFlow: React.FC<PaymentOperationFlowProps> = ({ onOp
         })
         .filter(debt => debt.remainingAmount > 0);
 
-      // Calcular cuentas por cobrar pendientes
-      const receivablesWithRemaining = receivablesData
-        .filter(receivable => receivable.status === 'pending')
-        .map(receivable => {
-          const payments = transactions.filter(
-            t => t.type === 'payment' && t.receivable_id === receivable.id && t.status === 'completed'
-          );
-          const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
-          const remainingAmount = Math.max(0, receivable.amount - totalPaid);
-          const client = clientsData.find(c => c.id === receivable.client_id);
-          
-          return {
-            ...receivable,
-            remainingAmount,
-            clientName: client?.name
-          };
-        })
-        .filter(receivable => receivable.remainingAmount > 0);
-
       setPendingDebts(debtsWithRemaining);
-      setPendingReceivables(receivablesWithRemaining);
       setClients(clientsData);
     } catch (error) {
-      console.error('Error loading pending items:', error);
+      console.error('Error loading pending debts:', error);
     } finally {
       setLoading(false);
     }
@@ -136,7 +119,7 @@ export const PaymentOperationFlow: React.FC<PaymentOperationFlowProps> = ({ onOp
     if (!paymentType) return;
 
     let relatedId: string | undefined;
-    let relatedType: 'debt' | 'receivable' | undefined;
+    let relatedType: 'debt' | undefined;
     let clientId: string | undefined;
     let description: string;
 
@@ -148,14 +131,8 @@ export const PaymentOperationFlow: React.FC<PaymentOperationFlowProps> = ({ onOp
       const debt = pendingDebts.find(d => d.id === selectedItemId);
       clientId = debt?.client_id || undefined;
       description = `Pago de deuda: ${debt?.creditor || 'Deuda'}`;
-    } else if (paymentType === 'receivable-collection' && selectedItemId) {
-      relatedId = selectedItemId;
-      relatedType = 'receivable';
-      const receivable = pendingReceivables.find(r => r.id === selectedItemId);
-      clientId = receivable?.client_id || undefined;
-      description = `Cobro de venta: ${receivable?.description || 'Cuenta por cobrar'}`;
     } else {
-      // Pagos directos sin relación a deudas/cuentas por cobrar
+      // Pagos directos sin relación a deudas
       description = typeInfo?.label || 'Pago';
     }
 
@@ -186,8 +163,7 @@ export const PaymentOperationFlow: React.FC<PaymentOperationFlowProps> = ({ onOp
               onClick={() => handlePaymentTypeSelect(type.value)}
               className="h-16 text-sm justify-start p-3"
               disabled={
-                (type.value === 'debt-payment' && pendingDebts.length === 0) ||
-                (type.value === 'receivable-collection' && pendingReceivables.length === 0)
+                type.value === 'debt-payment' && pendingDebts.length === 0
               }
             >
               <div className="flex items-start gap-3 w-full">
@@ -198,11 +174,6 @@ export const PaymentOperationFlow: React.FC<PaymentOperationFlowProps> = ({ onOp
                     {type.value === 'debt-payment' && pendingDebts.length > 0 && (
                       <Badge variant="secondary" className="text-xs">
                         {pendingDebts.length}
-                      </Badge>
-                    )}
-                    {type.value === 'receivable-collection' && pendingReceivables.length > 0 && (
-                      <Badge variant="secondary" className="text-xs">
-                        {pendingReceivables.length}
                       </Badge>
                     )}
                   </div>
@@ -247,41 +218,9 @@ export const PaymentOperationFlow: React.FC<PaymentOperationFlowProps> = ({ onOp
         </>
       )}
 
-      {/* Paso 2: Selección específica para cuentas por cobrar */}
-      {paymentType === 'receivable-collection' && pendingReceivables.length > 0 && (
-        <>
-          <Separator />
-          <div className="space-y-3">
-            <Label className="text-base font-semibold">Selecciona la venta a cobrar:</Label>
-            <Select value={selectedItemId} onValueChange={handleItemSelect}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona una cuenta por cobrar..." />
-              </SelectTrigger>
-              <SelectContent>
-                {pendingReceivables.map((receivable) => (
-                  <SelectItem key={receivable.id} value={receivable.id}>
-                    <div className="flex flex-col">
-                      <div className="font-medium">
-                        {receivable.clientName || 'Cliente desconocido'} - {receivable.description}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        Pendiente: {formatCurrency(receivable.remainingAmount)} {receivable.currency}
-                        <span className="mx-2">•</span>
-                        Fecha: {new Date(receivable.due_date).toLocaleDateString()}
-                      </div>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </>
-      )}
-
       {/* Botón de confirmación */}
       {paymentType && (
-        (paymentType !== 'debt-payment' && paymentType !== 'receivable-collection') ||
-        selectedItemId
+        paymentType !== 'debt-payment' || selectedItemId
       ) && (
         <>
           <Separator />
@@ -294,4 +233,4 @@ export const PaymentOperationFlow: React.FC<PaymentOperationFlowProps> = ({ onOp
       )}
     </div>
   );
-}; 
+};

@@ -37,8 +37,10 @@ export async function createTransactionWithDebtReceivable(data: TransactionWithD
   }
 
   // Determine whether to create a debt or receivable based on transaction type
-  const shouldCreateDebt = ["purchase", "expense"].includes(transaction.type);
-  const shouldCreateReceivable = ["sale", "ingreso", "cash"].includes(transaction.type);
+  // For sales: create debt (money received that needs to be paid to someone)
+  // For purchases: create receivable (money spent that will be reimbursed)
+  const shouldCreateDebt = ["sale"].includes(transaction.type);
+  const shouldCreateReceivable = ["purchase"].includes(transaction.type);
 
   if (!shouldCreateDebt && !shouldCreateReceivable) {
     return transactionResult;

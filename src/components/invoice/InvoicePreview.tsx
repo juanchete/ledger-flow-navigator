@@ -24,6 +24,7 @@ interface InvoicePreviewProps {
   clientPhone?: string;
   clientEmail?: string;
   onConfirm?: (items: Partial<InvoiceLineItem>[]) => void;
+  exchangeRate?: number;
 }
 
 export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
@@ -37,7 +38,8 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
   clientAddress,
   clientPhone,
   clientEmail,
-  onConfirm
+  onConfirm,
+  exchangeRate
 }) => {
   const [loading, setLoading] = useState(true);
   const [company, setCompany] = useState<InvoiceCompany | null>(null);
@@ -60,10 +62,15 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
       }
       setCompany(companyData);
 
+      // Convertir el monto a bolívares si es necesario
+      const amountInVES = currency === 'VES' 
+        ? amount 
+        : amount * (exchangeRate || 36); // Usar tasa de cambio o valor por defecto
+
       // Generate items
       const params: InvoiceItemGenerationParams = {
         companyType: companyData.type,
-        targetAmount: amount,
+        targetAmount: amountInVES, // Siempre generar en bolívares
         itemCount: Math.floor(Math.random() * 6) + 3, // 3-8 items
         includeTax: true,
         taxRate: 16
@@ -89,9 +96,14 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
     
     setRegenerating(true);
     try {
+      // Convertir el monto a bolívares si es necesario
+      const amountInVES = currency === 'VES' 
+        ? amount 
+        : amount * (exchangeRate || 36);
+
       const params: InvoiceItemGenerationParams = {
         companyType: company.type,
-        targetAmount: amount,
+        targetAmount: amountInVES, // Siempre generar en bolívares
         itemCount: Math.floor(Math.random() * 6) + 3, // 3-8 items
         includeTax: true,
         taxRate: 16
@@ -124,7 +136,8 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
   };
 
   const formatCurrency = (value: number) => {
-    return `${currency} ${value.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    // Siempre mostrar en bolívares para las facturas
+    return `Bs. ${value.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   // Calculate totals
@@ -148,7 +161,7 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
     subtotal: subtotal,
     taxAmount: taxAmount,
     totalAmount: total,
-    currency: currency,
+    currency: 'VES', // Siempre en bolívares
     status: 'draft',
     createdAt: new Date(),
     updatedAt: new Date()

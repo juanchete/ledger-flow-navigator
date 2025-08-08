@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
@@ -14,11 +14,12 @@ import type { Transaction } from '@/integrations/supabase/transactionService';
 
 interface IngresoOperationFlowProps {
   onOperationSelect: (operation: {
-    type: 'sale' | 'payment';
+    type: 'ingreso';
+    description: string;
+    category?: string;
     relatedId?: string;
     relatedType?: 'receivable';
     clientId?: string;
-    description: string;
   }) => void;
 }
 
@@ -28,14 +29,14 @@ interface PendingReceivable extends Receivable {
 }
 
 export const IngresoOperationFlow: React.FC<IngresoOperationFlowProps> = ({ onOperationSelect }) => {
-  const [operationType, setOperationType] = useState<string>('');
+  const [ingresoType, setIngresoType] = useState<string>('');
   const [pendingReceivables, setPendingReceivables] = useState<PendingReceivable[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
-  // Cargar datos cuando se monta el componente
   useEffect(() => {
+    // Cargar las cuentas por cobrar al montar el componente
     loadPendingReceivables();
   }, []);
 
@@ -48,6 +49,9 @@ export const IngresoOperationFlow: React.FC<IngresoOperationFlowProps> = ({ onOp
         getTransactions()
       ]);
 
+      console.log('Receivables data:', receivablesData);
+      console.log('Transactions data:', transactionsData);
+
       const transactions = transactionsData.map((t: Transaction) => ({
         id: t.id,
         type: t.type,
@@ -56,16 +60,32 @@ export const IngresoOperationFlow: React.FC<IngresoOperationFlowProps> = ({ onOp
         status: t.status
       }));
 
-      // Calcular cuentas por cobrar pendientes con montos restantes
+      // Calcular cuentas por cobrar pendientes
+      // Solo incluir las que tienen estado 'pending' o 'active' y NO están en 'paid' o 'cancelled'
       const receivablesWithRemaining = receivablesData
-        .filter(receivable => receivable.status === 'pending')
+        .filter(receivable => {
+          // Filtrar por estados activos
+          const activeStatuses = ['pending', 'active'];
+          const inactiveStatuses = ['paid', 'cancelled', 'completed'];
+          
+          // Si el estado está en la lista de inactivos, no incluir
+          if (inactiveStatuses.includes(receivable.status)) {
+            console.log(`Receivable ${receivable.id} excluded - status: ${receivable.status}`);
+            return false;
+          }
+          
+          // Si no tiene estado o está en estados activos, incluir para calcular
+          return !receivable.status || activeStatuses.includes(receivable.status);
+        })
         .map(receivable => {
-          const payments = transactions.filter(
-            t => t.type === 'payment' && t.receivable_id === receivable.id && t.status === 'completed'
+          const collections = transactions.filter(
+            t => t.type === 'ingreso' && t.receivable_id === receivable.id && t.status === 'completed'
           );
-          const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
-          const remainingAmount = Math.max(0, receivable.amount - totalPaid);
+          const totalCollected = collections.reduce((sum, t) => sum + t.amount, 0);
+          const remainingAmount = Math.max(0, receivable.amount - totalCollected);
           const client = clientsData.find(c => c.id === receivable.client_id);
+          
+          console.log(`Receivable ${receivable.id}: amount=${receivable.amount}, collected=${totalCollected}, remaining=${remainingAmount}`);
           
           return {
             ...receivable,
@@ -75,6 +95,7 @@ export const IngresoOperationFlow: React.FC<IngresoOperationFlowProps> = ({ onOp
         })
         .filter(receivable => receivable.remainingAmount > 0);
 
+      console.log('Pending receivables:', receivablesWithRemaining);
       setPendingReceivables(receivablesWithRemaining);
       setClients(clientsData);
     } catch (error) {
@@ -84,8 +105,18 @@ export const IngresoOperationFlow: React.FC<IngresoOperationFlowProps> = ({ onOp
     }
   };
 
-  const handleOperationTypeSelect = (type: string) => {
-    setOperationType(type);
+  const ingresoTypes = [
+    { value: 'receivable-collection', label: 'Cobro de Cuenta', icon: '💳', description: 'Cobrar una cuenta por cobrar existente' },
+    { value: 'transfer', label: 'Transferencia Recibida', icon: '💸', description: 'Dinero recibido por transferencia' },
+    { value: 'deposit', label: 'Depósito Directo', icon: '🏦', description: 'Depósito en cuenta bancaria' },
+    { value: 'refund', label: 'Reembolso', icon: '💵', description: 'Devolución de dinero' },
+    { value: 'interest', label: 'Intereses Ganados', icon: '📈', description: 'Intereses de inversiones o cuentas' },
+    { value: 'gift', label: 'Regalo o Donación', icon: '🎁', description: 'Dinero recibido como regalo' },
+    { value: 'other', label: 'Otro Ingreso', icon: '💰', description: 'Otros tipos de ingresos' }
+  ];
+
+  const handleIngresoTypeSelect = (type: string) => {
+    setIngresoType(type);
     setSelectedItemId('');
   };
 
@@ -94,36 +125,33 @@ export const IngresoOperationFlow: React.FC<IngresoOperationFlowProps> = ({ onOp
   };
 
   const handleConfirm = () => {
-    if (!operationType) return;
+    if (!ingresoType) return;
 
-    let finalType: 'sale' | 'payment';
     let relatedId: string | undefined;
     let relatedType: 'receivable' | undefined;
     let clientId: string | undefined;
     let description: string;
 
-    if (operationType === 'new-sale') {
-      // Nueva venta
-      finalType = 'sale';
-      description = 'Venta en efectivo';
-    } else if (operationType === 'collect-receivable' && selectedItemId) {
-      // Cobro de cuenta por cobrar existente
-      finalType = 'payment';
+    const typeInfo = ingresoTypes.find(it => it.value === ingresoType);
+
+    if (ingresoType === 'receivable-collection' && selectedItemId) {
       relatedId = selectedItemId;
       relatedType = 'receivable';
       const receivable = pendingReceivables.find(r => r.id === selectedItemId);
       clientId = receivable?.client_id || undefined;
-      description = `Cobro de cuenta por cobrar: ${receivable?.description || 'Cuenta por cobrar'}`;
+      description = `Cobro de cuenta: ${receivable?.description || 'Cuenta por cobrar'}`;
     } else {
-      return; // Configuración inválida
+      // Ingresos directos sin relación a cuentas por cobrar
+      description = typeInfo?.label || 'Ingreso';
     }
 
     onOperationSelect({
-      type: finalType,
+      type: 'ingreso',
+      description,
+      category: ingresoType,
       relatedId,
       relatedType,
-      clientId,
-      description
+      clientId
     });
   };
 
@@ -135,71 +163,83 @@ export const IngresoOperationFlow: React.FC<IngresoOperationFlowProps> = ({ onOp
     <div className="space-y-4">
       {/* Paso 1: Tipo de ingreso */}
       <div className="space-y-3">
-        <Label className="text-base font-semibold">💰 ¿Qué tipo de ingreso realizaste?</Label>
-        <div className="grid grid-cols-1 gap-3">
-          <Button
-            variant={operationType === 'new-sale' ? 'default' : 'outline'}
-            onClick={() => handleOperationTypeSelect('new-sale')}
-            className="h-12 text-sm justify-start"
-          >
-            <span className="mr-2">🛒</span>
-            Nueva Venta
-          </Button>
-          {pendingReceivables.length > 0 && (
+        <Label className="text-base font-semibold">¿Qué tipo de ingreso recibiste?</Label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {ingresoTypes.map((type) => (
             <Button
-              variant={operationType === 'collect-receivable' ? 'default' : 'outline'}
-              onClick={() => handleOperationTypeSelect('collect-receivable')}
-              className="h-12 text-sm justify-start"
+              key={type.value}
+              variant={ingresoType === type.value ? 'default' : 'outline'}
+              onClick={() => handleIngresoTypeSelect(type.value)}
+              className="h-16 text-sm justify-start p-3"
+              disabled={
+                type.value === 'receivable-collection' && pendingReceivables.length === 0
+              }
             >
-              <span className="mr-2">📥</span>
-              Cobrar Cuenta Pendiente ({pendingReceivables.length})
+              <div className="flex items-start gap-3 w-full">
+                <span className="text-lg">{type.icon}</span>
+                <div className="flex flex-col items-start text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{type.label}</span>
+                    {type.value === 'receivable-collection' && pendingReceivables.length > 0 && (
+                      <Badge variant="secondary" className="text-xs">
+                        {pendingReceivables.length}
+                      </Badge>
+                    )}
+                  </div>
+                  <span className="text-xs text-muted-foreground line-clamp-2">
+                    {type.description}
+                  </span>
+                </div>
+              </div>
             </Button>
-          )}
+          ))}
         </div>
       </div>
 
-      {/* Paso 2: Selección específica para cobro de cuentas por cobrar */}
-      {operationType === 'collect-receivable' && pendingReceivables.length > 0 && (
-        <div className="space-y-3">
+      {/* Paso 2: Selección específica para cuentas por cobrar */}
+      {ingresoType === 'receivable-collection' && pendingReceivables.length > 0 && (
+        <>
           <Separator />
-          <Label className="text-base font-semibold">Selecciona la cuenta por cobrar:</Label>
-          <Select value={selectedItemId} onValueChange={handleItemSelect}>
-            <SelectTrigger>
-              <SelectValue placeholder="Seleccionar cuenta por cobrar..." />
-            </SelectTrigger>
-            <SelectContent>
-              {pendingReceivables.map((receivable) => (
-                <SelectItem key={receivable.id} value={receivable.id}>
-                  <div className="flex flex-col py-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{receivable.clientName || 'Cliente'}</span>
-                      <Badge variant="outline" className="text-xs">
-                        {formatCurrency(receivable.remainingAmount, receivable.currency || 'USD')}
-                      </Badge>
+          <div className="space-y-3">
+            <Label className="text-base font-semibold">Selecciona la cuenta a cobrar:</Label>
+            <Select value={selectedItemId} onValueChange={handleItemSelect}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona una cuenta por cobrar pendiente..." />
+              </SelectTrigger>
+              <SelectContent>
+                {pendingReceivables.map((receivable) => (
+                  <SelectItem key={receivable.id} value={receivable.id}>
+                    <div className="flex flex-col">
+                      <div className="font-medium">
+                        {receivable.description}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Pendiente: {formatCurrency(receivable.remainingAmount)} {receivable.currency}
+                        <span className="mx-2">•</span>
+                        {receivable.clientName || 'Sin cliente'}
+                      </div>
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {receivable.description || 'Sin descripción'}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      Vence: {new Date(receivable.due_date).toLocaleDateString()}
-                    </span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </>
       )}
 
       {/* Botón de confirmación */}
-      {operationType && (operationType === 'new-sale' || (operationType === 'collect-receivable' && selectedItemId)) && (
-        <div className="pt-4">
-          <Separator className="mb-4" />
-          <Button onClick={handleConfirm} className="w-full h-12">
-            ✅ Continuar con {operationType === 'new-sale' ? 'Nueva Venta' : 'Cobro de Cuenta'}
-          </Button>
-        </div>
+      {ingresoType && (
+        ingresoType !== 'receivable-collection' || selectedItemId
+      ) && (
+        <>
+          <Separator />
+          <div className="flex justify-end">
+            <Button onClick={handleConfirm} className="w-full sm:w-auto">
+              Continuar con Ingreso
+            </Button>
+          </div>
+        </>
       )}
     </div>
   );
-}; 
+};
