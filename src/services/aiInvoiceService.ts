@@ -26,6 +26,7 @@ interface AIInvoiceContext {
   clientName?: string;
   itemCount?: number;
   language?: "es" | "en";
+  exchangeRate?: number;
 }
 
 // Company type descriptions for context
@@ -53,154 +54,223 @@ function generatePrompt(context: AIInvoiceContext): string {
   const lang = context.language || "es";
   const companyContext = COMPANY_TYPE_CONTEXT[context.companyType][lang];
   const itemCount = context.itemCount || Math.floor(Math.random() * 6) + 3;
+  const exchangeRate = context.exchangeRate || 36; // Usar tasa dinámica o valor por defecto
 
   const prompt =
     lang === "es"
-      ? `Eres un experto en generar facturas profesionales para una ${companyContext}.
+      ? `Eres un experto en generar facturas profesionales para una ${companyContext}, con un profundo conocimiento de los precios, materiales y prácticas del mercado local.
 
-IMPORTANTE: Estás generando una factura para el mercado VENEZOLANO. TODOS los precios deben estar en BOLÍVARES (Bs.) y reflejar los precios actuales del mercado venezolano.
+Tu tarea es generar exactamente ${itemCount} partidas para una factura con las siguientes características:
 
-Genera exactamente ${itemCount} partidas para una factura con las siguientes características:
-- Monto total objetivo: Bs. ${context.targetAmount.toFixed(2)} (${context.currency === 'VES' ? 'Bolívares' : 'ya convertido a bolívares'})
-${context.clientName ? `- Cliente: ${context.clientName}` : ""}
+- **Monto total objetivo:** Bs. ${context.targetAmount.toFixed(2)}
+- **Cliente:** ${context.clientName || "Cliente Genérico"}
 
-Requisitos CRÍTICOS para el mercado venezolano:
-1. TODOS los precios deben estar en BOLÍVARES (Bs.) - NO uses dólares
-2. Los precios deben reflejar la realidad del mercado venezolano actual según el tipo de empresa:
-   
-   Para CONSTRUCCIÓN:
-   - Proyectos pequeños: Bs. 2,000,000 - Bs. 5,000,000
-   - Proyectos medianos: Bs. 5,000,000 - Bs. 15,000,000
-   - Proyectos grandes: Bs. 15,000,000 - Bs. 50,000,000
-   - Estructuras metálicas: Bs. 2,000-3,000 por kg
-   - Trabajos por área: Bs. 1,500-6,000 por m²
-   
-   Para ELECTRÓNICA:
-   - Instalaciones pequeñas: Bs. 1,500,000 - Bs. 4,000,000
-   - Instalaciones medianas: Bs. 4,000,000 - Bs. 10,000,000
-   - Proyectos grandes: Bs. 10,000,000 - Bs. 30,000,000
-   - Cable por metro: Bs. 50-200 según calibre
-   - Puntos eléctricos: Bs. 300,000-800,000 por punto
-   
-   Para PAPELERÍA:
-   - Pedidos pequeños: Bs. 500,000 - Bs. 2,000,000
-   - Pedidos medianos: Bs. 2,000,000 - Bs. 8,000,000
-   - Contratos corporativos: Bs. 8,000,000 - Bs. 20,000,000
-   - Resma de papel: Bs. 180-300
-   - Servicios de impresión: Bs. 1,000-5,000 por página según volumen
-   
-   Para SERVICIOS ELÉCTRICOS:
-   - Servicios residenciales: Bs. 2,000,000 - Bs. 6,000,000
-   - Servicios comerciales: Bs. 6,000,000 - Bs. 15,000,000
-   - Servicios industriales: Bs. 15,000,000 - Bs. 40,000,000
-   - Mantenimiento mensual: Bs. 3,000,000-10,000,000
-   - Certificaciones: Bs. 5,000,000-15,000,000
+### Requisitos Esenciales para el Mercado Venezolano:
 
-3. NUNCA factures por hora. Usa estas unidades según el tipo de trabajo:
-   - Proyectos completos: cantidad = 1
-   - Trabajos de área: por m² (construcción, instalaciones)
-   - Materiales lineales: por metros (cables, tuberías)
-   - Suministros: por lote, proyecto, unidad
-   - Servicios: por proyecto, contrato mensual
-   - Materiales específicos: por unidad, saco, galón, resma
+1.  **ESTRATEGIA SEGÚN EL MONTO TOTAL:**
+    -   **Facturas pequeñas (< Bs. ${Math.round(
+      5000000
+    )}):** Genera ${itemCount} items de materiales y servicios individuales
+    -   **Facturas medianas (Bs. ${Math.round(5000000)} - Bs. ${Math.round(
+          20000000
+        )}):** Combina 2-3 proyectos pequeños con algunos materiales
+    -   **Facturas grandes (> Bs. ${Math.round(
+      20000000
+    )}):** Genera 1-3 PROYECTOS GRANDES con cantidad = 1
 
-4. Las descripciones deben ser MUY detalladas como en facturas reales:
-   - Incluir todos los componentes del servicio
-   - Especificar si incluye materiales
-   - Detallar marcas cuando sea relevante
-   - Incluir transporte si aplica
-   - Mencionar certificaciones o garantías
+2.  **Moneda y Precios:**
+    -   Todos los precios deben estar en **BOLÍVARES (Bs.)**.
+    -   Tasa de cambio actual: **${exchangeRate} Bs. por dólar**.
+    -   **PRECIOS DE REFERENCIA (UNITARIOS MÁS ALTOS):**
+        -   **Proyectos completos:** Bs. ${Math.round(
+          500000 * exchangeRate
+        )} - Bs. ${Math.round(5000000 * exchangeRate)}
+        -   **Trabajos por m²:** Bs. ${Math.round(
+          100 * exchangeRate
+        )} - Bs. ${Math.round(500 * exchangeRate)}
+        -   **Estructuras metálicas (kg):** Bs. ${Math.round(
+          5 * exchangeRate
+        )} - Bs. ${Math.round(10 * exchangeRate)}
+        -   **Pintura (galón):** Bs. ${Math.round(
+          50 * exchangeRate
+        )} - Bs. ${Math.round(100 * exchangeRate)}
+        -   **Cemento (saco):** Bs. ${Math.round(
+          15 * exchangeRate
+        )} - Bs. ${Math.round(25 * exchangeRate)}
 
-Ejemplos específicos para cada tipo de empresa:
+3.  **UNIDADES PERMITIDAS (sin horas):**
+    -   **Proyectos grandes:** "proyecto" (cantidad = 1)
+    -   **Áreas:** "m²" (NO "m²/día")
+    -   **Materiales:** "kg", "galón", "saco", "unidad", "metro"
+    -   **Tiempo (si aplica):** "día", "semana" (NO horas)
+    -   **PROHIBIDO:** hora, día, hora/día, m²/día
 
-Para CONSTRUCCIÓN en Venezuela (basado en facturas reales):
-- RESTAURACIÓN EN FACHADA DE EDIFICACIÓN (por proyecto o m²), incluye demolición, reparación, fondo antialcalino, pintura impermeabilizante, trabajo en altura con guindola
-- TRABAJOS DE ACONDICIONAMIENTO DE PISOS DE GALPÓN (por m²), incluye demolición, mortero de cemento, pintura epóxica industrial
-- SUMINISTRO, CONFECCIÓN Y COLOCACIÓN DE ESTRUCTURAS METÁLICAS (por kg), incluye transporte hasta 50km
-- CONSTRUCCIÓN DE TENSOESTRUCTURAS (por unidad), con lona y tubo redondo mecánico, incluye guayas, anclajes, transporte y montaje
-- TRABAJOS DE REEMPLAZO DE ESTRUCTURAS METÁLICAS/REJAS (por proyecto), incluye remoción, fabricación, fondo antialcalino, esmalte industrial
-- SUMINISTRO DE MATERIALES PARA RESTAURACIÓN (por proyecto), puede incluir fondo de herrería, pintura esmalte, lija, etc.
-- SUMINISTRO DE POLICARBONATO ALVEOLAR (por metros lineales), incluye perfiles, kit de instalación, transporte
-- CONFECCIÓN DE ESCALERAS (por kg de material), en cabilla y pletina
-- LIMPIEZA CON CHORRO DE ARENA (por m²)
+4.  **Cantidades ESTRICTAMENTE Realistas (REDUCIDAS):**
+    -   **Proyectos completos:** SIEMPRE cantidad = 1
+    -   **Tiempo:** 1-20 días, 1-8 semanas
+    -   **Materiales líquidos:** 5-30 galones máximo
+    -   **Sacos de cemento:** 10-100 sacos máximo
+    -   **Bloques/unidades:** 100-2000 unidades máximo
+    -   **Kilos de metal:** 50-2000 kg máximo
+    -   **Metros lineales:** 10-500 metros máximo
+    -   **Áreas en m²:** según el proyecto, normalmente 50-1500 m²
 
-Para ELECTRÓNICA en Venezuela (basado en prácticas del mercado):
-- SUMINISTRO E INSTALACIÓN DE SISTEMA DE ILUMINACIÓN LED (por proyecto), incluye luminarias, cableado, breakers, mano de obra
-- SUMINISTRO DE CABLE THW CALIBRE 12 AWG MARCA CABEL (por metros), incluye transporte
-- INSTALACIÓN DE PUNTOS ELÉCTRICOS 110V RESIDENCIALES (por proyecto o punto), incluye materiales y mano de obra
-- SUMINISTRO E INSTALACIÓN DE TABLERO ELÉCTRICO TRIFÁSICO (por proyecto), incluye breakers, borneras, mano de obra
-- SISTEMA DE RESPALDO UPS 3KVA CON INSTALACIÓN (por proyecto), incluye baterías, cableado, puesta en marcha
-- MODERNIZACIÓN DE INSTALACIONES ELÉCTRICAS (por proyecto o área m²), incluye diagnóstico, materiales, certificación
-- SUMINISTRO DE MATERIALES ELÉCTRICOS VARIOS (por proyecto), puede incluir tomacorrientes, switches, breakers
+5.  **Descripciones para PROYECTOS GRANDES (obligatorio para montos altos):**
+    -   Deben ser LARGAS y DETALLADAS como estos ejemplos reales:
+    
+    Ejemplo 1: "RESTAURACION EN FACHADA DE EDIFICACION CON EXTENSION DE 1285,60MTS2. INCLUYE: -DEMOLICION DE FRISO Y PINTURA LEVANTADA EN FACHADA (CON USO DE GUINDOLA/TRABAJO DE RIESGO) -REPARACION DE FRISO (CON USO DE GUINDOLA/TRABAJO DE RIESGO) -SUMINISTRO Y APLICACION DE FONDO ANTIALCALINO (CON USO DE GUINDOLA/TRABAJO DE RIESGO) -SUMINISTRO Y APLICACION DE PINTURA IMPERMEABILIZANTE HIDROFUGA PARA EXTERIORES (CON USO DE GUINDOLA/TRABAJO DE RIESGO)"
+    
+    Ejemplo 2: "TRABAJOS DE ACONDICIONAMIENTO EN ZONA DE PISO DE GALPON 637MTS2. INCLUYE: -DEMOLICION DE SOBREPISO AFECTADO -SUMINISTRO Y APLICACION DE MORTERO DE CEMENTO DE PISO PARA NIVELACION CON ADHITIVO DE FRAGUADO, ACABADO LISO -SUMINISTRO Y APLICACION DE DOS CAPAS DE PINTURA EPOXICA INDUSTRIAL COLOR GRIS EN PISO"
+    
+    Ejemplo 3: "SUMINISTRO, CONFECCIÓN Y COLOCACIÓN DE ESTRUCTURA METALICA PARA GALPÓN DE 850M2. INCLUYE: -DISEÑO Y CÁLCULO ESTRUCTURAL -FABRICACIÓN DE ESTRUCTURA EN TALLER CON PERFILES IPE Y TUBULARES -TRANSPORTE HASTA OBRA (50KM) -MONTAJE CON GRÚA Y EQUIPOS ESPECIALIZADOS -APLICACIÓN DE FONDO ANTICORROSIVO Y ESMALTE INDUSTRIAL -ANCLAJES Y PERNOS DE FIJACIÓN"
 
-Para PAPELERÍA en Venezuela (basado en prácticas del mercado):
-- SUMINISTRO DE PAPELERÍA PARA OFICINA (por proyecto o lote), incluye resmas, carpetas, grapadoras, bolígrafos
-- SERVICIO DE IMPRESIÓN Y ENCUADERNACIÓN DE DOCUMENTOS (por proyecto), incluye papel, tinta, espirales
-- SUMINISTRO DE MATERIAL ESCOLAR (por lote o proyecto), incluye cuadernos, lápices, marcadores, carpetas
-- SERVICIO DE FOTOCOPIADO DE ALTO VOLUMEN (por proyecto o miles de páginas), incluye papel y tóner
-- SUMINISTRO DE CARTUCHOS Y TÓNERS PARA IMPRESORAS (por lote), varias marcas y modelos
-- SERVICIO DE DISEÑO E IMPRESIÓN DE MATERIAL CORPORATIVO (por proyecto), incluye diseño, impresión, acabados
-- ORGANIZACIÓN Y ARCHIVO DE DOCUMENTACIÓN (por proyecto), incluye carpetas, cajas archivo, etiquetado
+    -   DEBE incluir: área/cantidad total, TODOS los pasos del proceso, materiales específicos, marcas cuando aplique, si incluye trabajo de alto riesgo
+    -   Para materiales sueltos: descripciones más cortas pero específicas (marca, tipo, especificaciones)
 
-Para SERVICIOS ELÉCTRICOS en Venezuela (basado en prácticas del mercado):
-- INSTALACIÓN ELÉCTRICA RESIDENCIAL COMPLETA (por proyecto o m²), incluye diseño, materiales, certificación
-- MANTENIMIENTO PREVENTIVO DE SISTEMAS ELÉCTRICOS (por proyecto o contrato mensual), incluye revisión, ajustes, informe
-- INSTALACIÓN DE SISTEMA DE PUESTA A TIERRA (por proyecto), incluye materiales, excavación, medición de resistencia
-- ACONDICIONAMIENTO ELÉCTRICO PARA AIRES ACONDICIONADOS (por proyecto), líneas 220V, breakers, cableado
-- DIAGNÓSTICO Y CORRECCIÓN DE FALLAS ELÉCTRICAS (por proyecto), incluye localización, reparación, pruebas
-- CERTIFICACIÓN DE INSTALACIONES ELÉCTRICAS SIDOR/CORPOELEC (por proyecto), incluye mediciones, informe técnico
-- INSTALACIÓN DE BANCO DE CAPACITORES (por proyecto), corrección factor de potencia, incluye equipos
+6.  **INSTRUCCIONES CRÍTICAS PARA PRECIOS UNITARIOS:**
+    -   **TODOS los unitPrice deben estar en BOLÍVARES y ser números enteros**
+    -   **NUNCA generes un unitPrice menor a Bs. ${Math.round(
+      100 * exchangeRate
+    )}**
+    -   **USA ESTOS RANGOS OBLIGATORIOS para unitPrice:**
+        -   Proyectos: Bs. ${Math.round(
+          500000 * exchangeRate
+        )} - Bs. ${Math.round(5000000 * exchangeRate)}
+        -   Trabajo por m²: Bs. ${Math.round(
+          100 * exchangeRate
+        )} - Bs. ${Math.round(500 * exchangeRate)}
+        -   Pintura/galón: Bs. ${Math.round(
+          50 * exchangeRate
+        )} - Bs. ${Math.round(100 * exchangeRate)}
+        -   Cemento/saco: Bs. ${Math.round(
+          15 * exchangeRate
+        )} - Bs. ${Math.round(25 * exchangeRate)}
+        -   Metal/kg: Bs. ${Math.round(5 * exchangeRate)} - Bs. ${Math.round(
+          10 * exchangeRate
+        )}
+    -   **EJEMPLOS DE unitPrice CORRECTOS (con tasa ${exchangeRate}):**
+        -   Proyecto restauración: unitPrice = ${Math.round(
+          2000000 * exchangeRate
+        )}
+        -   Pintura galón: unitPrice = ${Math.round(75 * exchangeRate)}
+        -   Cemento saco: unitPrice = ${Math.round(20 * exchangeRate)}
+    -   **SI PIENSAS EN DÓLARES, MULTIPLICA POR ${exchangeRate}**
 
-IMPORTANTE para facturación en Venezuela:
-- Los precios deben ser coherentes: si el total es Bs. 100,000, no puede haber items de Bs. 10
-- Considera la inflación: los precios venezolanos son altos en números
-- Diferencia entre productos nacionales (más baratos) e importados (más caros)
-- Las cantidades deben ser lógicas para el contexto
-- NUNCA uses centavos, redondea a bolívares enteros
+7.  **Formato y Coherencia:**
+    -   Para facturas grandes, NO generes muchos items pequeños
+    -   El total debe cuadrar con el monto objetivo
 
-Formato de descripciones para Venezuela:
-- Especifica si es producto nacional o importado
-- Menciona marcas conocidas en el mercado venezolano
-- Incluye ubicación de origen cuando sea relevante (ej: "Arena del Guárico")
-- Para servicios, especifica si incluye materiales
-- Adapta las especificaciones técnicas a normas venezolanas (COVENIN cuando aplique)
 
 Responde ÚNICAMENTE con un array JSON en este formato exacto:
 [
   {
-    "description": "DESCRIPCIÓN TÉCNICA DETALLADA DE CONSTRUCCIÓN INCLUYENDO MATERIALES, ESPECIFICACIONES, MÉTODO DE INSTALACIÓN Y COMPONENTES INCLUIDOS",
+    "description": "DESCRIPCIÓN TÉCNICA DETALLADA INCLUYENDO MATERIALES, ESPECIFICACIONES, MÉTODO Y COMPONENTES",
     "quantity": number,
-    "unit": "unidad de medida",
+    "unit": "unidad de medida", 
     "unitPrice": number
   }
 ]
 
 No incluyas texto adicional, solo el array JSON.`
-      : `You are an expert in generating professional invoices for a ${companyContext}.
+      : `You are an expert in generating professional invoices for a ${companyContext}, with deep knowledge of prices, materials, and local market practices.
 
-IMPORTANT: You are generating an invoice for the VENEZUELAN market. ALL prices must be in BOLIVARES (Bs.) and reflect current Venezuelan market prices.
+Your task is to generate exactly ${itemCount} items for an invoice with the following characteristics:
 
-Generate exactly ${itemCount} items for an invoice with the following characteristics:
-- Target total amount: Bs. ${context.targetAmount.toFixed(2)} (Bolivares)
-${context.clientName ? `- Client: ${context.clientName}` : ""}
+- **Target total amount:** Bs. ${context.targetAmount.toFixed(2)}
+- **Client:** ${context.clientName || "Generic Client"}
 
-CRITICAL Requirements for Venezuelan market:
-1. ALL prices must be in BOLIVARES (Bs.) - DO NOT use dollars
-2. Prices must reflect Venezuelan market reality based on business type
-3. NEVER bill by hours. Use these units based on work type:
-   - Complete projects: quantity = 1
-   - Area work: per m² (construction, installations)
-   - Linear materials: per meters (cables, pipes)
-   - Supplies: per lot, project, unit
-   - Services: per project, monthly contract
-4. Use typical Venezuelan market products and services
-5. Quantities must be realistic for Venezuelan context
-6. Round to whole bolivares - no cents
+### Essential Requirements for the Venezuelan Market:
+
+1. **STRATEGY BASED ON TOTAL AMOUNT:**
+   - **Small invoices (< Bs. ${Math.round(
+     5000000
+   )}):** Generate ${itemCount} individual material and service items
+   - **Medium invoices (Bs. ${Math.round(5000000)} - Bs. ${Math.round(
+          20000000
+        )}):** Combine 2-3 small projects with some materials
+   - **Large invoices (> Bs. ${Math.round(
+     20000000
+   )}):** Generate 1-3 LARGE PROJECTS with quantity = 1
+
+2. **Currency and Prices:**
+   - All prices must be in **BOLIVARES (Bs.)**.
+   - Current exchange rate: **${exchangeRate} Bs. per dollar**.
+   - **REFERENCE PRICES (HIGHER UNIT PRICES):**
+     - **Complete projects:** Bs. ${Math.round(
+       500000 * exchangeRate
+     )} - Bs. ${Math.round(5000000 * exchangeRate)}
+     - **Area work (m²):** Bs. ${Math.round(
+       100 * exchangeRate
+     )} - Bs. ${Math.round(500 * exchangeRate)}
+     - **Metal structures (kg):** Bs. ${Math.round(
+       5 * exchangeRate
+     )} - Bs. ${Math.round(10 * exchangeRate)}
+     - **Paint (gallon):** Bs. ${Math.round(
+       50 * exchangeRate
+     )} - Bs. ${Math.round(100 * exchangeRate)}
+     - **Cement (bag):** Bs. ${Math.round(
+       15 * exchangeRate
+     )} - Bs. ${Math.round(25 * exchangeRate)}
+
+3. **ALLOWED UNITS (no hours):**
+   - **Large projects:** "project" (quantity = 1)
+   - **Areas:** "m²" (NOT "m²/day")
+   - **Materials:** "kg", "gallon", "bag", "unit", "meter"
+   - **Time (if applicable):** "day", "week" (NO hours)
+   - **PROHIBITED:** hour, hour/day, m²/day
+
+4. **STRICTLY Realistic Quantities (REDUCED):**
+   - **Complete projects:** ALWAYS quantity = 1
+   - **Time:** 1-20 days, 1-8 weeks
+   - **Liquid materials:** 5-30 gallons maximum
+   - **Cement bags:** 10-100 bags maximum
+   - **Blocks/units:** 100-2000 units maximum
+   - **Metal kilos:** 50-2000 kg maximum
+   - **Linear meters:** 10-500 meters maximum
+   - **Areas in m²:** depending on project, normally 50-1500 m²
+
+5. **Descriptions for LARGE PROJECTS (mandatory for high amounts):**
+   - Must be LONG and DETAILED like these real examples:
+   
+   Example 1: "FACADE RESTORATION OF BUILDING WITH 1285.60M2 EXTENSION. INCLUDES: -DEMOLITION OF PLASTER AND LOOSE PAINT ON FACADE (USING GONDOLA/HIGH RISK WORK) -PLASTER REPAIR (USING GONDOLA/HIGH RISK WORK) -SUPPLY AND APPLICATION OF ANTI-ALKALINE PRIMER (USING GONDOLA/HIGH RISK WORK) -SUPPLY AND APPLICATION OF WATERPROOF EXTERIOR PAINT (USING GONDOLA/HIGH RISK WORK)"
+   
+   - MUST include: total area/quantity, ALL process steps, specific materials, brands when applicable, if it includes high-risk work
+
+6. **CRITICAL INSTRUCTIONS FOR UNIT PRICES:**
+   - **ALL unitPrice must be in BOLIVARES and be whole numbers**
+   - **NEVER generate a unitPrice less than Bs. ${Math.round(
+     100 * exchangeRate
+   )}**
+   - **USE THESE MANDATORY RANGES for unitPrice:**
+     - Projects: Bs. ${Math.round(500000 * exchangeRate)} - Bs. ${Math.round(
+          5000000 * exchangeRate
+        )}
+     - Work per m²: Bs. ${Math.round(100 * exchangeRate)} - Bs. ${Math.round(
+          500 * exchangeRate
+        )}
+     - Paint/gallon: Bs. ${Math.round(50 * exchangeRate)} - Bs. ${Math.round(
+          100 * exchangeRate
+        )}
+     - Cement/bag: Bs. ${Math.round(15 * exchangeRate)} - Bs. ${Math.round(
+          25 * exchangeRate
+        )}
+     - Metal/kg: Bs. ${Math.round(5 * exchangeRate)} - Bs. ${Math.round(
+          10 * exchangeRate
+        )}
+   - **EXAMPLES OF CORRECT unitPrice (with rate ${exchangeRate}):**
+     - Restoration project: unitPrice = ${Math.round(2000000 * exchangeRate)}
+     - Paint gallon: unitPrice = ${Math.round(75 * exchangeRate)}
+     - Cement bag: unitPrice = ${Math.round(20 * exchangeRate)}
+   - **IF YOU THINK IN DOLLARS, MULTIPLY BY ${exchangeRate}**
+
+7. **Format and Coherence:**
+   - For large invoices, DO NOT generate many small items
+   - Total must match target amount
 
 Respond ONLY with a JSON array in this exact format:
 [
   {
-    "description": "DETAILED DESCRIPTION INCLUDING IF NATIONAL OR IMPORTED",
+    "description": "DETAILED TECHNICAL DESCRIPTION INCLUDING MATERIALS, SPECIFICATIONS, METHOD AND COMPONENTS",
     "quantity": number,
     "unit": "unit of measure",
     "unitPrice": number
@@ -294,7 +364,7 @@ export async function generateAIInvoiceItems(
       targetAmount: params.includeTax
         ? params.targetAmount / (1 + params.taxRate / 100)
         : params.targetAmount,
-      currency: context.currency === 'VES' ? 'VES' : 'VES', // Siempre trabajar en bolívares para facturas venezolanas
+      currency: context.currency === "VES" ? "VES" : "VES", // Siempre trabajar en bolívares para facturas venezolanas
       itemCount: params.itemCount,
       language: "es",
       ...context,
@@ -307,17 +377,110 @@ export async function generateAIInvoiceItems(
     // Convert AI response to invoice line items
     const items: Partial<InvoiceLineItem>[] = aiItems.map((item, index) => {
       const quantity = parseFloat(item.quantity.toString());
-      const unitPrice = parseFloat(item.unitPrice.toString());
-      const subtotal = quantity * unitPrice;
+      let unitPrice = parseFloat(item.unitPrice.toString());
+      let unit = (item.unit || "").toString();
+
+      // Corregir precios que parezcan estar en dólares (menos de 1000 Bs.)
+      const minPriceInBs = 1000; // Precio mínimo razonable en bolívares
+      const exchangeRate = context?.exchangeRate || 36;
+
+      if (unitPrice < minPriceInBs) {
+        console.warn(
+          `Precio muy bajo detectado: Bs. ${unitPrice}. Multiplicando por tasa de cambio ${exchangeRate}`
+        );
+        unitPrice = Math.round(unitPrice * exchangeRate);
+      }
+
+      // Aplicar pisos por unidad y un piso global mínimo
+      const unitName = (item.unit || "").toString().toLowerCase();
+      const perUnitMinInUSD: Record<string, number> = {
+        galón: 50,
+        gallon: 50,
+        saco: 15,
+        bag: 15,
+        kg: 5,
+        "m²": 100,
+        m2: 100,
+        sqm: 100,
+        "m³": 150,
+        m3: 150,
+        unidad: 10,
+        unit: 10,
+        metro: 10,
+        meter: 10,
+        proyecto: 500000,
+        project: 500000,
+        día: 200,
+        day: 200,
+        semana: 1000,
+        week: 1000,
+      };
+      const floorUSD = perUnitMinInUSD[unitName];
+      const globalMinBs = 100 * exchangeRate; // Piso global recomendado en el prompt
+      const unitMinBs = floorUSD ? floorUSD * exchangeRate : globalMinBs;
+      if (unitPrice < unitMinBs) {
+        unitPrice = Math.round(unitMinBs);
+      }
+
+      // Asegurar que el precio sea un número entero
+      unitPrice = Math.round(unitPrice);
+
+      // Convertir unidades en horas a día/semana con cantidades realistas
+      let finalQuantity = quantity;
+      const unitLower = unit.toLowerCase();
+      if (unitLower === "hora" || unitLower === "hour") {
+        if (quantity >= 40) {
+          unit = unitLower === "hour" ? "week" : "semana";
+          finalQuantity = Math.max(1, Math.ceil(quantity / 40));
+        } else {
+          unit = unitLower === "hour" ? "day" : "día";
+          finalQuantity = Math.max(1, Math.ceil(quantity / 8));
+        }
+      }
+
+      // Forzar cantidades enteras y mínimas de 1
+      finalQuantity = Math.max(1, Math.round(finalQuantity));
+
+      // Normalizar descripciones para evitar "hora"
+      let description = (item.description || "").toString();
+      const tUnit = unit.toLowerCase();
+      const timeSingular =
+        tUnit === "semana" || tUnit === "week"
+          ? tUnit === "week"
+            ? "week"
+            : "semana"
+          : tUnit === "day"
+          ? "day"
+          : "día";
+      const timePlural =
+        tUnit === "semana" || tUnit === "week"
+          ? tUnit === "week"
+            ? "weeks"
+            : "semanas"
+          : tUnit === "day"
+          ? "days"
+          : "días";
+      // Reemplazos con límites de palabra (no afecta "ahora")
+      description = description.replace(
+        /\bpor hora\b/gi,
+        `por ${timeSingular}`
+      );
+      description = description.replace(/\bhoras\b/gi, timePlural);
+      description = description.replace(/\bhora\b/gi, timeSingular);
+      description = description.replace(/\bhour(s)?\b/gi, (_m, p1) =>
+        p1 ? timePlural : timeSingular
+      );
+
+      const subtotal = finalQuantity * unitPrice;
       const taxAmount = params.includeTax
         ? (subtotal * params.taxRate) / 100
         : 0;
       const total = subtotal + taxAmount;
 
       return {
-        description: item.description,
-        quantity: quantity,
-        unit: item.unit,
+        description,
+        quantity: finalQuantity,
+        unit: unit,
         unitPrice: unitPrice,
         subtotal: parseFloat(subtotal.toFixed(2)),
         taxRate: params.taxRate,
@@ -340,19 +503,26 @@ export async function generateAIInvoiceItems(
       lastItem.subtotal = parseFloat(
         (lastItem.subtotal! + difference).toFixed(2)
       );
-      lastItem.quantity = parseFloat(
-        (lastItem.subtotal / lastItem.unitPrice!).toFixed(2)
-      );
+
+      // Para proyectos, ajustar el precio unitario y fijar cantidad = 1
+      const lastUnit = (lastItem.unit || "").toString().toLowerCase();
+      if (["proyecto", "project"].includes(lastUnit)) {
+        lastItem.unitPrice = Math.round(lastItem.subtotal!);
+        lastItem.quantity = 1;
+      } else {
+        const recomputedQty = lastItem.subtotal! / (lastItem.unitPrice || 1);
+        lastItem.quantity = Math.max(1, Math.round(recomputedQty));
+      }
 
       if (params.includeTax) {
         lastItem.taxAmount = parseFloat(
-          ((lastItem.subtotal * params.taxRate) / 100).toFixed(2)
+          ((lastItem.subtotal! * params.taxRate) / 100).toFixed(2)
         );
         lastItem.total = parseFloat(
-          (lastItem.subtotal + lastItem.taxAmount).toFixed(2)
+          (lastItem.subtotal! + lastItem.taxAmount).toFixed(2)
         );
       } else {
-        lastItem.total = lastItem.subtotal;
+        lastItem.total = lastItem.subtotal!;
       }
     }
 

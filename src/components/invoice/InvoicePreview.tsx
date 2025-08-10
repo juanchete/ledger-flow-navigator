@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { GeneratedInvoice, InvoiceCompany, InvoiceLineItem, InvoiceItemGenerationParams } from '@/types/invoice';
 import { generateInvoiceItems, getInvoiceCompany } from '@/integrations/supabase/invoiceService';
+import { generateAIInvoiceItems } from '@/services/aiInvoiceService';
 import { InvoiceGenerator } from './InvoiceGenerator';
 import { toast } from '@/components/ui/use-toast';
 
@@ -76,8 +77,22 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
         taxRate: 16
       };
 
-      const items = await generateInvoiceItems(params);
-      setPreviewItems(items);
+      // Usar AI para generar los items con la tasa de cambio actual
+      try {
+        const aiContext = {
+          currency: 'VES',
+          clientName: clientName,
+          language: 'es' as const,
+          exchangeRate: exchangeRate || 36
+        };
+        const items = await generateAIInvoiceItems(params, aiContext);
+        setPreviewItems(items);
+      } catch (aiError) {
+        console.error('AI generation failed, falling back to catalog:', aiError);
+        // Fallback al catálogo si falla la IA
+        const items = await generateInvoiceItems(params);
+        setPreviewItems(items);
+      }
     } catch (error) {
       console.error('Error loading invoice preview:', error);
       toast({
@@ -109,8 +124,22 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
         taxRate: 16
       };
 
-      const items = await generateInvoiceItems(params);
-      setPreviewItems(items);
+      // Usar AI para generar los items con la tasa de cambio actual
+      try {
+        const aiContext = {
+          currency: 'VES',
+          clientName: clientName,
+          language: 'es' as const,
+          exchangeRate: exchangeRate || 36
+        };
+        const items = await generateAIInvoiceItems(params, aiContext);
+        setPreviewItems(items);
+      } catch (aiError) {
+        console.error('AI generation failed, falling back to catalog:', aiError);
+        // Fallback al catálogo si falla la IA
+        const items = await generateInvoiceItems(params);
+        setPreviewItems(items);
+      }
       
       toast({
         title: 'Items regenerados',
