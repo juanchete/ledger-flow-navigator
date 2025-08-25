@@ -201,7 +201,11 @@ export const ReceivableFormModalOptimized: React.FC<ReceivableFormModalOptimized
           <AmountCurrencySection
             amount={amount}
             currency={currency}
-            exchangeRate={exchangeRateHook.exchangeRate}
+            exchangeRate={
+              exchangeRateHook.useCustomRate && parseFloat(exchangeRateHook.customRate) > 0
+                ? parseFloat(exchangeRateHook.customRate)
+                : exchangeRateHook.exchangeRate
+            }
             onAmountChange={setAmount}
             onCurrencyChange={setCurrency}
             currencies={[

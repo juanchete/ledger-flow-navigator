@@ -137,9 +137,8 @@ const ReceivableDetail = () => {
   const { totalAmountUSD, totalPaidUSD, remainingAmount, calculatedStatus } = useMemo(() => {
     if (!receivable) return { totalAmountUSD: 0, totalPaidUSD: 0, remainingAmount: 0, calculatedStatus: 'pending' };
     
-    const totalAmountUSD = receivable.currency === 'VES' && convertVESToUSD ? 
-      convertVESToUSD(receivable.amount, 'parallel') || receivable.amount : 
-      receivable.amount;
+    // El monto ya está guardado en USD en la base de datos
+    const totalAmountUSD = receivable.amount;
       
     let totalPaidUSD = 0;
     payments.reduce((sum, payment) => {

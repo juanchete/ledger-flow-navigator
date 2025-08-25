@@ -213,7 +213,11 @@ export const DebtFormModalOptimized: React.FC<DebtFormModalOptimizedProps> = ({
           <AmountCurrencySection
             amount={amount}
             currency={currency}
-            exchangeRate={exchangeRateHook.exchangeRate}
+            exchangeRate={
+              exchangeRateHook.useCustomRate && parseFloat(exchangeRateHook.customRate) > 0
+                ? parseFloat(exchangeRateHook.customRate)
+                : exchangeRateHook.exchangeRate
+            }
             onAmountChange={setAmount}
             onCurrencyChange={setCurrency}
             currencies={[

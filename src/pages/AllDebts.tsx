@@ -102,10 +102,8 @@ const AllDebts: React.FC = () => {
         return sum;
       }, 0);
       
-      // Asegurar que la deuda esté en USD
-      const debtAmountUSD = debt.currency === 'VES' && convertVESToUSD ? 
-        convertVESToUSD(debt.amount, 'parallel') || debt.amount : 
-        debt.amount;
+      // El monto de la deuda ya está guardado en USD en la base de datos
+      const debtAmountUSD = debt.amount;
       
       const calculatedStatus = totalPaidUSD >= debtAmountUSD ? 'paid' : debt.status;
 

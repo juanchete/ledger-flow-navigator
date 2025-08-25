@@ -98,7 +98,11 @@ export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
             <AmountCurrencySection
               amount={form.formData.amount}
               currency={form.formData.currency}
-              exchangeRate={form.exchangeRate.exchangeRate}
+              exchangeRate={
+                form.exchangeRate.useCustomRate && parseFloat(form.exchangeRate.customRate) > 0
+                  ? parseFloat(form.exchangeRate.customRate)
+                  : form.exchangeRate.exchangeRate
+              }
               onAmountChange={(amount) => form.updateField('amount', amount)}
               onCurrencyChange={(currency) => form.updateField('currency', currency)}
               currencies={[

@@ -91,9 +91,8 @@ const DebtDetail = () => {
   const { totalAmountUSD, totalPaidUSD, remainingAmount, calculatedStatus } = useMemo(() => {
     if (!debt) return { totalAmountUSD: 0, totalPaidUSD: 0, remainingAmount: 0, calculatedStatus: 'pending' };
     
-    const totalAmountUSD = debt.currency === 'VES' && convertVESToUSD ? 
-      convertVESToUSD(debt.amount, 'parallel') || debt.amount : 
-      debt.amount;
+    // El monto ya está guardado en USD en la base de datos
+    const totalAmountUSD = debt.amount;
       
     let totalPaidUSD = 0;
     payments.reduce((sum, payment) => {

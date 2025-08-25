@@ -81,9 +81,7 @@ const AllReceivables: React.FC = () => {
           receivablesData.map((r) => ({
             id: r.id,
             clientId: r.client_id,
-            amount: r.currency === 'VES' && convertVESToUSD ? 
-              convertVESToUSD(r.amount, 'parallel') || r.amount : 
-              r.amount, // Convertir a USD si es necesario
+            amount: r.amount, // El monto ya está guardado en USD en la base de datos
             dueDate: new Date(r.due_date),
             status: r.status || 'pending',
             description: r.description || '',
@@ -261,9 +259,7 @@ const AllReceivables: React.FC = () => {
         data.map((r) => ({
           id: r.id,
           clientId: r.client_id,
-          amount: r.currency === 'VES' && convertVESToUSD ? 
-            convertVESToUSD(r.amount, 'parallel') || r.amount : 
-            r.amount, // Convertir a USD si es necesario
+          amount: r.amount, // El monto ya está guardado en USD en la base de datos
           dueDate: new Date(r.due_date),
           status: r.status || 'pending',
           description: r.description || '',
