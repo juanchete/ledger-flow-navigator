@@ -17,7 +17,7 @@ import { AmountCurrencySection } from '@/components/forms/AmountCurrencySection'
 import { ClientSelectionSection } from '../transaction/ClientSelectionSection';
 
 // Imports existentes
-import { createTransaction } from '@/integrations/supabase/transactionService';
+import { createTransaction, type NewTransaction } from '@/integrations/supabase/transactionService';
 import { getBankAccounts, BankAccountApp } from '@/integrations/supabase/bankAccountService';
 import { saveExchangeRate } from '@/integrations/supabase/exchangeRateService';
 import { useTransactions } from '@/context/TransactionContext';
@@ -97,6 +97,22 @@ export const PaymentFormModalOptimized: React.FC<PaymentFormModalProps> = ({
   }, [denominationBasedAmount, currency, method]);
 
   const handleSubmit = async () => {
+    // Validaciones básicas
+    if (!amount || parseFloat(amount) <= 0) {
+      toast.error("Por favor ingrese un monto válido mayor a 0");
+      return;
+    }
+
+    if (!selectedBankAccount) {
+      toast.error("Por favor seleccione una cuenta bancaria");
+      return;
+    }
+
+    if (!reference) {
+      toast.error("Por favor ingrese una referencia");
+      return;
+    }
+
     setLoading(true);
     try {
       let exchangeRateId: number | undefined = undefined;
@@ -139,22 +155,33 @@ export const PaymentFormModalOptimized: React.FC<PaymentFormModalProps> = ({
         console.log('Archivo de comprobante seleccionado:', receipt.name);
       }
 
-      const newTxData: Partial<Transaction> = {
+      const newTxData: NewTransaction = {
+        id: uuidv4(),
         amount: finalAmount,
-        date: new Date(date),
+        date: new Date(date).toISOString(),
         description: reference || `Pago ${receivableId ? 'para cuenta por cobrar' : 'para deuda'} en ${currency}`,
         type: 'payment',
-        clientId: selectedClient || undefined,
-        paymentMethod: method,
+        client_id: selectedClient || null,
+        payment_method: method || null,
         status: 'completed',
-        currency: currency as Transaction['currency'],
-        exchangeRateId: exchangeRateId,
-        receivableId: receivableId || undefined,
-        debtId: debtId || undefined,
-        bankAccountId: selectedBankAccount || undefined,
-        receipt: receiptUrl,
-        notes: notes || undefined,
-        denominations: denominationsToSave,
+        currency: currency,
+        exchange_rate_id: exchangeRateId || null,
+        receivable_id: receivableId || null,
+        debt_id: debtId || null,
+        bank_account_id: selectedBankAccount || null,
+        receipt: receiptUrl || null,
+        notes: notes || null,
+        denominations: denominationsToSave || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        category: null,
+        invoice: null,
+        delivery_note: null,
+        commission: null,
+        bank_commission: null,
+        transfer_count: null,
+        destination_bank_account_id: null,
+        indirect_for_client_id: null,
       };
 
       const newTx = await createTransaction(newTxData);
@@ -262,6 +289,7 @@ export const PaymentFormModalOptimized: React.FC<PaymentFormModalProps> = ({
             exchangeRate={exchangeRateHook.exchangeRate}
             onAmountChange={setAmount}
             onCurrencyChange={setCurrency}
+            required={true}
             currencies={[
               { value: 'USD', label: 'USD' },
               { value: 'EUR', label: 'EUR' },
@@ -331,7 +359,7 @@ export const PaymentFormModalOptimized: React.FC<PaymentFormModalProps> = ({
 
           {/* Selección de cuenta bancaria */}
           <div className="grid gap-2 w-full">
-            <Label htmlFor="bank-account">Depositar en</Label>
+            <Label htmlFor="bank-account">Depositar en *</Label>
             <Select value={selectedBankAccount} onValueChange={setSelectedBankAccount} disabled={loading}>
               <SelectTrigger id="bank-account" className="w-full">
                 <SelectValue placeholder="Seleccionar cuenta..." />

@@ -323,6 +323,27 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
       return;
     }
 
+    // Validación de monto válido
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      toast({
+        title: "Monto inválido",
+        description: "Por favor ingrese un monto mayor a 0.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validación de cuenta bancaria obligatoria
+    if (!selectedBankAccount) {
+      toast({
+        title: "Cuenta bancaria requerida",
+        description: "Por favor seleccione una cuenta bancaria.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Validación específica para balance-change
     if (transactionType === 'balance-change') {
       if (!selectedBankAccount || !destinationBankAccount) {
@@ -346,20 +367,11 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
 
     let baseAmount = (currency === 'USD' || currency === 'EUR') && method === 'cash' 
       ? denominationBasedAmount 
-      : parseFloat(amount);
+      : parsedAmount; // Usar el monto ya validado
     
     // Para operaciones de efectivo, ajustar el monto según el flujo
     if (transactionType === 'cash' && operationData?.cashFlow === 'out') {
       baseAmount = -Math.abs(baseAmount); // Hacer negativo para salidas de efectivo
-    }
-
-    if (isNaN(baseAmount) || baseAmount === 0) {
-      toast({
-        title: "Monto inválido",
-        description: "Por favor ingrese un monto válido.",
-        variant: "destructive",
-      });
-      return;
     }
 
     // Validación de saldo para transacciones que requieren dinero (excluimos 'sale' e 'ingreso' porque suman dinero)
@@ -389,6 +401,18 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
           });
           return;
         }
+      }
+    }
+
+    // Validación de auto crear deuda/cuenta por cobrar
+    if (autoCreateDebtReceivable && (transactionType === 'sale' || transactionType === 'purchase')) {
+      if (!debtReceivableDueDate) {
+        toast({
+          title: "Error en creación automática",
+          description: `Por favor seleccione una fecha de vencimiento para la ${transactionType === 'sale' ? 'deuda' : 'cuenta por cobrar'}.`,
+          variant: "destructive",
+        });
+        return;
       }
     }
 
@@ -1192,7 +1216,7 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
       {/* Selección de cuenta bancaria */}
       <div className="grid gap-2 w-full">
         <Label htmlFor="bank-account">
-          {transactionType === 'balance-change' ? 'Cuenta Origen' : 'Cuenta Bancaria'}
+          {transactionType === 'balance-change' ? 'Cuenta Origen *' : 'Cuenta Bancaria *'}
         </Label>
         <Select value={selectedBankAccount} onValueChange={(value) => {
           setSelectedBankAccount(value);

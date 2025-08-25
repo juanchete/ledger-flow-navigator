@@ -66,7 +66,9 @@ export const AutoDebtReceivableSection: React.FC<AutoDebtReceivableProps> = ({
             </CardTitle>
             <CardDescription>
               {debtReceivableInfo.type === 'debt' 
-                ? 'Este dinero recibido se debe a alguien y será registrado como deuda'
+                ? transactionType === 'sale' 
+                  ? 'Este dinero recibido se debe a alguien y será registrado como deuda'
+                  : 'Este gasto se pagará más adelante y será registrado como deuda'
                 : 'Este gasto será reembolsado y se registrará como cuenta por cobrar'}
             </CardDescription>
           </div>
