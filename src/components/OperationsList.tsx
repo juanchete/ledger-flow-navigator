@@ -55,14 +55,14 @@ const getTransactionTypeLabel = (type: string) => {
     'expense': 'Gasto',
     'cash': 'Efectivo',
     'balance-change': 'Cambio Balance',
-    'income': 'Ingreso',
+    'ingreso': 'Ingreso',
     'outcome': 'Egreso'
   };
   return types[type] || type;
 };
 
 const getTransactionIcon = (type: string) => {
-  const incomeTypes = ['sale', 'income'];
+  const incomeTypes = ['sale', 'ingreso'];
   const outcomeTypes = ['purchase', 'expense', 'payment', 'outcome'];
   
   if (incomeTypes.includes(type)) {
@@ -75,7 +75,7 @@ const getTransactionIcon = (type: string) => {
 };
 
 const getAmountColor = (type: string) => {
-  const incomeTypes = ['sale', 'income'];
+  const incomeTypes = ['sale', 'ingreso'];
   const outcomeTypes = ['purchase', 'expense', 'payment', 'outcome'];
   
   if (incomeTypes.includes(type)) {
