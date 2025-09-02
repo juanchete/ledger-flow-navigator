@@ -1224,8 +1224,8 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
         </Label>
         <Select value={selectedBankAccount} onValueChange={(value) => {
           setSelectedBankAccount(value);
-          // Auto-seleccionar método de pago como transferencia cuando se selecciona un banco
-          if (value && method !== 'transfer') {
+          // Auto-seleccionar método de pago como transferencia solo si no es efectivo
+          if (value && method !== 'transfer' && method !== 'cash') {
             setMethod('transfer');
           }
         }} disabled={loading}>
