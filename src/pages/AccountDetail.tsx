@@ -13,6 +13,7 @@ import type { BankAccount } from "@/integrations/supabase/bankAccountService";
 import { TransactionIndicators, getAmountColorClass, getAmountBackgroundClass } from "@/components/operations/TransactionIndicators";
 import { useExchangeRates } from "@/hooks/useExchangeRates";
 import { ArrowLeft, Landmark, HelpCircle } from "lucide-react";
+import { CashInventoryCard } from "@/components/accounts/CashInventoryCard";
 
 const formatCurrency = (amount: number, currency: string = 'USD') => {
   if (currency === 'VES') {
@@ -128,6 +129,9 @@ export default function AccountDetail() {
           </CardContent>
         </Card>
       )}
+
+      {/* Inventario de Efectivo - Solo para cuentas de efectivo */}
+      {bankAccount && <CashInventoryCard bankAccount={bankAccount} />}
 
       <Card>
         <CardHeader>
