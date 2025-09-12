@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
+import { validateCashDenominations, formatValidationErrors } from "@/utils/validations";
 
 interface Denomination {
   id: string;
@@ -125,10 +126,13 @@ export const AmountCurrencyStep: React.FC = () => {
         {showDenominations && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">💵 Denominaciones</CardTitle>
+              <CardTitle className="text-lg">💵 Denominaciones *</CardTitle>
               <CardDescription>
                 Especifica las denominaciones de billetes y monedas recibidas
               </CardDescription>
+              <div className="text-sm text-orange-600 font-medium mt-2">
+                ⚠️ Obligatorio para transacciones en efectivo con {data.currency}
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {denominations.map((denomination) => (
@@ -137,28 +141,30 @@ export const AmountCurrencyStep: React.FC = () => {
                     <Label className="text-sm">Valor</Label>
                     <Input
                       type="number"
-                      placeholder="Ej: 100"
+                      placeholder="Ej: 100 *"
                       value={denomination.value || ''}
                       onChange={(e) => handleDenominationChange(
                         denomination.id, 
                         'value', 
                         parseFloat(e.target.value) || 0
                       )}
-                      className="text-sm"
+                      className="text-sm border-orange-200 focus:border-orange-400"
+                      required
                     />
                   </div>
                   <div className="col-span-5">
                     <Label className="text-sm">Cantidad</Label>
                     <Input
                       type="number"
-                      placeholder="Ej: 5"
+                      placeholder="Ej: 5 *"
                       value={denomination.count || ''}
                       onChange={(e) => handleDenominationChange(
                         denomination.id, 
                         'count', 
                         parseInt(e.target.value) || 0
                       )}
-                      className="text-sm"
+                      className="text-sm border-orange-200 focus:border-orange-400"
+                      required
                     />
                   </div>
                   <div className="col-span-2 flex items-end">
@@ -195,6 +201,30 @@ export const AmountCurrencyStep: React.FC = () => {
                   </div>
                 )}
               </div>
+              
+              {/* Indicador visual de validación de denominaciones */}
+              {denominationBasedAmount > 0 && data.amount && parseFloat(data.amount) > 0 && (
+                <div className={`mt-4 p-3 rounded-lg border text-sm ${
+                  Math.abs(denominationBasedAmount - parseFloat(data.amount)) < 0.01
+                    ? 'bg-green-50 border-green-200 text-green-800'
+                    : 'bg-red-50 border-red-200 text-red-800'
+                }`}>
+                  {Math.abs(denominationBasedAmount - parseFloat(data.amount)) < 0.01 ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-600">✅</span>
+                      <span>Las denominaciones coinciden con el monto de la transacción</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="text-red-600">❌</span>
+                      <span>
+                        Discrepancia: Denominaciones = {data.currency} {denominationBasedAmount.toFixed(2)}, 
+                        Monto indicado = {data.currency} {parseFloat(data.amount).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

@@ -15,6 +15,7 @@ import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { ExchangeRateSection } from '@/components/forms/ExchangeRateSection';
 import { AmountCurrencySection } from '@/components/forms/AmountCurrencySection';
 import { ClientSelectionSection } from '../transaction/ClientSelectionSection';
+import { validateCashDenominations, formatValidationErrors } from "@/utils/validations";
 
 // Imports existentes
 import { createTransaction, type NewTransaction } from '@/integrations/supabase/transactionService';
@@ -110,6 +111,19 @@ export const PaymentFormModalOptimized: React.FC<PaymentFormModalProps> = ({
 
     if (!reference) {
       toast.error("Por favor ingrese una referencia");
+      return;
+    }
+
+    // Validación de denominaciones para efectivo en USD/EUR
+    const denominationValidation = validateCashDenominations(
+      denominations,
+      parseFloat(amount),
+      currency,
+      method
+    );
+    
+    if (!denominationValidation.isValid) {
+      toast.error(formatValidationErrors(denominationValidation.errors));
       return;
     }
 
@@ -321,7 +335,15 @@ export const PaymentFormModalOptimized: React.FC<PaymentFormModalProps> = ({
           {(currency === 'USD' || currency === 'EUR') && method === 'cash' && (
             <div className="mt-4 border-t pt-4 w-full">
               <div className="flex flex-col space-y-2 sm:flex-row sm:justify-between sm:items-center sm:space-y-0 mb-2">
-                <Label>Desglose de Billetes</Label>
+                <div>
+                  <Label>Desglose de Billetes - {currency} *</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Especifica las denominaciones de billetes recibidos
+                  </p>
+                  <p className="text-xs text-orange-600 font-medium mt-1">
+                    ⚠️ Obligatorio para pagos en efectivo con {currency}
+                  </p>
+                </div>
                 <Button type="button" size="sm" variant="outline" onClick={handleAddDenomination} disabled={loading} className="w-full sm:w-auto">
                   <Plus className="h-4 w-4 mr-1" /> Añadir Fila
                 </Button>
@@ -331,19 +353,21 @@ export const PaymentFormModalOptimized: React.FC<PaymentFormModalProps> = ({
                   <div key={den.id} className="grid grid-cols-3 gap-2 items-center">
                     <Input 
                       type="number" 
-                      placeholder="Denominación" 
+                      placeholder="Denominación *" 
                       value={den.value || ''} 
                       onChange={(e) => handleDenominationChange(den.id, 'value', parseInt(e.target.value) || 0)} 
                       disabled={loading}
-                      className="w-full"
+                      className="w-full border-orange-200 focus:border-orange-400"
+                      required
                     />
                     <Input 
                       type="number" 
-                      placeholder="Cantidad" 
+                      placeholder="Cantidad *" 
                       value={den.count || ''} 
                       onChange={(e) => handleDenominationChange(den.id, 'count', parseInt(e.target.value) || 0)} 
                       disabled={loading}
-                      className="w-full"
+                      className="w-full border-orange-200 focus:border-orange-400"
+                      required
                     />
                     <Button 
                       type="button" 
@@ -358,6 +382,30 @@ export const PaymentFormModalOptimized: React.FC<PaymentFormModalProps> = ({
                   </div>
                 ))}
               </div>
+              
+              {/* Indicador visual de validación de denominaciones */}
+              {denominationBasedAmount > 0 && parseFloat(amount) > 0 && (
+                <div className={`mt-3 p-2 rounded-lg border text-sm ${
+                  Math.abs(denominationBasedAmount - parseFloat(amount)) < 0.01
+                    ? 'bg-green-50 border-green-200 text-green-800'
+                    : 'bg-red-50 border-red-200 text-red-800'
+                }`}>
+                  {Math.abs(denominationBasedAmount - parseFloat(amount)) < 0.01 ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-600">✅</span>
+                      <span>Las denominaciones coinciden con el monto del pago</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="text-red-600">❌</span>
+                      <span>
+                        Discrepancia: Denominaciones = {currency} {denominationBasedAmount.toFixed(2)}, 
+                        Monto del pago = {currency} {parseFloat(amount).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

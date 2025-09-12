@@ -66,7 +66,22 @@ export const TransactionWizardProvider: React.FC<TransactionWizardProviderProps>
       
       case 'amount-currency': {
         const amount = parseFloat(data.amount || '0');
-        return !isNaN(amount) && amount > 0 && !!data.currency;
+        const isAmountValid = !isNaN(amount) && amount > 0 && !!data.currency;
+        
+        // Validación adicional para denominaciones en efectivo USD/EUR
+        if (isAmountValid && data.paymentMethod === 'cash' && ['USD', 'EUR'].includes(data.currency || '')) {
+          // Importar validación de denominaciones
+          const { validateCashDenominations } = require('@/utils/validations');
+          const denominationValidation = validateCashDenominations(
+            data.denominations || [],
+            amount,
+            data.currency || 'USD',
+            data.paymentMethod || 'transfer'
+          );
+          return denominationValidation.isValid;
+        }
+        
+        return isAmountValid;
       }
       
       case 'payment-method':
