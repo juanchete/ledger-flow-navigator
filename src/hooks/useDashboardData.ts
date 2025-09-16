@@ -215,7 +215,7 @@ export const useDashboardData = (options: DashboardOptions = {}) => {
         debts: dbts.map((d) => ({
           id: d.id,
           creditor: d.creditor,
-          amount: d.amount,
+          amount: (d as any).amount_usd || d.amount, // Usar amount_usd para el dashboard (siempre en USD)
           dueDate: d.due_date ? new Date(d.due_date) : new Date(),
           status: d.status || undefined,
           category: d.category || undefined,
@@ -228,7 +228,7 @@ export const useDashboardData = (options: DashboardOptions = {}) => {
         receivables: recs.map((r) => ({
           id: r.id,
           clientId: r.client_id,
-          amount: r.amount,
+          amount: (r as any).amount_usd || r.amount, // Usar amount_usd para el dashboard (siempre en USD)
           dueDate: r.due_date ? new Date(r.due_date) : new Date(),
           status: r.status || undefined,
           description: r.description || undefined,

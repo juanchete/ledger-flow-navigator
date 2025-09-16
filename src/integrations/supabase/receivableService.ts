@@ -103,6 +103,48 @@ export const updateReceivable = async (
 };
 
 /**
+ * Updates the exchange rate for a receivable and recalculates amount_usd.
+ * @param id The ID of the receivable to update.
+ * @param newRate The new exchange rate.
+ * @returns A promise that resolves to the updated receivable object.
+ */
+export const updateReceivableExchangeRate = async (
+  id: string,
+  newRate: number
+): Promise<Receivable> => {
+  // First, get the current receivable to access the original amount
+  const receivable = await getReceivableById(id);
+  if (!receivable) {
+    throw new Error(`Receivable with id ${id} not found`);
+  }
+
+  // Calculate new amount_usd based on the new rate
+  let newAmountUSD = receivable.amount; // Default for USD receivables
+
+  if ((receivable as any).currency === 'VES') {
+    // For VES receivables, recalculate USD amount with new rate
+    newAmountUSD = receivable.amount / newRate;
+  }
+
+  const { data, error } = await supabase
+    .from(RECEIVABLES_TABLE)
+    .update({
+      exchange_rate: newRate,
+      amount_usd: newAmountUSD,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error(`Error updating receivable exchange rate with id ${id}:`, error);
+    throw error;
+  }
+  return data;
+};
+
+/**
  * Elimina una cuenta por cobrar de la base de datos.
  */
 export const deleteReceivable = async (id: string): Promise<void> => {

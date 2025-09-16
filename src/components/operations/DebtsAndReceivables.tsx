@@ -126,12 +126,13 @@ export const DebtsAndReceivables: React.FC = () => {
             t => t.type === 'payment' && t.receivableId === r.id && t.status === 'completed'
           );
           const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
-          const calculatedStatus = totalPaid >= r.amount ? 'paid' : (r.status || 'pending');
+          const amountUSD = (r as any).amount_usd || r.amount;
+          const calculatedStatus = totalPaid >= amountUSD ? 'paid' : (r.status || 'pending');
           
           return {
             id: r.id,
             clientId: r.client_id,
-            amount: r.amount,
+            amount: amountUSD, // Usar amount_usd para dashboard
             dueDate: new Date(r.due_date),
             status: calculatedStatus,
             description: r.description || '',
@@ -149,12 +150,13 @@ export const DebtsAndReceivables: React.FC = () => {
             t => t.type === 'payment' && t.debtId === d.id && t.status === 'completed'
           );
           const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
-          const calculatedStatus = totalPaid >= d.amount ? 'paid' : (d.status || 'pending');
+          const amountUSD = (d as any).amount_usd || d.amount;
+          const calculatedStatus = totalPaid >= amountUSD ? 'paid' : (d.status || 'pending');
           
           return {
             id: d.id,
             creditor: d.creditor,
-            amount: d.amount,
+            amount: amountUSD, // Usar amount_usd para dashboard
             dueDate: new Date(d.due_date),
             status: calculatedStatus,
             category: d.category || '',

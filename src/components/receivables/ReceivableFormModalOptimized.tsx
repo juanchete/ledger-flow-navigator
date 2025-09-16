@@ -129,21 +129,29 @@ export const ReceivableFormModalOptimized: React.FC<ReceivableFormModalOptimized
     setLoading(true);
     
     try {
-      // Calcular el monto final según la moneda
-      let finalAmount = parseFloat(amount);
+      // Obtener la tasa de cambio actual
+      const currentRate = exchangeRateHook.useCustomRate
+        ? parseFloat(exchangeRateHook.customRate)
+        : exchangeRateHook.exchangeRate;
+
+      // Mantener el monto original y calcular el equivalente en USD
+      let originalAmount = parseFloat(amount);
+      let amountUSD = originalAmount;
+      let exchangeRate = null;
+
       if (currency === 'VES') {
-        // Si es VES, convertir a USD dividiendo por la tasa de cambio
-        const rate = exchangeRateHook.useCustomRate 
-          ? parseFloat(exchangeRateHook.customRate) 
-          : exchangeRateHook.exchangeRate;
-        finalAmount = finalAmount / rate;
+        // Si es VES, calcular el equivalente en USD
+        amountUSD = originalAmount / currentRate;
+        exchangeRate = currentRate;
       }
 
       const commissionValue = paymentMethod === 'transfer' && commission ? parseFloat(commission) : null;
-      
+
       const receivableData = {
         client_id: clientId,
-        amount: finalAmount,
+        amount: originalAmount, // Guardamos el monto en la moneda original
+        amount_usd: amountUSD, // Guardamos el equivalente en USD
+        exchange_rate: exchangeRate, // Guardamos la tasa de cambio si es VES
         description: reference,
         due_date: dueDate.toISOString(),
         status: status,

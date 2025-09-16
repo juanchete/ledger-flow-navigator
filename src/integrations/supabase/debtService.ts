@@ -87,6 +87,48 @@ export const updateDebt = async (
 };
 
 /**
+ * Updates the exchange rate for a debt and recalculates amount_usd.
+ * @param id The ID of the debt to update.
+ * @param newRate The new exchange rate.
+ * @returns A promise that resolves to the updated debt object.
+ */
+export const updateDebtExchangeRate = async (
+  id: string,
+  newRate: number
+): Promise<Debt> => {
+  // First, get the current debt to access the original amount
+  const debt = await getDebtById(id);
+  if (!debt) {
+    throw new Error(`Debt with id ${id} not found`);
+  }
+
+  // Calculate new amount_usd based on the new rate
+  let newAmountUSD = debt.amount; // Default for USD debts
+
+  if ((debt as any).currency === 'VES') {
+    // For VES debts, recalculate USD amount with new rate
+    newAmountUSD = debt.amount / newRate;
+  }
+
+  const { data, error } = await supabase
+    .from(DEBTS_TABLE)
+    .update({
+      exchange_rate: newRate,
+      amount_usd: newAmountUSD,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error(`Error updating debt exchange rate with id ${id}:`, error);
+    throw error;
+  }
+  return data;
+};
+
+/**
  * Deletes a debt from the database.
  * @param id The ID of the debt to delete.
  * @returns A promise that resolves when the debt is deleted.

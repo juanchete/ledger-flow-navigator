@@ -2,11 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Calendar, BadgeDollarSign, Info, User, AlertTriangle, FileText, Users } from "lucide-react";
+import { ArrowLeft, Calendar, BadgeDollarSign, Info, User, AlertTriangle, FileText, Users, Edit3, Check, X } from "lucide-react";
 import { format } from "date-fns";
-import { getDebtById } from "@/integrations/supabase/debtService";
+import { getDebtById, updateDebtExchangeRate } from "@/integrations/supabase/debtService";
 import { getPaymentsByDebtId } from "@/integrations/supabase/transactionService";
 import { getClientById } from "@/integrations/supabase/clientService";
 import { formatCurrency } from '@/lib/utils';
@@ -36,8 +38,10 @@ const DebtDetail = () => {
   const [primaryClient, setPrimaryClient] = useState<Client | null>(null);
   const [payingClients, setPayingClients] = useState<Client[]>([]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [editingRate, setEditingRate] = useState(false);
+  const [newRate, setNewRate] = useState('');
   
-  const { convertVESToUSD } = useExchangeRates();
+  const { convertVESToUSD, convertUSDToVES } = useExchangeRates();
 
   // Obtener IDs de pagos en VES para cargar tasas históricas
   const vesPaymentIds = useMemo(() => {
@@ -88,33 +92,89 @@ const DebtDetail = () => {
   }, [debtId]);
 
   // Calcular totales usando tasas históricas (antes de early returns)
-  const { totalAmountUSD, totalPaidUSD, remainingAmount, calculatedStatus } = useMemo(() => {
-    if (!debt) return { totalAmountUSD: 0, totalPaidUSD: 0, remainingAmount: 0, calculatedStatus: 'pending' };
-    
-    // El monto ya está guardado en USD en la base de datos
-    const totalAmountUSD = debt.amount;
-      
+  const { totalAmountUSD, totalAmountVES, totalPaidUSD, totalPaidVES, remainingAmountUSD, remainingAmountVES, calculatedStatus } = useMemo(() => {
+    if (!debt) return {
+      totalAmountUSD: 0,
+      totalAmountVES: 0,
+      totalPaidUSD: 0,
+      totalPaidVES: 0,
+      remainingAmountUSD: 0,
+      remainingAmountVES: 0,
+      calculatedStatus: 'pending'
+    };
+
+    // Determinar el monto original según la moneda
+    let totalAmountUSD = 0;
+    let totalAmountVES = 0;
+
+    if (debt.currency === 'VES') {
+      // La deuda está en VES
+      totalAmountVES = debt.amount;
+
+      // Usar el monto USD histórico si existe, sino usar la tasa histórica guardada
+      if (debt.amount_usd) {
+        totalAmountUSD = debt.amount_usd;
+      } else if (debt.exchange_rate) {
+        totalAmountUSD = debt.amount / debt.exchange_rate;
+      } else {
+        // Fallback: usar la tasa actual o una aproximación
+        const usdAmount = convertVESToUSD ? convertVESToUSD(debt.amount, 'parallel') : null;
+        totalAmountUSD = usdAmount || debt.amount / 40;
+      }
+    } else {
+      // La deuda está en USD
+      totalAmountUSD = debt.amount_usd || debt.amount;
+
+      // Para mostrar equivalencia en VES
+      if (debt.exchange_rate) {
+        // Si tenemos la tasa histórica, usarla
+        totalAmountVES = totalAmountUSD * debt.exchange_rate;
+      } else {
+        // Sino, usar la tasa actual
+        const vesAmount = convertUSDToVES ? convertUSDToVES(totalAmountUSD, 'parallel') : null;
+        totalAmountVES = vesAmount || totalAmountUSD * 40;
+      }
+    }
+
     let totalPaidUSD = 0;
-    payments.reduce((sum, payment) => {
-      sum += payment.amount;
-      
-      // Convertir a USD usando tasa histórica si el pago fue en VES
+    let totalPaidVES = 0;
+
+    payments.forEach(payment => {
       if (payment.currency === 'VES') {
+        totalPaidVES += payment.amount;
         const fallbackRate = convertVESToUSD ? convertVESToUSD(1, 'parallel') : undefined;
         totalPaidUSD += convertVESToUSDWithHistoricalRate(payment.amount, payment.id, fallbackRate);
       } else {
         // Asumir que es USD si no se especifica moneda o si es USD
         totalPaidUSD += payment.amount;
+        // Convertir a VES para mostrar el total en ambas monedas
+        const vesEquivalent = convertUSDToVES ? convertUSDToVES(payment.amount, 'parallel') : null;
+        totalPaidVES += vesEquivalent || payment.amount * 40; // Usar tasa aproximada si no hay función
       }
-      
-      return sum;
-    }, 0);
-    
-    const remainingAmount = Math.max(0, totalAmountUSD - totalPaidUSD);
-    const calculatedStatus = totalPaidUSD >= totalAmountUSD ? 'paid' : debt.status;
+    });
 
-    return { totalAmountUSD, totalPaidUSD, remainingAmount, calculatedStatus };
-  }, [debt, payments, convertVESToUSD, convertVESToUSDWithHistoricalRate]);
+    // Calcular restante en ambas monedas
+    const remainingAmountUSD = Math.max(0, totalAmountUSD - totalPaidUSD);
+    const remainingAmountVES = Math.max(0, totalAmountVES - totalPaidVES);
+
+    // Determinar el estado basado en la moneda original
+    let calculatedStatus = debt.status;
+    if (debt.currency === 'VES') {
+      calculatedStatus = totalPaidVES >= totalAmountVES ? 'paid' : debt.status;
+    } else {
+      calculatedStatus = totalPaidUSD >= totalAmountUSD ? 'paid' : debt.status;
+    }
+
+    return {
+      totalAmountUSD,
+      totalAmountVES,
+      totalPaidUSD,
+      totalPaidVES,
+      remainingAmountUSD,
+      remainingAmountVES,
+      calculatedStatus
+    };
+  }, [debt, payments, convertVESToUSD, convertUSDToVES, convertVESToUSDWithHistoricalRate]);
   
   if (loading) {
     return (
@@ -153,6 +213,38 @@ const DebtDetail = () => {
     fetchPayments();
     setShowPaymentModal(false);
   };
+
+  const handleEditRate = () => {
+    if (debt && (debt as any).exchange_rate) {
+      setNewRate((debt as any).exchange_rate.toString());
+      setEditingRate(true);
+    }
+  };
+
+  const handleSaveRate = async () => {
+    if (!debt || !newRate || !debtId) return;
+
+    const rate = parseFloat(newRate);
+    if (isNaN(rate) || rate <= 0) {
+      toast.error('Por favor ingresa una tasa válida');
+      return;
+    }
+
+    try {
+      const updatedDebt = await updateDebtExchangeRate(debtId, rate);
+      setDebt(updatedDebt);
+      setEditingRate(false);
+      toast.success('Tasa de cambio actualizada correctamente');
+    } catch (error) {
+      console.error('Error al actualizar tasa:', error);
+      toast.error('Error al actualizar la tasa de cambio');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingRate(false);
+    setNewRate('');
+  };
   
   return (
     <div className="space-y-6 animate-fade-in">
@@ -187,19 +279,94 @@ const DebtDetail = () => {
               <Badge variant="outline">{debt.category}</Badge>
             </div>
             
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Monto Total:</span>
-              <span className="text-xl font-bold">{formatCurrency(totalAmountUSD)}</span>
-            </div>
-            
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Monto Pagado:</span>
-              <span className="font-medium text-green-600">{formatCurrency(totalPaidUSD)}</span>
-            </div>
-            
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Monto Restante:</span>
-              <span className="font-medium text-amber-600">{formatCurrency(remainingAmount)}</span>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Moneda Original:</span>
+                <div className="flex items-center gap-2">
+                  <Badge variant={debt.currency === 'VES' ? 'secondary' : 'default'} className="font-medium">
+                    {debt.currency || 'USD'}
+                  </Badge>
+                  {debt.currency === 'VES' && (debt as any).exchange_rate && (
+                    <div className="flex items-center gap-2">
+                      {editingRate ? (
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-muted-foreground">Tasa:</span>
+                          <Input
+                            type="number"
+                            value={newRate}
+                            onChange={(e) => setNewRate(e.target.value)}
+                            className="w-20 h-6 text-xs"
+                            step="0.01"
+                          />
+                          <Button size="sm" variant="ghost" onClick={handleSaveRate} className="h-6 w-6 p-0">
+                            <Check size={12} />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={handleCancelEdit} className="h-6 w-6 p-0">
+                            <X size={12} />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <Badge variant="outline" className="text-xs">
+                            Tasa: {(debt as any).exchange_rate}
+                          </Badge>
+                          <Button size="sm" variant="ghost" onClick={handleEditRate} className="h-6 w-6 p-0">
+                            <Edit3 size={12} />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Monto Total:</span>
+                <div className="text-right">
+                  <div className="text-xl font-bold">
+                    {debt.currency === 'VES' ?
+                      `Bs. ${new Intl.NumberFormat('es-VE').format(totalAmountVES)}` :
+                      formatCurrency(totalAmountUSD)
+                    }
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {debt.currency === 'VES' ?
+                      `≈ ${formatCurrency(totalAmountUSD)}` :
+                      `≈ Bs. ${new Intl.NumberFormat('es-VE').format(totalAmountVES)}`
+                    }
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Monto Pagado:</span>
+                <div className="text-right">
+                  <div className="font-medium text-green-600">
+                    {formatCurrency(totalPaidUSD)}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Bs. {new Intl.NumberFormat('es-VE').format(totalPaidVES)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Monto Restante:</span>
+                <div className="text-right">
+                  <div className="font-medium text-amber-600">
+                    {debt.currency === 'VES' ?
+                      `Bs. ${new Intl.NumberFormat('es-VE').format(remainingAmountVES)}` :
+                      formatCurrency(remainingAmountUSD)
+                    }
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {debt.currency === 'VES' ?
+                      `≈ ${formatCurrency(remainingAmountUSD)}` :
+                      `≈ Bs. ${new Intl.NumberFormat('es-VE').format(remainingAmountVES)}`
+                    }
+                  </div>
+                </div>
+              </div>
             </div>
             
             <div className="flex justify-between items-center">
@@ -291,7 +458,7 @@ const DebtDetail = () => {
                 <FileText size={20} />
                 Historial de Pagos
               </CardTitle>
-              {remainingAmount > 0 && (
+              {(remainingAmountUSD > 0 || remainingAmountVES > 0) && (
                 <Button 
                   variant="outline" 
                   size="sm"
@@ -397,7 +564,7 @@ const DebtDetail = () => {
         onPaymentAdded={handlePaymentAdded}
         debtId={debtId}
         defaultClientId={primaryClient?.id}
-        maxAmount={remainingAmount > 0 ? remainingAmount : undefined}
+        maxAmount={remainingAmountUSD > 0 ? remainingAmountUSD : undefined}
       />
     </div>
   );

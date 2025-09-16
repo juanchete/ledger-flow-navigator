@@ -2,17 +2,19 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Calendar, BadgeDollarSign, Info, User, FileText, Users } from "lucide-react";
+import { ArrowLeft, Calendar, BadgeDollarSign, Info, User, FileText, Users, Edit3, Check, X } from "lucide-react";
 import { format } from "date-fns";
 import { formatCurrency } from '@/lib/utils';
 import { StatusBadge } from "@/components/operations/common/StatusBadge";
 import { PaymentsList } from "@/components/operations/payments/PaymentsList";
 import { PaymentFormModalOptimized } from "@/components/operations/modals/PaymentFormModalOptimized";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getReceivableById, type Receivable as SupabaseReceivable } from "@/integrations/supabase/receivableService";
+import { getReceivableById, updateReceivableExchangeRate, type Receivable as SupabaseReceivable } from "@/integrations/supabase/receivableService";
 import { getTransactions, type Transaction as SupabaseTransaction } from "@/integrations/supabase/transactionService";
 import type { Transaction as AppTransaction } from "@/types";
 import { getClients, type Client as SupabaseClient } from "@/integrations/supabase/clientService";
@@ -28,6 +30,9 @@ interface Receivable {
   description: string;
   notes: string;
   currency?: string;
+  amount_usd?: number;
+  exchange_rate?: number;
+  exchange_rate_id?: string;
 }
 
 interface Transaction {
@@ -61,8 +66,10 @@ const ReceivableDetail = () => {
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [editingRate, setEditingRate] = useState(false);
+  const [newRate, setNewRate] = useState('');
   
-  const { convertVESToUSD } = useExchangeRates();
+  const { convertVESToUSD, convertUSDToVES } = useExchangeRates();
 
   // Obtener IDs de pagos en VES para cargar tasas históricas
   const vesPaymentIds = useMemo(() => {
@@ -92,7 +99,10 @@ const ReceivableDetail = () => {
             status: receivableData.status || 'pending',
             description: receivableData.description || '',
             notes: receivableData.notes || '',
-            currency: receivableData.currency
+            currency: receivableData.currency,
+            amount_usd: (receivableData as any).amount_usd,
+            exchange_rate: (receivableData as any).exchange_rate,
+            exchange_rate_id: (receivableData as any).exchange_rate_id
           };
           setReceivable(mappedReceivable);
           // Pagos asociados
@@ -134,33 +144,89 @@ const ReceivableDetail = () => {
   }, [receivableId]);
   
   // Calcular totales usando tasas históricas (antes de early returns)
-  const { totalAmountUSD, totalPaidUSD, remainingAmount, calculatedStatus } = useMemo(() => {
-    if (!receivable) return { totalAmountUSD: 0, totalPaidUSD: 0, remainingAmount: 0, calculatedStatus: 'pending' };
-    
-    // El monto ya está guardado en USD en la base de datos
-    const totalAmountUSD = receivable.amount;
-      
+  const { totalAmountUSD, totalAmountVES, totalPaidUSD, totalPaidVES, remainingAmountUSD, remainingAmountVES, calculatedStatus } = useMemo(() => {
+    if (!receivable) return {
+      totalAmountUSD: 0,
+      totalAmountVES: 0,
+      totalPaidUSD: 0,
+      totalPaidVES: 0,
+      remainingAmountUSD: 0,
+      remainingAmountVES: 0,
+      calculatedStatus: 'pending'
+    };
+
+    // Determinar el monto original según la moneda
+    let totalAmountUSD = 0;
+    let totalAmountVES = 0;
+
+    if (receivable.currency === 'VES') {
+      // La cuenta por cobrar está en VES
+      totalAmountVES = receivable.amount;
+
+      // Usar el monto USD histórico si existe, sino usar la tasa histórica guardada
+      if (receivable.amount_usd) {
+        totalAmountUSD = receivable.amount_usd;
+      } else if (receivable.exchange_rate) {
+        totalAmountUSD = receivable.amount / receivable.exchange_rate;
+      } else {
+        // Fallback: usar la tasa actual o una aproximación
+        const usdAmount = convertVESToUSD ? convertVESToUSD(receivable.amount, 'parallel') : null;
+        totalAmountUSD = usdAmount || receivable.amount / 40;
+      }
+    } else {
+      // La cuenta por cobrar está en USD
+      totalAmountUSD = receivable.amount_usd || receivable.amount;
+
+      // Para mostrar equivalencia en VES
+      if (receivable.exchange_rate) {
+        // Si tenemos la tasa histórica, usarla
+        totalAmountVES = totalAmountUSD * receivable.exchange_rate;
+      } else {
+        // Sino, usar la tasa actual
+        const vesAmount = convertUSDToVES ? convertUSDToVES(totalAmountUSD, 'parallel') : null;
+        totalAmountVES = vesAmount || totalAmountUSD * 40;
+      }
+    }
+
     let totalPaidUSD = 0;
-    payments.reduce((sum, payment) => {
-      sum += payment.amount;
-      
-      // Convertir a USD usando tasa histórica si el pago fue en VES
+    let totalPaidVES = 0;
+
+    payments.forEach(payment => {
       if (payment.currency === 'VES') {
+        totalPaidVES += payment.amount;
         const fallbackRate = convertVESToUSD ? convertVESToUSD(1, 'parallel') : undefined;
         totalPaidUSD += convertVESToUSDWithHistoricalRate(payment.amount, payment.id, fallbackRate);
       } else {
         // Asumir que es USD si no se especifica moneda o si es USD
         totalPaidUSD += payment.amount;
+        // Convertir a VES para mostrar el total en ambas monedas
+        const vesEquivalent = convertUSDToVES ? convertUSDToVES(payment.amount, 'parallel') : null;
+        totalPaidVES += vesEquivalent || payment.amount * 40;
       }
-      
-      return sum;
-    }, 0);
-    
-    const remainingAmount = Math.max(0, totalAmountUSD - totalPaidUSD);
-    const calculatedStatus = totalPaidUSD >= totalAmountUSD ? 'paid' : receivable.status;
+    });
 
-    return { totalAmountUSD, totalPaidUSD, remainingAmount, calculatedStatus };
-  }, [receivable, payments, convertVESToUSD, convertVESToUSDWithHistoricalRate]);
+    // Calcular restante en ambas monedas
+    const remainingAmountUSD = Math.max(0, totalAmountUSD - totalPaidUSD);
+    const remainingAmountVES = Math.max(0, totalAmountVES - totalPaidVES);
+
+    // Determinar el estado basado en la moneda original
+    let calculatedStatus = receivable.status;
+    if (receivable.currency === 'VES') {
+      calculatedStatus = totalPaidVES >= totalAmountVES ? 'paid' : receivable.status;
+    } else {
+      calculatedStatus = totalPaidUSD >= totalAmountUSD ? 'paid' : receivable.status;
+    }
+
+    return {
+      totalAmountUSD,
+      totalAmountVES,
+      totalPaidUSD,
+      totalPaidVES,
+      remainingAmountUSD,
+      remainingAmountVES,
+      calculatedStatus
+    };
+  }, [receivable, payments, convertVESToUSD, convertUSDToVES, convertVESToUSDWithHistoricalRate]);
   
   if (loading) {
     return (
@@ -220,7 +286,43 @@ const ReceivableDetail = () => {
     fetchData();
     setShowPaymentModal(false);
   };
-  
+
+  const handleEditRate = () => {
+    if (receivable && receivable.exchange_rate) {
+      setNewRate(receivable.exchange_rate.toString());
+      setEditingRate(true);
+    }
+  };
+
+  const handleSaveRate = async () => {
+    if (!receivable || !newRate || !receivableId) return;
+
+    const rate = parseFloat(newRate);
+    if (isNaN(rate) || rate <= 0) {
+      toast.error('Por favor ingresa una tasa válida');
+      return;
+    }
+
+    try {
+      const updatedReceivable = await updateReceivableExchangeRate(receivableId, rate);
+      setReceivable({
+        ...receivable,
+        exchange_rate: (updatedReceivable as any).exchange_rate,
+        amount_usd: (updatedReceivable as any).amount_usd
+      });
+      setEditingRate(false);
+      toast.success('Tasa de cambio actualizada correctamente');
+    } catch (error) {
+      console.error('Error al actualizar tasa:', error);
+      toast.error('Error al actualizar la tasa de cambio');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingRate(false);
+    setNewRate('');
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in p-4 sm:p-0">
       {/* Header with back button and title */}
@@ -256,20 +358,107 @@ const ReceivableDetail = () => {
                 </div>
                 
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
-                  <span className="text-sm text-muted-foreground">Monto Total:</span>
-                  <span className="text-lg sm:text-xl font-bold">{formatCurrency(totalAmountUSD)}</span>
+                  <span className="text-sm text-muted-foreground">Moneda Original:</span>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={receivable.currency === 'VES' ? 'secondary' : 'default'} className="font-medium">
+                      {receivable.currency || 'USD'}
+                    </Badge>
+                    {receivable.currency === 'VES' && receivable.exchange_rate && (
+                      <div className="flex items-center gap-1">
+                        {editingRate ? (
+                          <>
+                            <Input
+                              type="number"
+                              value={newRate}
+                              onChange={(e) => setNewRate(e.target.value)}
+                              className="w-20 h-6 text-xs"
+                              step="0.01"
+                            />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0"
+                              onClick={handleSaveRate}
+                            >
+                              <Check className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0"
+                              onClick={handleCancelEdit}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Badge variant="outline" className="text-xs">
+                              Tasa: {receivable.exchange_rate}
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0"
+                              onClick={handleEditRate}
+                            >
+                              <Edit3 className="h-3 w-3" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                
+
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
+                  <span className="text-sm text-muted-foreground">Monto Total:</span>
+                  <div className="text-right">
+                    <div className="text-lg sm:text-xl font-bold">
+                      {receivable.currency === 'VES' ?
+                        `Bs. ${new Intl.NumberFormat('es-VE').format(totalAmountVES)}` :
+                        formatCurrency(totalAmountUSD)
+                      }
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {receivable.currency === 'VES' ?
+                        `≈ ${formatCurrency(totalAmountUSD)}` :
+                        `≈ Bs. ${new Intl.NumberFormat('es-VE').format(totalAmountVES)}`
+                      }
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
                   <span className="text-sm text-muted-foreground">Monto Pagado:</span>
-                  <span className="font-medium text-green-600">{formatCurrency(totalPaidUSD)}</span>
+                  <div className="text-right">
+                    <div className="font-medium text-green-600">
+                      {formatCurrency(totalPaidUSD)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Bs. {new Intl.NumberFormat('es-VE').format(totalPaidVES)}
+                    </div>
+                  </div>
                 </div>
               </div>
               
               <div className="space-y-3">
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
                   <span className="text-sm text-muted-foreground">Monto Restante:</span>
-                  <span className="font-medium text-amber-600">{formatCurrency(remainingAmount)}</span>
+                  <div className="text-right">
+                    <div className="font-medium text-amber-600">
+                      {receivable.currency === 'VES' ?
+                        `Bs. ${new Intl.NumberFormat('es-VE').format(remainingAmountVES)}` :
+                        formatCurrency(remainingAmountUSD)
+                      }
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {receivable.currency === 'VES' ?
+                        `≈ ${formatCurrency(remainingAmountUSD)}` :
+                        `≈ Bs. ${new Intl.NumberFormat('es-VE').format(remainingAmountVES)}`
+                      }
+                    </div>
+                  </div>
                 </div>
                 
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
@@ -356,7 +545,7 @@ const ReceivableDetail = () => {
                 <FileText size={20} />
                 Historial de Pagos
               </CardTitle>
-              {remainingAmount > 0 && (
+              {(remainingAmountUSD > 0 || remainingAmountVES > 0) && (
                 <Button 
                   variant="outline" 
                   size="sm"
@@ -548,7 +737,7 @@ const ReceivableDetail = () => {
         onPaymentAdded={handlePaymentAdded}
         receivableId={receivableId}
         defaultClientId={receivable?.clientId}
-        maxAmount={remainingAmount > 0 ? remainingAmount : undefined}
+        maxAmount={remainingAmountUSD > 0 ? remainingAmountUSD : undefined}
       />
     </div>
   );
