@@ -17,6 +17,7 @@ import { getBankAccounts } from "@/integrations/supabase/bankAccountService";
 import { getDebtById } from "@/integrations/supabase/debtService";
 import { getReceivableById } from "@/integrations/supabase/receivableService";
 import { getInvoices, getInvoice } from "@/integrations/supabase/invoiceService";
+import { getExchangeRateById } from "@/integrations/supabase/exchangeRateService";
 import { InvoiceGenerator } from "@/components/invoice/InvoiceGenerator";
 import { GeneratedInvoice } from "@/types/invoice";
 
@@ -33,6 +34,7 @@ const TransactionDetail = () => {
   const [debt, setDebt] = useState<any>(null);
   const [receivable, setReceivable] = useState<any>(null);
   const [invoice, setInvoice] = useState<GeneratedInvoice | null>(null);
+  const [exchangeRateInfo, setExchangeRateInfo] = useState<any>(null);
   const [rawTransactionData, setRawTransactionData] = useState<any>(null); // Para campos adicionales
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -117,6 +119,16 @@ const TransactionDetail = () => {
               setReceivable(receivableData);
             }
             
+            // Cargar información de tasa de cambio si existe
+            if (data.exchange_rate_id) {
+              try {
+                const exchangeRate = await getExchangeRateById(data.exchange_rate_id);
+                setExchangeRateInfo(exchangeRate);
+              } catch (err) {
+                console.error("Error loading exchange rate:", err);
+              }
+            }
+
             // Cargar factura si existe
             try {
               const invoices = await getInvoices();
@@ -338,10 +350,10 @@ const TransactionDetail = () => {
                       </TooltipTrigger>
                       <TooltipContent>
                         <div className="text-sm">
-                          <p className="font-medium">Equivalente en USD</p>
+                          <p className="font-medium">Equivalente en USD (tasa actual)</p>
                           <p>≈ {formatCurrency(convertVESToUSD(transaction.amount, 'parallel') || 0, 'USD')}</p>
                           <p className="text-xs text-muted-foreground mt-1">
-                            Tasa paralela: 1 USD = {new Intl.NumberFormat('es-VE').format(convertVESToUSD(1, 'parallel', true) || 0)} VES
+                            Tasa paralela actual: 1 USD = {new Intl.NumberFormat('es-VE').format(convertVESToUSD(1, 'parallel', true) || 0)} VES
                           </p>
                         </div>
                       </TooltipContent>
@@ -349,6 +361,74 @@ const TransactionDetail = () => {
                   )}
                 </div>
               </div>
+
+              {/* Información de Tasa de Cambio Histórica */}
+              {(transaction.currency === 'VES' || exchangeRateInfo || rawTransactionData?.exchange_rate) && (
+                <div className="border-l-4 border-blue-400 pl-3 bg-blue-50/50 p-3 rounded-r-lg">
+                  <h5 className="font-medium text-blue-800 mb-2 flex items-center gap-2">
+                    <Calculator className="h-4 w-4" />
+                    Tasa de Cambio Utilizada en la Transacción
+                  </h5>
+
+                  {exchangeRateInfo ? (
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between items-center">
+                        <span className="text-blue-700">Tasa Histórica:</span>
+                        <span className="font-bold text-blue-800">
+                          {exchangeRateInfo.rate ? `${new Intl.NumberFormat('es-VE').format(exchangeRateInfo.rate)} VES/USD` : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-blue-700">Tipo:</span>
+                        <Badge variant="outline" className="text-blue-700 border-blue-300">
+                          {exchangeRateInfo.type === 'official' ? 'Oficial' :
+                           exchangeRateInfo.type === 'parallel' ? 'Paralela' :
+                           exchangeRateInfo.type || 'No especificado'}
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-blue-700">Fecha de la Tasa:</span>
+                        <span className="text-blue-800">
+                          {exchangeRateInfo.date ? format(new Date(exchangeRateInfo.date), 'dd/MM/yyyy') : 'N/A'}
+                        </span>
+                      </div>
+                      {transaction.currency === 'VES' && exchangeRateInfo.rate && (
+                        <div className="flex justify-between items-center pt-2 border-t border-blue-200">
+                          <span className="text-blue-700 font-medium">Equivalente USD (histórico):</span>
+                          <span className="font-bold text-green-700">
+                            ≈ {formatCurrency(transaction.amount / exchangeRateInfo.rate, 'USD')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ) : rawTransactionData?.exchange_rate ? (
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between items-center">
+                        <span className="text-blue-700">Tasa Utilizada:</span>
+                        <span className="font-bold text-blue-800">
+                          {new Intl.NumberFormat('es-VE').format(rawTransactionData.exchange_rate)} VES/USD
+                        </span>
+                      </div>
+                      {transaction.currency === 'VES' && (
+                        <div className="flex justify-between items-center pt-2 border-t border-blue-200">
+                          <span className="text-blue-700 font-medium">Equivalente USD (histórico):</span>
+                          <span className="font-bold text-green-700">
+                            ≈ {formatCurrency(transaction.amount / rawTransactionData.exchange_rate, 'USD')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ) : transaction.currency === 'VES' ? (
+                    <div className="text-sm text-blue-700">
+                      <p>Transacción en VES sin tasa específica registrada</p>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-blue-700">
+                      <p>Transacción en USD - no requiere conversión</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {transaction.commission && transaction.commission > 0 && (
                 <>

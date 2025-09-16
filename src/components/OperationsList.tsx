@@ -159,9 +159,10 @@ export const OperationsList = ({ transactions, clients, onRefresh, lastUpdate }:
           <ScrollArea className="h-[400px] w-full">
             <div className="space-y-1 p-4">
               {recentTransactions.map((transaction, index) => (
-                <div 
-                  key={transaction.id} 
-                  className={`flex items-center justify-between py-3 px-4 rounded-lg border transition-colors hover:bg-muted/50 ${
+                <Link
+                  key={transaction.id}
+                  to={`/operations/transaction/${transaction.id}`}
+                  className={`flex items-center justify-between py-3 px-4 rounded-lg border transition-colors hover:bg-muted/50 cursor-pointer ${
                     index === 0 ? 'bg-primary/5 border-primary/20' : 'border-border'
                   }`}
                 >
@@ -220,7 +221,7 @@ export const OperationsList = ({ transactions, clients, onRefresh, lastUpdate }:
                       {formatRelativeDate(transaction.date)}
                     </div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
             
