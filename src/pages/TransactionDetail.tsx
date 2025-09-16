@@ -17,7 +17,7 @@ import { getBankAccounts } from "@/integrations/supabase/bankAccountService";
 import { getDebtById } from "@/integrations/supabase/debtService";
 import { getReceivableById } from "@/integrations/supabase/receivableService";
 import { getInvoices, getInvoice } from "@/integrations/supabase/invoiceService";
-import { getExchangeRateById } from "@/integrations/supabase/exchangeRateService";
+import { getTransactionExchangeRate } from "@/integrations/supabase/exchangeRateService";
 import { InvoiceGenerator } from "@/components/invoice/InvoiceGenerator";
 import { GeneratedInvoice } from "@/types/invoice";
 
@@ -122,7 +122,7 @@ const TransactionDetail = () => {
             // Cargar información de tasa de cambio si existe
             if (data.exchange_rate_id) {
               try {
-                const exchangeRate = await getExchangeRateById(data.exchange_rate_id);
+                const exchangeRate = await getTransactionExchangeRate(data.id);
                 setExchangeRateInfo(exchangeRate);
               } catch (err) {
                 console.error("Error loading exchange rate:", err);
