@@ -12,6 +12,7 @@ import { Icons } from '@/components/Icons';
 
 // Componentes optimizados
 import { useExchangeRate } from '@/hooks/useExchangeRate';
+import { getLatestExchangeRate } from '@/integrations/supabase/exchangeRateService';
 import { ExchangeRateSection } from '@/components/forms/ExchangeRateSection';
 import { AmountCurrencySection } from '@/components/forms/AmountCurrencySection';
 import { ClientSelectionSection } from "./transaction/ClientSelectionSection";
@@ -737,7 +738,22 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
 
     try {
       const now = new Date().toISOString();
-      
+
+      // Obtener exchange_rate_id si la transacción es en VES
+      let exchangeRateId = null;
+      if (pendingTransactionData.currency === 'VES') {
+        try {
+          // Intentar obtener la tasa paralela más reciente de la base de datos
+          const latestRate = await getLatestExchangeRate('USD', 'VES_PAR');
+          if (latestRate) {
+            exchangeRateId = latestRate.id;
+          }
+        } catch (error) {
+          console.error('Error obteniendo exchange_rate_id:', error);
+          // No es crítico, la transacción puede seguir sin este ID
+        }
+      }
+
       const newTransaction = {
         id: uuidv4(),
         type: pendingTransactionData.transactionType,
@@ -751,7 +767,7 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
         client_id: pendingTransactionData.selectedClient || null,
         bank_account_id: pendingTransactionData.selectedBankAccount || null,
         currency: pendingTransactionData.currency,
-        exchange_rate_id: null, // La tasa se maneja en el backend
+        exchange_rate_id: exchangeRateId,
         created_at: now,
         updated_at: now,
         receipt: null,

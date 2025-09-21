@@ -4,6 +4,7 @@ import { toast } from "@/components/ui/use-toast";
 
 interface UseExchangeRateReturn {
   exchangeRate: number;
+  exchangeRateId: number | null;
   customRate: string;
   useCustomRate: boolean;
   isLoadingRate: boolean;
@@ -18,6 +19,7 @@ interface UseExchangeRateReturn {
 
 export const useExchangeRate = (): UseExchangeRateReturn => {
   const [exchangeRate, setExchangeRate] = useState<number>(36.5);
+  const [exchangeRateId, setExchangeRateId] = useState<number | null>(null);
   const [customRate, setCustomRate] = useState<string>("36.5");
   const [useCustomRate, setUseCustomRate] = useState(false);
   const [isLoadingRate, setIsLoadingRate] = useState(false);
