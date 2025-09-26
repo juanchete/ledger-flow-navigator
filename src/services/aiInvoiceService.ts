@@ -3,6 +3,7 @@ import {
   InvoiceLineItem,
   InvoiceCompanyType,
 } from "@/types/invoice";
+import { excelCatalogService } from "@/services/excelCatalogService";
 
 // Gemini API configuration
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
@@ -352,12 +353,50 @@ async function callGeminiAPI(prompt: string): Promise<any[]> {
   }
 }
 
-// Generate AI-powered invoice items
+// Generate AI-powered invoice items (NOW USES EXCEL CATALOG)
 export async function generateAIInvoiceItems(
   params: InvoiceItemGenerationParams,
   context?: Partial<AIInvoiceContext>
 ): Promise<Partial<InvoiceLineItem>[]> {
   try {
+    // First try to use Excel catalog instead of AI
+    console.log("Using Excel catalog for invoice generation");
+
+    const excelProducts = await excelCatalogService.getRandomProductsForAmount(
+      params.includeTax
+        ? params.targetAmount / (1 + params.taxRate / 100)
+        : params.targetAmount,
+      params.itemCount,
+      context?.exchangeRate || 36
+    );
+
+    // Convert Excel products to invoice line items
+    const items: Partial<InvoiceLineItem>[] = excelProducts.map((product, index) => {
+      const subtotal = product.subtotal;
+      const taxAmount = params.includeTax
+        ? (subtotal * params.taxRate) / 100
+        : 0;
+      const total = subtotal + taxAmount;
+
+      return {
+        description: product.descripcion,
+        quantity: product.quantity,
+        unit: product.unidad || "unidad",
+        unitPrice: product.precio,
+        subtotal: parseFloat(subtotal.toFixed(2)),
+        taxRate: params.taxRate,
+        taxAmount: parseFloat(taxAmount.toFixed(2)),
+        total: parseFloat(total.toFixed(2)),
+        sortOrder: index,
+      };
+    });
+
+    return items;
+  } catch (excelError) {
+    console.error("Excel catalog failed, falling back to AI generation:", excelError);
+
+    // If Excel fails, try original AI generation
+    try {
     // Prepare context
     const fullContext: AIInvoiceContext = {
       companyType: params.companyType,
@@ -531,6 +570,7 @@ export async function generateAIInvoiceItems(
     console.error("Error generating AI invoice items:", error);
     // Rethrow to allow fallback to catalog-based generation
     throw error;
+  }
   }
 }
 

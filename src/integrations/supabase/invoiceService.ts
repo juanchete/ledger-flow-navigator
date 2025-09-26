@@ -15,6 +15,7 @@ import {
   generateAIInvoiceItems,
   validateAIItems,
 } from "@/services/aiInvoiceService";
+import { excelCatalogService } from "@/services/excelCatalogService";
 
 // Helper function to convert snake_case to camelCase
 const snakeToCamel = (obj: any): any => {
@@ -430,29 +431,40 @@ export const createInvoice = async (
       taxRate: request.taxRate ?? 16,
     };
 
-    // Try AI generation if requested
-    if (request.useAIGeneration) {
-      try {
-        const aiContext = {
-          currency: request.currency,
-          clientName: request.clientName,
-          language: "es" as const,
-          exchangeRate: request.exchangeRate,
+    // Try Excel catalog generation first (replacing AI generation)
+    try {
+      // Get products from Excel catalog
+      const excelProducts = await excelCatalogService.getRandomProductsForAmount(
+        generationParams.targetAmount,
+        generationParams.itemCount,
+        request.exchangeRate || 36
+      );
+
+      // Convert Excel products to invoice line items
+      lineItems = excelProducts.map((product, index) => {
+        const subtotal = product.subtotal;
+        const taxAmount = generationParams.includeTax
+          ? (subtotal * generationParams.taxRate) / 100
+          : 0;
+        const total = subtotal + taxAmount;
+
+        return {
+          description: product.descripcion,
+          quantity: product.quantity,
+          unit: product.unidad || "unidad",
+          unitPrice: product.precio,
+          subtotal: parseFloat(subtotal.toFixed(2)),
+          taxRate: generationParams.taxRate,
+          taxAmount: parseFloat(taxAmount.toFixed(2)),
+          total: parseFloat(total.toFixed(2)),
+          sortOrder: index,
         };
+      });
 
-        lineItems = await generateAIInvoiceItems(generationParams, aiContext);
-
-        // Validate AI-generated items
-        if (!validateAIItems(lineItems)) {
-          throw new Error("Invalid AI-generated items");
-        }
-      } catch (error) {
-        console.error("AI generation failed, falling back to catalog:", error);
-        // Fallback to catalog-based generation
-        lineItems = await generateInvoiceItems(generationParams);
-      }
-    } else {
-      // Use catalog-based generation
+      console.log("Generated invoice items from Excel catalog:", lineItems.length);
+    } catch (error) {
+      console.error("Excel catalog generation failed, falling back to database catalog:", error);
+      // Fallback to database catalog-based generation
       lineItems = await generateInvoiceItems(generationParams);
     }
 

@@ -10,6 +10,7 @@ import { getTransactions, Transaction } from "@/integrations/supabase/transactio
 import { getDebts, Debt } from "@/integrations/supabase/debtService";
 import { getReceivables, Receivable } from "@/integrations/supabase/receivableService";
 import { getClients } from "@/integrations/supabase/clientService";
+import { getExpensesByCategory, getExpenseSummary, categoryMapping } from "@/integrations/supabase/expenseStatsService";
 
 // Interfaces para datos calculados
 interface CalculatedFinancialStat {
@@ -57,27 +58,7 @@ const calculateFinancialStats = (debts: Debt[], receivables: Receivable[], trans
   return stats;
 };
 
-// Función para calcular estadísticas de gastos por categoría
-const calculateExpenseStats = (transactions: Transaction[]): CalculatedExpenseStat[] => {
-  const expensesByCategory: { [key: string]: number } = {};
-  
-  // Agrupar gastos por categoría
-  transactions
-    .filter(t => t.type === 'expense' || t.type === 'purchase')
-    .forEach(transaction => {
-      const category = transaction.category || 'Sin categoría';
-      expensesByCategory[category] = (expensesByCategory[category] || 0) + transaction.amount;
-    });
-  
-  // Colores para las categorías
-  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8'];
-  
-  return Object.entries(expensesByCategory).map(([category, amount], index) => ({
-    category,
-    amount,
-    color: colors[index % colors.length]
-  }));
-};
+// Esta función ya no es necesaria porque usamos el servicio expenseStatsService
 
 const Statistics = () => {
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d' | '1y' | 'all'>('30d');
@@ -90,21 +71,26 @@ const Statistics = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [debts, receivables, transactions, clients] = await Promise.all([
+        const [debts, receivables, transactions, clients, expenseSummary] = await Promise.all([
           getDebts(),
           getReceivables(),
           getTransactions(),
-          getClients()
+          getClients(),
+          getExpenseSummary('month')
         ]);
 
         // Calcular estadísticas financieras dinámicamente
         const calculatedFinancialStats = calculateFinancialStats(debts, receivables, transactions);
-        
-        // Calcular estadísticas de gastos dinámicamente
-        const calculatedExpenseStats = calculateExpenseStats(transactions);
+
+        // Usar el servicio mejorado para estadísticas de gastos
+        const expenseCategories = expenseSummary.categories.map(cat => ({
+          category: cat.categoryLabel,
+          amount: cat.amount,
+          color: cat.color
+        }));
 
         setFinancialStats(calculatedFinancialStats);
-        setExpenseStats(calculatedExpenseStats);
+        setExpenseStats(expenseCategories);
         setTransactions(transactions);
       } catch (e) {
         console.error('Error cargando datos:', e);
