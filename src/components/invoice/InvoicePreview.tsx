@@ -7,10 +7,11 @@ import { Separator } from '@/components/ui/separator';
 import { Loader2, Download, Eye, Building2, MapPin, Phone, Mail, Calendar, FileText, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { GeneratedInvoice, InvoiceCompany, InvoiceLineItem, InvoiceItemGenerationParams } from '@/types/invoice';
+import { GeneratedInvoice, InvoiceCompany, InvoiceLineItem, InvoiceItemGenerationParams, InvoiceRubro } from '@/types/invoice';
 import { generateInvoiceItems, getInvoiceCompany } from '@/integrations/supabase/invoiceService';
 import { generateAIInvoiceItems } from '@/services/aiInvoiceService';
 import { InvoiceGenerator } from './InvoiceGenerator';
+import { InvoiceRubroSelector } from './InvoiceRubroSelector';
 import { toast } from '@/components/ui/use-toast';
 
 interface InvoicePreviewProps {
@@ -46,44 +47,74 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
   const [company, setCompany] = useState<InvoiceCompany | null>(null);
   const [previewItems, setPreviewItems] = useState<Partial<InvoiceLineItem>[]>([]);
   const [regenerating, setRegenerating] = useState(false);
+  const [selectedRubro, setSelectedRubro] = useState<InvoiceRubro | undefined>();
+  const [showRubroSelector, setShowRubroSelector] = useState(true);
 
   useEffect(() => {
     if (open && companyId) {
-      loadCompanyAndGenerateItems();
+      // Reset states when dialog opens
+      setShowRubroSelector(true);
+      setSelectedRubro(undefined);
+      setPreviewItems([]);
+      loadCompany();
     }
-  }, [open, companyId, amount]);
+  }, [open, companyId]);
 
-  const loadCompanyAndGenerateItems = async () => {
+  const loadCompany = async () => {
     setLoading(true);
     try {
-      // Load company info
       const companyData = await getInvoiceCompany(companyId);
       if (!companyData) {
         throw new Error('Company not found');
       }
       setCompany(companyData);
+    } catch (error) {
+      console.error('Error loading company:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo cargar la información de la empresa',
+        variant: 'destructive'
+      });
+      onOpenChange(false);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  const handleRubroSelected = async (rubro: InvoiceRubro) => {
+    setSelectedRubro(rubro);
+    setShowRubroSelector(false);
+    await generateItemsForRubro(rubro);
+  };
+
+  const generateItemsForRubro = async (rubro: InvoiceRubro) => {
+    if (!company) return;
+
+    setLoading(true);
+    try {
       // Convertir el monto a bolívares si es necesario
-      const amountInVES = currency === 'VES' 
-        ? amount 
-        : amount * (exchangeRate || 36); // Usar tasa de cambio o valor por defecto
+      const amountInVES = currency === 'VES'
+        ? amount
+        : amount * (exchangeRate || 36);
 
-      // Generate items
+      // Generate items with rubro filter
       const params: InvoiceItemGenerationParams = {
-        companyType: companyData.type,
-        targetAmount: amountInVES, // Siempre generar en bolívares
+        companyType: company.type,
+        targetAmount: amountInVES,
         itemCount: Math.floor(Math.random() * 6) + 3, // 3-8 items
         includeTax: true,
-        taxRate: 16
+        taxRate: 16,
+        rubro: rubro
       };
 
-      // Usar AI para generar los items con la tasa de cambio actual
+      // Usar AI para generar los items con la tasa de cambio actual y rubro
       try {
         const aiContext = {
           currency: 'VES',
           clientName: clientName,
           language: 'es' as const,
-          exchangeRate: exchangeRate || 36
+          exchangeRate: exchangeRate || 36,
+          rubro: rubro
         };
         const items = await generateAIInvoiceItems(params, aiContext);
         setPreviewItems(items);
@@ -94,56 +125,27 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
         setPreviewItems(items);
       }
     } catch (error) {
-      console.error('Error loading invoice preview:', error);
+      console.error('Error generating invoice items:', error);
       toast({
         title: 'Error',
-        description: 'No se pudo cargar la vista previa de la factura',
+        description: 'No se pudieron generar los productos de la factura',
         variant: 'destructive'
       });
-      onOpenChange(false);
     } finally {
       setLoading(false);
     }
   };
 
   const regenerateItems = async () => {
-    if (!company) return;
-    
+    if (!company || !selectedRubro) return;
+
     setRegenerating(true);
     try {
-      // Convertir el monto a bolívares si es necesario
-      const amountInVES = currency === 'VES' 
-        ? amount 
-        : amount * (exchangeRate || 36);
+      await generateItemsForRubro(selectedRubro);
 
-      const params: InvoiceItemGenerationParams = {
-        companyType: company.type,
-        targetAmount: amountInVES, // Siempre generar en bolívares
-        itemCount: Math.floor(Math.random() * 6) + 3, // 3-8 items
-        includeTax: true,
-        taxRate: 16
-      };
-
-      // Usar AI para generar los items con la tasa de cambio actual
-      try {
-        const aiContext = {
-          currency: 'VES',
-          clientName: clientName,
-          language: 'es' as const,
-          exchangeRate: exchangeRate || 36
-        };
-        const items = await generateAIInvoiceItems(params, aiContext);
-        setPreviewItems(items);
-      } catch (aiError) {
-        console.error('AI generation failed, falling back to catalog:', aiError);
-        // Fallback al catálogo si falla la IA
-        const items = await generateInvoiceItems(params);
-        setPreviewItems(items);
-      }
-      
       toast({
         title: 'Items regenerados',
-        description: 'Se han generado nuevos items para la factura'
+        description: 'Se han generado nuevos productos para la factura'
       });
     } catch (error) {
       console.error('Error regenerating items:', error);
@@ -155,6 +157,11 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
     } finally {
       setRegenerating(false);
     }
+  };
+
+  const handleChangeRubro = () => {
+    setShowRubroSelector(true);
+    setPreviewItems([]);
   };
 
   const handleConfirm = () => {
@@ -217,6 +224,13 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : showRubroSelector && company ? (
+          <div className="py-6">
+            <InvoiceRubroSelector
+              value={selectedRubro}
+              onChange={handleRubroSelected}
+            />
           </div>
         ) : company && (
           <ScrollArea className="h-[60vh] pr-4">
@@ -285,27 +299,42 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
                     <h4 className="font-semibold">Items de la Factura</h4>
                     <p className="text-sm text-muted-foreground mt-1">
                       {previewItems.length} productos generados automáticamente
+                      {selectedRubro && (
+                        <Badge variant="outline" className="ml-2">
+                          {selectedRubro}
+                        </Badge>
+                      )}
                     </p>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={regenerateItems}
-                    disabled={regenerating}
-                    className="gap-2"
-                  >
-                    {regenerating ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Generando...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="h-4 w-4" />
-                        Generar Otros Productos
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleChangeRubro}
+                      className="gap-2"
+                    >
+                      Cambiar Rubro
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={regenerateItems}
+                      disabled={regenerating}
+                      className="gap-2"
+                    >
+                      {regenerating ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Generando...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-4 w-4" />
+                          Generar Otros Productos
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="border rounded-lg overflow-hidden">

@@ -2,6 +2,7 @@ import {
   InvoiceItemGenerationParams,
   InvoiceLineItem,
   InvoiceCompanyType,
+  InvoiceRubro,
 } from "@/types/invoice";
 import { excelCatalogService } from "@/services/excelCatalogService";
 
@@ -28,6 +29,7 @@ interface AIInvoiceContext {
   itemCount?: number;
   language?: "es" | "en";
   exchangeRate?: number;
+  rubro?: InvoiceRubro;
 }
 
 // Company type descriptions for context
@@ -367,7 +369,8 @@ export async function generateAIInvoiceItems(
         ? params.targetAmount / (1 + params.taxRate / 100)
         : params.targetAmount,
       params.itemCount,
-      context?.exchangeRate || 36
+      context?.exchangeRate || 36,
+      params.rubro
     );
 
     // Convert Excel products to invoice line items

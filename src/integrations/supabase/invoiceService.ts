@@ -433,11 +433,12 @@ export const createInvoice = async (
 
     // Try Excel catalog generation first (replacing AI generation)
     try {
-      // Get products from Excel catalog
+      // Get products from Excel catalog (with rubro filter if provided)
       const excelProducts = await excelCatalogService.getRandomProductsForAmount(
         generationParams.targetAmount,
         generationParams.itemCount,
-        request.exchangeRate || 36
+        request.exchangeRate || 36,
+        request.rubro
       );
 
       // Convert Excel products to invoice line items

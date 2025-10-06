@@ -1,5 +1,7 @@
 export type InvoiceCompanyType = 'construction' | 'electronics' | 'papers' | 'electricity';
 
+export type InvoiceRubro = 'Ferretería' | 'Construcción' | 'Tecnología';
+
 export interface InvoiceCompany {
   id: string;
   userId: string;
@@ -137,6 +139,7 @@ export interface InvoiceGenerationRequest {
   itemCount?: number; // Number of items to generate (3-8 by default)
   includeTax?: boolean;
   taxRate?: number;
+  rubro?: InvoiceRubro; // Product category for Excel catalog filtering
 }
 
 export interface InvoiceItemGenerationParams {
@@ -145,6 +148,7 @@ export interface InvoiceItemGenerationParams {
   itemCount: number;
   includeTax: boolean;
   taxRate: number;
+  rubro?: InvoiceRubro; // Product category for Excel catalog filtering
 }
 
 // Category mappings for different company types

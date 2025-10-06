@@ -1,5 +1,7 @@
 import * as XLSX from 'xlsx';
 
+export type InvoiceRubro = 'Ferretería' | 'Construcción' | 'Tecnología';
+
 export interface IExcelProduct {
   codigo?: string;
   descripcion: string;
@@ -8,12 +10,13 @@ export interface IExcelProduct {
   categoria?: string;
   unidad?: string;
   marca?: string;
+  rubro?: InvoiceRubro;
 }
 
 class ExcelCatalogService {
   private products: IExcelProduct[] = [];
   private isLoaded: boolean = false;
-  private catalogPath: string = '/catalogo_gac (1).xlsx';
+  private catalogPath: string = '/Catalogo_Completo_Clasificado.xlsx';
 
   /**
    * Load and parse the Excel catalog file
@@ -82,6 +85,7 @@ class ExcelCatalogService {
     const categoriaCol = findColumn(['categoria', 'categoría', 'tipo', 'grupo']);
     const unidadCol = findColumn(['unidad', 'medida', 'presentacion', 'presentación']);
     const marcaCol = findColumn(['marca', 'fabricante']);
+    const rubroCol = findColumn(['clasificacion', 'clasificación', 'rubro']);
 
     // For this specific Excel format: Producto | Precio (USD)
     const descCol = descripcionCol !== -1 ? descripcionCol : 0; // First column is product description
@@ -154,12 +158,29 @@ class ExcelCatalogService {
         categoria = 'Metales';
       }
 
+      // Get rubro (clasificación) from Excel
+      let rubro: InvoiceRubro | undefined;
+      if (rubroCol !== -1) {
+        const rubroStr = row[rubroCol]?.toString().trim();
+        // Normalize rubro values
+        if (rubroStr) {
+          if (rubroStr.toLowerCase().includes('ferret')) {
+            rubro = 'Ferretería';
+          } else if (rubroStr.toLowerCase().includes('construc')) {
+            rubro = 'Construcción';
+          } else if (rubroStr.toLowerCase().includes('tecno') || rubroStr.toLowerCase().includes('electr')) {
+            rubro = 'Tecnología';
+          }
+        }
+      }
+
       const product: IExcelProduct = {
         descripcion,
         precio: parseFloat(precio.toFixed(2)),
         precioUSD,
         categoria,
-        unidad
+        unidad,
+        rubro
       };
 
       products.push(product);
@@ -210,19 +231,40 @@ class ExcelCatalogService {
   }
 
   /**
+   * Get products by rubro (clasificación)
+   */
+  async getProductsByRubro(rubro: InvoiceRubro, exchangeRate: number = 36): Promise<IExcelProduct[]> {
+    if (!this.isLoaded) {
+      await this.loadCatalog(exchangeRate);
+    }
+
+    return this.products.filter(p => p.rubro === rubro);
+  }
+
+  /**
    * Get random products for invoice generation
    * Selects products to match a target amount
    */
   async getRandomProductsForAmount(
     targetAmount: number,
     itemCount?: number,
-    exchangeRate: number = 36
+    exchangeRate: number = 36,
+    rubro?: InvoiceRubro
   ): Promise<Array<IExcelProduct & { quantity: number; subtotal: number }>> {
     if (!this.isLoaded) {
       await this.loadCatalog(exchangeRate);
     }
 
-    if (this.products.length === 0) {
+    // Filter by rubro if provided
+    let availableProducts = this.products;
+    if (rubro) {
+      availableProducts = this.products.filter(p => p.rubro === rubro);
+      if (availableProducts.length === 0) {
+        throw new Error(`No products available for rubro: ${rubro}`);
+      }
+    }
+
+    if (availableProducts.length === 0) {
       throw new Error('No products available in Excel catalog');
     }
 
@@ -231,12 +273,12 @@ class ExcelCatalogService {
 
     // Filter products by price range
     const priceRange = this.getPriceRangeForAmount(targetAmount, numItems);
-    const eligibleProducts = this.products.filter(p =>
+    const eligibleProducts = availableProducts.filter(p =>
       p.precio >= priceRange.min && p.precio <= priceRange.max
     );
 
-    // If no products in range, use all products
-    const productsToUse = eligibleProducts.length > 0 ? eligibleProducts : this.products;
+    // If no products in range, use all available products (filtered by rubro if applicable)
+    const productsToUse = eligibleProducts.length > 0 ? eligibleProducts : availableProducts;
 
     // Randomly select products
     const selectedProducts: Array<IExcelProduct & { quantity: number; subtotal: number }> = [];
@@ -337,6 +379,24 @@ class ExcelCatalogService {
     });
 
     return Array.from(categories).sort();
+  }
+
+  /**
+   * Get available rubros (clasificaciones) from loaded products
+   */
+  async getRubros(exchangeRate: number = 36): Promise<InvoiceRubro[]> {
+    if (!this.isLoaded) {
+      await this.loadCatalog(exchangeRate);
+    }
+
+    const rubros = new Set<InvoiceRubro>();
+    this.products.forEach(p => {
+      if (p.rubro) {
+        rubros.add(p.rubro);
+      }
+    });
+
+    return Array.from(rubros).sort();
   }
 }
 
