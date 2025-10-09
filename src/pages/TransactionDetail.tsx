@@ -80,6 +80,7 @@ const TransactionDetail = () => {
           currency: data.currency,
           commission: data.commission,
           exchangeRateId: data.exchange_rate_id,
+          customExchangeRate: data.custom_exchange_rate,
         };
         setTransaction(mappedTransaction);
         
@@ -120,10 +121,23 @@ const TransactionDetail = () => {
             }
             
             // Cargar información de tasa de cambio si existe
-            if (data.exchange_rate_id) {
+            // Priorizar tasa personalizada sobre tasa de base de datos
+            if (data.custom_exchange_rate) {
+              // Si hay una tasa personalizada, crear un objeto de tasa con ese valor
+              setExchangeRateInfo({
+                rate: data.custom_exchange_rate,
+                type: 'custom',
+                date: data.date,
+                isCustom: true
+              });
+            } else if (data.exchange_rate_id) {
+              // Si no hay tasa personalizada, cargar desde la tabla exchange_rates
               try {
                 const exchangeRate = await getTransactionExchangeRate(data.id);
-                setExchangeRateInfo(exchangeRate);
+                setExchangeRateInfo({
+                  ...exchangeRate,
+                  isCustom: false
+                });
               } catch (err) {
                 console.error("Error loading exchange rate:", err);
               }
@@ -188,6 +202,7 @@ const TransactionDetail = () => {
             currency: data.currency,
             commission: data.commission,
             exchangeRateId: data.exchange_rate_id,
+            customExchangeRate: data.custom_exchange_rate,
           });
         }
       });
@@ -373,7 +388,9 @@ const TransactionDetail = () => {
                   {exchangeRateInfo ? (
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between items-center">
-                        <span className="text-blue-700">Tasa Histórica:</span>
+                        <span className="text-blue-700">
+                          {exchangeRateInfo.isCustom ? 'Tasa Personalizada:' : 'Tasa Histórica:'}
+                        </span>
                         <span className="font-bold text-blue-800">
                           {exchangeRateInfo.rate ? `${new Intl.NumberFormat('es-VE').format(exchangeRateInfo.rate)} VES/USD` : 'N/A'}
                         </span>
@@ -381,7 +398,8 @@ const TransactionDetail = () => {
                       <div className="flex justify-between items-center">
                         <span className="text-blue-700">Tipo:</span>
                         <Badge variant="outline" className="text-blue-700 border-blue-300">
-                          {exchangeRateInfo.type === 'official' ? 'Oficial' :
+                          {exchangeRateInfo.isCustom ? 'Personalizada' :
+                           exchangeRateInfo.type === 'official' ? 'Oficial' :
                            exchangeRateInfo.type === 'parallel' ? 'Paralela' :
                            exchangeRateInfo.type || 'No especificado'}
                         </Badge>

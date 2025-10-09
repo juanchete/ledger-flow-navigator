@@ -52,6 +52,7 @@ export interface Transaction {
   bankAccountId?: string;
   currency?: "USD" | "EUR" | "VES" | "COP";
   exchangeRateId?: number;
+  customExchangeRate?: number;
   category?: string;
   notes?: string;
   denominations?: Record<string, number>;

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { exchangeRateService } from "@/services/exchangeRateService";
+import { getLatestExchangeRate } from "@/integrations/supabase/exchangeRateService";
 import { toast } from "@/components/ui/use-toast";
 
 interface UseExchangeRateReturn {
@@ -37,16 +38,32 @@ export const useExchangeRate = (): UseExchangeRateReturn => {
           setExchangeRate(parallelRate);
           setCustomRate(parallelRate.toString());
           setLastUpdated(response.data.last_updated);
+
+          // Obtener el ID de la tasa de cambio desde la base de datos
+          try {
+            const rateFromDB = await getLatestExchangeRate('USD', 'VES_PAR');
+            console.log('🔍 Tasa obtenida de DB en loadExchangeRate:', rateFromDB);
+            if (rateFromDB) {
+              console.log('✅ Guardando exchange_rate_id:', rateFromDB.id);
+              setExchangeRateId(rateFromDB.id);
+            } else {
+              console.log('❌ No se encontró tasa en DB');
+            }
+          } catch (error) {
+            console.error("Error al obtener exchange_rate_id:", error);
+          }
         } else {
           setExchangeRate(36.5);
           setCustomRate("36.5");
           setLastUpdated("Sin datos recientes");
+          setExchangeRateId(null);
         }
       } catch (error) {
         console.error("Error al cargar tasa de cambio:", error);
         setExchangeRate(36.5);
         setCustomRate("36.5");
         setLastUpdated("Error al cargar");
+        setExchangeRateId(null);
       } finally {
         setIsLoadingRate(false);
       }
@@ -67,6 +84,17 @@ export const useExchangeRate = (): UseExchangeRateReturn => {
         }
         setCustomRate(parallelRate.toString());
         setLastUpdated(response.data.last_updated);
+
+        // Obtener el ID de la tasa de cambio actualizada desde la base de datos
+        try {
+          const rateFromDB = await getLatestExchangeRate('USD', 'VES_PAR');
+          if (rateFromDB) {
+            setExchangeRateId(rateFromDB.id);
+          }
+        } catch (error) {
+          console.error("Error al obtener exchange_rate_id:", error);
+        }
+
         toast({
           title: "Tasa actualizada",
           description: `Nueva tasa paralelo: Bs. ${parallelRate.toFixed(2)}`,
@@ -115,6 +143,16 @@ export const useExchangeRate = (): UseExchangeRateReturn => {
             setExchangeRate(parallelRate);
             setCustomRate(parallelRate.toString());
             setLastUpdated(response.data.last_updated);
+
+            // Obtener el ID de la tasa de cambio desde la base de datos
+            try {
+              const rateFromDB = await getLatestExchangeRate('USD', 'VES_PAR');
+              if (rateFromDB) {
+                setExchangeRateId(rateFromDB.id);
+              }
+            } catch (error) {
+              console.error("Error al obtener exchange_rate_id:", error);
+            }
           }
         } catch (error) {
           console.error("Error al recargar tasa automática:", error);
@@ -126,6 +164,7 @@ export const useExchangeRate = (): UseExchangeRateReturn => {
 
   return {
     exchangeRate,
+    exchangeRateId,
     customRate,
     useCustomRate,
     isLoadingRate,

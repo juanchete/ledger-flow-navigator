@@ -479,7 +479,8 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
         debtReceivableNotes,
         invoiceCompanyId,
         invoiceDueInDays,
-        exchangeRate: exchangeRateHook.useCustomRate ? exchangeRateHook.customRate : exchangeRateHook.exchangeRate
+        exchangeRate: exchangeRateHook.useCustomRate ? exchangeRateHook.customRate : exchangeRateHook.exchangeRate,
+        exchangeRateId: exchangeRateHook.exchangeRateId
       };
       
       setPendingTransactionData(transactionData);
@@ -566,16 +567,20 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
           client_id: selectedClient || null,
           bank_account_id: selectedBankAccount || null,
           currency: currency,
+          // Si usa tasa personalizada: guardar el valor en custom_exchange_rate y null en exchange_rate_id
+          // Si usa tasa automática: guardar el ID en exchange_rate_id y null en custom_exchange_rate
+          exchange_rate_id: exchangeRateHook.useCustomRate ? null : (exchangeRateHook.exchangeRateId || null),
+          custom_exchange_rate: exchangeRateHook.useCustomRate ? parseFloat(exchangeRateHook.customRate) : null,
           receipt: receiptUrl || null,
           denominations: denominationsToSave || null,
           updated_at: now,
           commission: commissionValue,
           // Campos específicos para balance-change (ahora que existen en la DB)
-          bank_commission: transactionType === 'balance-change' && bankCommission ? 
+          bank_commission: transactionType === 'balance-change' && bankCommission ?
             parseFloat(bankCommission) : null,
-          transfer_count: transactionType === 'balance-change' ? 
+          transfer_count: transactionType === 'balance-change' ?
             parseInt(transferCount) || 1 : null,
-          destination_bank_account_id: transactionType === 'balance-change' ? 
+          destination_bank_account_id: transactionType === 'balance-change' ?
             destinationBankAccount || null : null,
           // Campos específicos para operaciones de efectivo
           debt_id: operationData?.relatedType === 'debt' ? operationData.relatedId : null,
@@ -597,6 +602,14 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
         }
       } else {
         // Modo creación
+        console.log('💾 Guardando transacción con exchange_rate_id:', exchangeRateHook.exchangeRateId);
+        console.log('💾 Hook completo:', {
+          exchangeRateId: exchangeRateHook.exchangeRateId,
+          exchangeRate: exchangeRateHook.exchangeRate,
+          useCustomRate: exchangeRateHook.useCustomRate,
+          customRate: exchangeRateHook.customRate
+        });
+
         const newTransaction = {
           id: uuidv4(),
           type: transactionType,
@@ -610,17 +623,21 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
           client_id: selectedClient || null,
           bank_account_id: selectedBankAccount || null,
           currency: currency,
+          // Si usa tasa personalizada: guardar el valor en custom_exchange_rate y null en exchange_rate_id
+          // Si usa tasa automática: guardar el ID en exchange_rate_id y null en custom_exchange_rate
+          exchange_rate_id: exchangeRateHook.useCustomRate ? null : (exchangeRateHook.exchangeRateId || null),
+          custom_exchange_rate: exchangeRateHook.useCustomRate ? parseFloat(exchangeRateHook.customRate) : null,
           receipt: receiptUrl || null,
           denominations: denominationsToSave || null,
           created_at: now,
           updated_at: now,
           commission: commissionValue,
           // Campos específicos para balance-change (ahora que existen en la DB)
-          bank_commission: transactionType === 'balance-change' && bankCommission ? 
+          bank_commission: transactionType === 'balance-change' && bankCommission ?
             parseFloat(bankCommission) : null,
-          transfer_count: transactionType === 'balance-change' ? 
+          transfer_count: transactionType === 'balance-change' ?
             parseInt(transferCount) || 1 : null,
-          destination_bank_account_id: transactionType === 'balance-change' ? 
+          destination_bank_account_id: transactionType === 'balance-change' ?
             destinationBankAccount || null : null,
           // Campos específicos para operaciones de efectivo
           debt_id: operationData?.relatedType === 'debt' ? operationData.relatedId : null,
@@ -739,20 +756,8 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
     try {
       const now = new Date().toISOString();
 
-      // Obtener exchange_rate_id si la transacción es en VES
-      let exchangeRateId = null;
-      if (pendingTransactionData.currency === 'VES') {
-        try {
-          // Intentar obtener la tasa paralela más reciente de la base de datos
-          const latestRate = await getLatestExchangeRate('USD', 'VES_PAR');
-          if (latestRate) {
-            exchangeRateId = latestRate.id;
-          }
-        } catch (error) {
-          console.error('Error obteniendo exchange_rate_id:', error);
-          // No es crítico, la transacción puede seguir sin este ID
-        }
-      }
+      // Usar el exchange_rate_id que el usuario seleccionó en el formulario
+      const exchangeRateId = pendingTransactionData.exchangeRateId || null;
 
       const newTransaction = {
         id: uuidv4(),
