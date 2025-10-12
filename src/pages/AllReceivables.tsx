@@ -81,7 +81,7 @@ const AllReceivables: React.FC = () => {
           receivablesData.map((r) => ({
             id: r.id,
             clientId: r.client_id,
-            amount: r.amount, // El monto ya está guardado en USD en la base de datos
+            amount: r.amount_usd || r.amount, // Usar amount_usd (siempre en USD) en lugar de amount (moneda original)
             dueDate: new Date(r.due_date),
             status: r.status || 'pending',
             description: r.description || '',
@@ -118,29 +118,21 @@ const AllReceivables: React.FC = () => {
     fetchData();
   }, [convertVESToUSD]);
 
-  // Calcular el estado real de cada cuenta por cobrar en base a los pagos asociados (usando tasas históricas)
+  // OPTIMIZADO: Usar valores pre-calculados de la base de datos
   const receivablesWithPayments = useMemo(() => {
     return receivables.map(receivable => {
       const payments = transactions.filter(t => t.type === 'payment' && t.receivableId === receivable.id && t.status === 'completed');
-      
-      let totalPaidUSD = 0;
-      const totalPaid = payments.reduce((sum, t) => {
-        sum += t.amount;
-        
-        // Convertir a USD usando tasa histórica si el pago fue en VES
-        if (t.currency === 'VES') {
-          const fallbackRate = convertVESToUSD ? convertVESToUSD(1, 'parallel') : undefined;
-          totalPaidUSD += convertVESToUSDWithHistoricalRate(t.amount, t.id, fallbackRate);
-        } else {
-          // Asumir que es USD si no se especifica moneda o si es USD
-          totalPaidUSD += t.amount;
-        }
-        
-        return sum;
-      }, 0);
-      
-      const isPaid = totalPaidUSD >= receivable.amount; // Comparar en USD
-      
+
+      // Obtener valores pre-calculados de la BD (calculados por triggers)
+      const totalPaidUSD = (receivable as any).total_paid_usd || 0;
+      const remainingAmountUSD = (receivable as any).remaining_amount_usd || receivable.amount;
+
+      // Total pagado en moneda original (para display)
+      const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
+
+      // Estado calculado basado en el saldo restante
+      const isPaid = remainingAmountUSD <= 0;
+
       return {
         ...receivable,
         status: isPaid ? 'paid' : receivable.status,
@@ -149,7 +141,7 @@ const AllReceivables: React.FC = () => {
         payments
       };
     });
-  }, [receivables, transactions, convertVESToUSD, convertVESToUSDWithHistoricalRate]);
+  }, [receivables, transactions]);
 
   // Función para obtener el nombre del cliente
   const getClientName = (clientId: string) => {
@@ -259,7 +251,7 @@ const AllReceivables: React.FC = () => {
         data.map((r) => ({
           id: r.id,
           clientId: r.client_id,
-          amount: r.amount, // El monto ya está guardado en USD en la base de datos
+          amount: r.amount_usd || r.amount, // Usar amount_usd (siempre en USD) en lugar de amount (moneda original)
           dueDate: new Date(r.due_date),
           status: r.status || 'pending',
           description: r.description || '',

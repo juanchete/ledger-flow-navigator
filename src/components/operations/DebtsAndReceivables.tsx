@@ -5,15 +5,16 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency } from '@/lib/utils';
 import { DebtDetailsModal } from './DebtDetailsModal';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Info } from 'lucide-react';
+import { ArrowRight, Info, CheckCircle } from 'lucide-react';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { getReceivables } from "@/integrations/supabase/receivableService";
+import { getReceivables, liquidateReceivable } from "@/integrations/supabase/receivableService";
 import { getTransactions } from "@/integrations/supabase/transactionService";
-import { getDebts } from "@/integrations/supabase/debtService";
+import { getDebts, liquidateDebt } from "@/integrations/supabase/debtService";
 import { getClients } from "@/integrations/supabase/clientService";
 import type { Tables } from "@/integrations/supabase/types";
 import type { Client } from "@/integrations/supabase/clientService";
+import { toast } from "@/components/ui/use-toast";
 
 interface Debt {
   id: string;
@@ -96,83 +97,113 @@ export const DebtsAndReceivables: React.FC = () => {
     setIsModalOpen(false);
   };
 
+  const handleLiquidateDebt = async (debtId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await liquidateDebt(debtId);
+      toast({
+        title: "Deuda liquidada",
+        description: "La deuda ha sido marcada como pagada completamente"
+      });
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo liquidar la deuda",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleLiquidateReceivable = async (receivableId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await liquidateReceivable(receivableId);
+      toast({
+        title: "Cuenta por cobrar liquidada",
+        description: "La cuenta por cobrar ha sido marcada como pagada completamente"
+      });
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo liquidar la cuenta por cobrar",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [receivablesData, transactionsData, debtsData, clientsData] = await Promise.all([
+        getReceivables(),
+        getTransactions(),
+        getDebts(),
+        getClients()
+      ]);
+
+      const mappedTransactions = transactionsData.map((t: Tables<'transactions'>) => ({
+        id: t.id,
+        type: t.type,
+        receivableId: t.receivable_id,
+        debtId: t.debt_id,
+        clientId: t.client_id,
+        amount: t.amount,
+        date: t.date,
+        status: t.status
+      }));
+      setTransactions(mappedTransactions);
+
+      const receivablesWithCalculatedStatus = receivablesData.map((r: Tables<'receivables'>) => {
+        const remainingAmountUSD = (r as any).remaining_amount_usd || r.amount;
+        const totalPaidUSD = (r as any).total_paid_usd || 0;
+        const calculatedStatus = remainingAmountUSD <= 0 ? 'paid' : (r.status || 'pending');
+
+        return {
+          id: r.id,
+          clientId: r.client_id,
+          amount: remainingAmountUSD,
+          dueDate: new Date(r.due_date),
+          status: calculatedStatus,
+          description: r.description || '',
+          notes: r.notes || '',
+          totalPaidUSD
+        };
+      });
+      setReceivables(receivablesWithCalculatedStatus);
+
+      setClients(clientsData);
+
+      const debtsWithCalculatedStatus = debtsData.map((d: Tables<'debts'>) => {
+        const client = clientsData.find(c => c.id === d.client_id);
+        const remainingAmountUSD = (d as any).remaining_amount_usd || d.amount;
+        const totalPaidUSD = (d as any).total_paid_usd || 0;
+        const calculatedStatus = remainingAmountUSD <= 0 ? 'paid' : (d.status || 'pending');
+
+        return {
+          id: d.id,
+          creditor: d.creditor,
+          amount: remainingAmountUSD,
+          dueDate: new Date(d.due_date),
+          status: calculatedStatus,
+          category: d.category || '',
+          notes: d.notes || '',
+          clientId: d.client_id || undefined,
+          clientName: client?.name || undefined,
+          totalPaidUSD
+        };
+      });
+      setDebts(debtsWithCalculatedStatus);
+
+    } catch (err) {
+      console.error("Error al cargar datos de Supabase:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [receivablesData, transactionsData, debtsData, clientsData] = await Promise.all([
-          getReceivables(),
-          getTransactions(),
-          getDebts(),
-          getClients()
-        ]);
-        
-        // Mapear transacciones primero
-        const mappedTransactions = transactionsData.map((t: Tables<'transactions'>) => ({
-          id: t.id,
-          type: t.type,
-          receivableId: t.receivable_id,
-          debtId: t.debt_id,
-          clientId: t.client_id,
-          amount: t.amount,
-          date: t.date,
-          status: t.status
-        }));
-        setTransactions(mappedTransactions);
-        
-        // Calcular estado real de receivables basado en pagos
-        const receivablesWithCalculatedStatus = receivablesData.map((r: Tables<'receivables'>) => {
-          const payments = mappedTransactions.filter(
-            t => t.type === 'payment' && t.receivableId === r.id && t.status === 'completed'
-          );
-          const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
-          const amountUSD = (r as any).amount_usd || r.amount;
-          const calculatedStatus = totalPaid >= amountUSD ? 'paid' : (r.status || 'pending');
-          
-          return {
-            id: r.id,
-            clientId: r.client_id,
-            amount: amountUSD, // Usar amount_usd para dashboard
-            dueDate: new Date(r.due_date),
-            status: calculatedStatus,
-            description: r.description || '',
-            notes: r.notes || ''
-          };
-        });
-        setReceivables(receivablesWithCalculatedStatus);
-        
-        setClients(clientsData);
-        
-        // Calcular estado real de deudas basado en pagos
-        const debtsWithCalculatedStatus = debtsData.map((d: Tables<'debts'>) => {
-          const client = clientsData.find(c => c.id === d.client_id);
-          const payments = mappedTransactions.filter(
-            t => t.type === 'payment' && t.debtId === d.id && t.status === 'completed'
-          );
-          const totalPaid = payments.reduce((sum, t) => sum + t.amount, 0);
-          const amountUSD = (d as any).amount_usd || d.amount;
-          const calculatedStatus = totalPaid >= amountUSD ? 'paid' : (d.status || 'pending');
-          
-          return {
-            id: d.id,
-            creditor: d.creditor,
-            amount: amountUSD, // Usar amount_usd para dashboard
-            dueDate: new Date(d.due_date),
-            status: calculatedStatus,
-            category: d.category || '',
-            notes: d.notes || '',
-            clientId: d.client_id || undefined,
-            clientName: client?.name || undefined
-          };
-        });
-        setDebts(debtsWithCalculatedStatus);
-        
-      } catch (err) {
-        console.error("Error al cargar datos de Supabase:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchData();
   }, []);
 
@@ -189,14 +220,7 @@ export const DebtsAndReceivables: React.FC = () => {
               Total: {formatCurrency(
                 receivables
                   .filter(r => r.status === 'pending')
-                  .reduce((sum, rec) => {
-                    const payments = transactions.filter(
-                      t => t.type === 'payment' && t.receivableId === rec.id && t.status === 'completed'
-                    );
-                    const totalPaid = payments.reduce((paidSum, t) => paidSum + t.amount, 0);
-                    const remainingAmount = Math.max(0, rec.amount - totalPaid);
-                    return sum + remainingAmount;
-                  }, 0)
+                  .reduce((sum, rec) => sum + rec.amount, 0)
               )}
             </Badge>
             <Button variant="outline" size="sm" asChild className="whitespace-nowrap w-full sm:w-auto">
@@ -238,16 +262,29 @@ export const DebtsAndReceivables: React.FC = () => {
                             <span className="font-semibold">{formatCurrency(receivable.amount)}</span>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="h-6 w-6" 
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
                                   onClick={() => handleReceivableClick(receivable)}
                                 >
                                   <Info className="h-4 w-4" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>Ver detalles completos</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                  onClick={(e) => handleLiquidateReceivable(receivable.id, e)}
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Liquidar cuenta por cobrar</TooltipContent>
                             </Tooltip>
                           </div>
                         </div>
@@ -308,14 +345,7 @@ export const DebtsAndReceivables: React.FC = () => {
               Total: {formatCurrency(
                 debts
                   .filter(d => d.status === 'pending')
-                  .reduce((sum, debt) => {
-                    const payments = transactions.filter(
-                      t => t.type === 'payment' && t.debtId === debt.id && t.status === 'completed'
-                    );
-                    const totalPaid = payments.reduce((paidSum, t) => paidSum + t.amount, 0);
-                    const remainingAmount = Math.max(0, debt.amount - totalPaid);
-                    return sum + remainingAmount;
-                  }, 0)
+                  .reduce((sum, debt) => sum + debt.amount, 0)
               )}
             </Badge>
             <Button variant="outline" size="sm" asChild className="whitespace-nowrap w-full sm:w-auto">
@@ -357,16 +387,29 @@ export const DebtsAndReceivables: React.FC = () => {
                             <span className="font-semibold">{formatCurrency(debt.amount)}</span>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="h-6 w-6" 
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
                                   onClick={() => handleDebtClick(debt)}
                                 >
                                   <Info className="h-4 w-4" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>Ver detalles completos</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                  onClick={(e) => handleLiquidateDebt(debt.id, e)}
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Liquidar deuda</TooltipContent>
                             </Tooltip>
                           </div>
                         </div>

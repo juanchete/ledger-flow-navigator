@@ -93,6 +93,11 @@ export default {
             light: "#FFD54F",
             dark: "#F9A825",
           },
+          purple: {
+            DEFAULT: "#9C27B0",
+            light: "#BA68C8",
+            dark: "#7B1FA2",
+          },
           gray: {
             DEFAULT: "#5F6368",
             light: "#BDC1C6",

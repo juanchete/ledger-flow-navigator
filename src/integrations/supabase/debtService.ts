@@ -45,13 +45,35 @@ export const getDebtById = async (id: string): Promise<Debt | null> => {
 
 /**
  * Creates a new debt in the database.
+ * Automatically calculates amount_usd based on currency and exchange_rate.
  * @param debt The debt object to create.
  * @returns A promise that resolves to the created debt object.
  */
 export const createDebt = async (debt: NewDebt): Promise<Debt> => {
+  let debtToInsert = { ...debt };
+
+  const currency = (debt as any).currency || 'USD';
+  const amount = debt.amount;
+  const exchangeRate = (debt as any).exchange_rate;
+
+  if (currency === 'VES') {
+    if (!exchangeRate || exchangeRate <= 0) {
+      throw new Error('Exchange rate is required for VES debts');
+    }
+    debtToInsert = {
+      ...debtToInsert,
+      amount_usd: amount / exchangeRate
+    };
+  } else {
+    debtToInsert = {
+      ...debtToInsert,
+      amount_usd: amount
+    };
+  }
+
   const { data, error } = await supabase
     .from(DEBTS_TABLE)
-    .insert(debt)
+    .insert(debtToInsert)
     .select()
     .single();
 
@@ -152,4 +174,19 @@ export const getDebtsByClientId = async (clientId: string): Promise<Debt[]> => {
     .eq("client_id", clientId);
   if (error) throw error;
   return data || [];
+};
+
+/**
+ * Liquida una deuda (la marca como pagada con saldo restante en 0)
+ * Útil para cerrar deudas con saldos pequeños por redondeo
+ */
+export const liquidateDebt = async (debtId: string): Promise<void> => {
+  const { error } = await supabase.rpc('liquidate_debt', {
+    p_debt_id: debtId
+  });
+
+  if (error) {
+    console.error(`Error liquidating debt with id ${debtId}:`, error);
+    throw error;
+  }
 };

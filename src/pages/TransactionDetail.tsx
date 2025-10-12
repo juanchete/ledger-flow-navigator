@@ -353,7 +353,7 @@ const TransactionDetail = () => {
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Monto Original:</span>
                 <div className="flex items-center gap-1">
-                  <span className={`font-medium ${getAmountColorClass(transaction.type)}`}>
+                  <span className={`font-medium ${getAmountColorClass(transaction.type, transaction.debtId, transaction.receivableId)}`}>
                     {formatCurrency(transaction.amount, transaction.currency || 'USD')}
                   </span>
                   {transaction.currency === 'VES' && convertVESToUSD && (

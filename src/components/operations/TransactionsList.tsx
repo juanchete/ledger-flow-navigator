@@ -293,7 +293,7 @@ export const TransactionsList = ({ selectedType, searchQuery, selectedPaymentMet
                   <div className="col-span-2">
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1">
-                        <span className={`font-medium ${getAmountColorClass(transaction.type || '')}`}>
+                        <span className={`font-medium ${getAmountColorClass(transaction.type || '', transaction.debt_id, transaction.receivable_id)}`}>
                           {formatCurrency(transaction.amount, transaction.currency || 'USD')}
                         </span>
                         {transaction.currency === 'VES' && convertVESToUSD && (
@@ -390,7 +390,7 @@ export const TransactionsList = ({ selectedType, searchQuery, selectedPaymentMet
                   <div>
                     <span className="text-muted-foreground">Monto: </span>
                     <div className="flex items-center gap-1 inline-flex">
-                      <span className={`font-medium ${getAmountColorClass(transaction.type || '')}`}>
+                      <span className={`font-medium ${getAmountColorClass(transaction.type || '', transaction.debt_id, transaction.receivable_id)}`}>
                         {formatCurrency(transaction.amount, transaction.currency || 'USD')}
                       </span>
                       {transaction.currency === 'VES' && convertVESToUSD && (

@@ -66,11 +66,21 @@ export const TransactionIndicators: React.FC<TransactionIndicatorsProps> = ({
   // Get transaction type icon and color
   const getTransactionIcon = () => {
     if (!transactionType || !amount) return null;
-    
-    const isIncome = ['sale', 'payment', 'cash', 'ingreso'].includes(transactionType);
+
+    // Para pagos, determinar si es ingreso o salida según el contexto
+    let isIncome: boolean;
+    if (transactionType === 'payment') {
+      // Nota: Este componente no recibe debt_id/receivable_id en sus props
+      // Por ahora, consideramos payment como ingreso por defecto
+      // La función getAmountColorClass externa maneja la lógica correcta
+      isIncome = true;
+    } else {
+      isIncome = ['sale', 'cash', 'ingreso'].includes(transactionType);
+    }
+
     const Icon = isIncome ? TrendingUp : TrendingDown;
     const colorClass = isIncome ? 'text-green-600' : 'text-red-600';
-    
+
     return <Icon className={cn('inline-block', size === 'sm' ? 'h-3 w-3' : size === 'md' ? 'h-4 w-4' : 'h-5 w-5', colorClass)} />;
   };
 
@@ -146,13 +156,35 @@ export const TransactionIndicators: React.FC<TransactionIndicatorsProps> = ({
 };
 
 // Export color helper functions for use in other components
-export const getAmountColorClass = (transactionType: string) => {
-  const incomeTypes = ['sale', 'payment', 'cash', 'ingreso'];
+export const getAmountColorClass = (transactionType: string, debtId?: string | null, receivableId?: string | null) => {
+  // Pagos tienen lógica especial según si son de deuda o receivable
+  if (transactionType === 'payment') {
+    // Pago de deuda → Salida (rojo) - dinero sale del banco
+    if (debtId) return 'text-red-600';
+    // Cobro de receivable → Ingreso (verde) - dinero entra al banco
+    if (receivableId) return 'text-green-600';
+    // Pago genérico sin contexto → considerarlo ingreso por defecto
+    return 'text-green-600';
+  }
+
+  // Otros tipos de ingreso
+  const incomeTypes = ['sale', 'cash', 'ingreso'];
   return incomeTypes.includes(transactionType) ? 'text-green-600' : 'text-red-600';
 };
 
-export const getAmountBackgroundClass = (transactionType: string, subtle = true) => {
-  const incomeTypes = ['sale', 'payment', 'cash', 'ingreso'];
+export const getAmountBackgroundClass = (transactionType: string, debtId?: string | null, receivableId?: string | null, subtle = true) => {
+  // Pagos tienen lógica especial según si son de deuda o receivable
+  if (transactionType === 'payment') {
+    // Pago de deuda → Salida (rojo)
+    if (debtId) return subtle ? 'bg-red-50' : 'bg-red-100';
+    // Cobro de receivable → Ingreso (verde)
+    if (receivableId) return subtle ? 'bg-green-50' : 'bg-green-100';
+    // Pago genérico → ingreso por defecto
+    return subtle ? 'bg-green-50' : 'bg-green-100';
+  }
+
+  // Otros tipos
+  const incomeTypes = ['sale', 'cash', 'ingreso'];
   if (subtle) {
     return incomeTypes.includes(transactionType) ? 'bg-green-50' : 'bg-red-50';
   }

@@ -7,14 +7,15 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Calendar, BadgeDollarSign, Info, User, FileText, Users, Edit3, Check, X } from "lucide-react";
+import { ArrowLeft, Calendar, BadgeDollarSign, Info, User, FileText, Users, Edit3, Check, X, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import { formatCurrency } from '@/lib/utils';
 import { StatusBadge } from "@/components/operations/common/StatusBadge";
 import { PaymentsList } from "@/components/operations/payments/PaymentsList";
 import { PaymentFormModalOptimized } from "@/components/operations/modals/PaymentFormModalOptimized";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getReceivableById, updateReceivableExchangeRate, type Receivable as SupabaseReceivable } from "@/integrations/supabase/receivableService";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { getReceivableById, updateReceivableExchangeRate, liquidateReceivable, type Receivable as SupabaseReceivable } from "@/integrations/supabase/receivableService";
 import { getTransactions, type Transaction as SupabaseTransaction } from "@/integrations/supabase/transactionService";
 import type { Transaction as AppTransaction } from "@/types";
 import { getClients, type Client as SupabaseClient } from "@/integrations/supabase/clientService";
@@ -68,6 +69,7 @@ const ReceivableDetail = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [editingRate, setEditingRate] = useState(false);
   const [newRate, setNewRate] = useState('');
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
   
   const { convertVESToUSD, convertUSDToVES } = useExchangeRates();
 
@@ -94,7 +96,7 @@ const ReceivableDetail = () => {
           const mappedReceivable: Receivable = {
             id: receivableData.id,
             clientId: receivableData.client_id,
-            amount: receivableData.amount,
+            amount: receivableData.amount, // Mantener monto en moneda original
             dueDate: new Date(receivableData.due_date),
             status: receivableData.status || 'pending',
             description: receivableData.description || '',
@@ -120,7 +122,8 @@ const ReceivableDetail = () => {
                 status: payment.status,
                 clientName: client?.name,
                 clientType: client?.client_type,
-                currency: payment.currency
+                currency: payment.currency,
+                paymentMethod: payment.payment_method
               };
             });
           setPayments(receivablePayments);
@@ -143,7 +146,7 @@ const ReceivableDetail = () => {
     fetchData();
   }, [receivableId]);
   
-  // Calcular totales usando tasas históricas (antes de early returns)
+  // OPTIMIZADO: Usar valores pre-calculados de la base de datos
   const { totalAmountUSD, totalAmountVES, totalPaidUSD, totalPaidVES, remainingAmountUSD, remainingAmountVES, calculatedStatus } = useMemo(() => {
     if (!receivable) return {
       totalAmountUSD: 0,
@@ -155,67 +158,42 @@ const ReceivableDetail = () => {
       calculatedStatus: 'pending'
     };
 
-    // Determinar el monto original según la moneda
-    let totalAmountUSD = 0;
+    // Usar valores pre-calculados por los triggers de la BD (O(1) en lugar de O(n))
+    const totalPaidUSD = (receivable as any).total_paid_usd || 0;
+    const remainingAmountUSD = (receivable as any).remaining_amount_usd || (receivable.amount_usd || receivable.amount);
+    const totalAmountUSD = totalPaidUSD + remainingAmountUSD;
+
+    // Para display: calcular VES basado en el monto original
     let totalAmountVES = 0;
+    let totalPaidVES = 0;
+    let remainingAmountVES = 0;
 
     if (receivable.currency === 'VES') {
-      // La cuenta por cobrar está en VES
+      // Cuenta por cobrar original en VES
       totalAmountVES = receivable.amount;
 
-      // Usar el monto USD histórico si existe, sino usar la tasa histórica guardada
-      if (receivable.amount_usd) {
-        totalAmountUSD = receivable.amount_usd;
-      } else if (receivable.exchange_rate) {
-        totalAmountUSD = receivable.amount / receivable.exchange_rate;
-      } else {
-        // Fallback: usar la tasa actual o una aproximación
-        const usdAmount = convertVESToUSD ? convertVESToUSD(receivable.amount, 'parallel') : null;
-        totalAmountUSD = usdAmount || receivable.amount / 40;
-      }
-    } else {
-      // La cuenta por cobrar está en USD
-      totalAmountUSD = receivable.amount_usd || receivable.amount;
+      // Calcular pagado y restante en VES sumando los pagos
+      totalPaidVES = payments.reduce((sum, p) => {
+        if (p.currency === 'VES') {
+          return sum + p.amount;
+        } else {
+          // Convertir USD a VES para display
+          const rate = (p as any).exchange_rate || 200;
+          return sum + (p.amount * rate);
+        }
+      }, 0);
 
-      // Para mostrar equivalencia en VES
-      if (receivable.exchange_rate) {
-        // Si tenemos la tasa histórica, usarla
-        totalAmountVES = totalAmountUSD * receivable.exchange_rate;
-      } else {
-        // Sino, usar la tasa actual
-        const vesAmount = convertUSDToVES ? convertUSDToVES(totalAmountUSD, 'parallel') : null;
-        totalAmountVES = vesAmount || totalAmountUSD * 40;
-      }
+      remainingAmountVES = Math.max(0, totalAmountVES - totalPaidVES);
+    } else {
+      // Cuenta por cobrar original en USD - convertir a VES para display
+      const currentRate = convertUSDToVES ? convertUSDToVES(1, 'parallel') : 200;
+      totalAmountVES = totalAmountUSD * currentRate;
+      totalPaidVES = totalPaidUSD * currentRate;
+      remainingAmountVES = remainingAmountUSD * currentRate;
     }
 
-    let totalPaidUSD = 0;
-    let totalPaidVES = 0;
-
-    payments.forEach(payment => {
-      if (payment.currency === 'VES') {
-        totalPaidVES += payment.amount;
-        const fallbackRate = convertVESToUSD ? convertVESToUSD(1, 'parallel') : undefined;
-        totalPaidUSD += convertVESToUSDWithHistoricalRate(payment.amount, payment.id, fallbackRate);
-      } else {
-        // Asumir que es USD si no se especifica moneda o si es USD
-        totalPaidUSD += payment.amount;
-        // Convertir a VES para mostrar el total en ambas monedas
-        const vesEquivalent = convertUSDToVES ? convertUSDToVES(payment.amount, 'parallel') : null;
-        totalPaidVES += vesEquivalent || payment.amount * 40;
-      }
-    });
-
-    // Calcular restante en ambas monedas
-    const remainingAmountUSD = Math.max(0, totalAmountUSD - totalPaidUSD);
-    const remainingAmountVES = Math.max(0, totalAmountVES - totalPaidVES);
-
-    // Determinar el estado basado en la moneda original
-    let calculatedStatus = receivable.status;
-    if (receivable.currency === 'VES') {
-      calculatedStatus = totalPaidVES >= totalAmountVES ? 'paid' : receivable.status;
-    } else {
-      calculatedStatus = totalPaidUSD >= totalAmountUSD ? 'paid' : receivable.status;
-    }
+    // Estado calculado basado en el saldo restante
+    const calculatedStatus = remainingAmountUSD <= 0 ? 'paid' : receivable.status;
 
     return {
       totalAmountUSD,
@@ -226,7 +204,7 @@ const ReceivableDetail = () => {
       remainingAmountVES,
       calculatedStatus
     };
-  }, [receivable, payments, convertVESToUSD, convertUSDToVES, convertVESToUSDWithHistoricalRate]);
+  }, [receivable, payments, convertUSDToVES]);
   
   if (loading) {
     return (
@@ -275,7 +253,8 @@ const ReceivableDetail = () => {
               status: payment.status,
               clientName: client?.name,
               clientType: client?.client_type,
-              currency: payment.currency
+              currency: payment.currency,
+              paymentMethod: payment.payment_method
             };
           });
         setPayments(receivablePayments);
@@ -323,6 +302,36 @@ const ReceivableDetail = () => {
     setNewRate('');
   };
 
+  const handleCancelReceivable = async () => {
+    if (!receivableId) return;
+
+    try {
+      await liquidateReceivable(receivableId);
+      toast.success('Cuenta por cobrar cancelada correctamente');
+      setShowCancelDialog(false);
+
+      const updatedReceivable = await getReceivableById(receivableId);
+      if (updatedReceivable) {
+        setReceivable({
+          id: updatedReceivable.id,
+          clientId: updatedReceivable.client_id,
+          amount: updatedReceivable.amount, // Mantener monto en moneda original
+          dueDate: new Date(updatedReceivable.due_date),
+          status: updatedReceivable.status || 'pending',
+          description: updatedReceivable.description || '',
+          notes: updatedReceivable.notes || '',
+          currency: updatedReceivable.currency,
+          amount_usd: (updatedReceivable as any).amount_usd,
+          exchange_rate: (updatedReceivable as any).exchange_rate,
+          exchange_rate_id: (updatedReceivable as any).exchange_rate_id
+        });
+      }
+    } catch (error) {
+      console.error('Error al cancelar cuenta por cobrar:', error);
+      toast.error('Error al cancelar la cuenta por cobrar');
+    }
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in p-4 sm:p-0">
       {/* Header with back button and title */}
@@ -334,9 +343,21 @@ const ReceivableDetail = () => {
             <span className="sm:hidden">Volver</span>
           </Link>
         </Button>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap flex-1">
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Detalle Cuenta Cobrar</h1>
           <StatusBadge status={calculatedStatus} />
+          {calculatedStatus === 'pending' && remainingAmountUSD > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setShowCancelDialog(true)}
+              className="gap-1 ml-auto"
+            >
+              <XCircle size={16} />
+              <span className="hidden sm:inline">Cancelar Cuenta por Cobrar</span>
+              <span className="sm:hidden">Cancelar</span>
+            </Button>
+          )}
         </div>
       </div>
       
@@ -739,6 +760,37 @@ const ReceivableDetail = () => {
         defaultClientId={receivable?.clientId}
         maxAmount={remainingAmountUSD > 0 ? remainingAmountUSD : undefined}
       />
+
+      {/* Dialog de confirmación para cancelar cuenta por cobrar */}
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Cancelar esta cuenta por cobrar?</DialogTitle>
+            <DialogDescription>
+              Esta acción marcará la cuenta por cobrar como pagada y establecerá el saldo restante en $0.00.
+              <br /><br />
+              Usa esta opción cuando llegues a un acuerdo externo con el cliente y no se requiera
+              el cobro completo de la cuenta.
+              <br /><br />
+              <strong>Esta acción no se puede deshacer.</strong>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowCancelDialog(false)}
+            >
+              No, mantener cuenta
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelReceivable}
+            >
+              Sí, cancelar cuenta
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -222,7 +222,7 @@ export default function AccountDetail() {
                     };
 
                     return (
-                      <TableRow key={transaction.id} className={getAmountBackgroundClass(transaction.type || '', true)}>
+                      <TableRow key={transaction.id} className={getAmountBackgroundClass(transaction.type || '', transaction.debt_id, transaction.receivable_id, true)}>
                         <TableCell>{format(new Date(transaction.date), 'dd/MM/yyyy')}</TableCell>
                         <TableCell className="font-medium">
                           {getTransactionTypeLabel(transaction.type || '')}
@@ -237,7 +237,7 @@ export default function AccountDetail() {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className={getAmountColorClass(transaction.type || '')}>
+                        <TableCell className={getAmountColorClass(transaction.type || '', transaction.debt_id, transaction.receivable_id)}>
                           <div className="flex items-center gap-2">
                             <div className="flex items-center gap-1">
                               <span className="font-medium">

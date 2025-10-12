@@ -44,14 +44,30 @@ export const getReceivableById = async (
 
 /**
  * Crea una nueva cuenta por cobrar en la base de datos.
+ * Automatically calculates amount_usd based on currency and exchange_rate.
  */
 export const createReceivable = async (
   receivable: Partial<import("@/types").Receivable>
 ): Promise<Receivable> => {
+  const currency = receivable.currency || 'USD';
+  const amount = receivable.amount || 0;
+  const exchangeRate = (receivable as any).exchangeRate;
+
+  let amountUsd = amount;
+
+  if (currency === 'VES') {
+    if (!exchangeRate || exchangeRate <= 0) {
+      throw new Error('Exchange rate is required for VES receivables');
+    }
+    amountUsd = amount / exchangeRate;
+  }
+
   const receivableData = {
     id: receivable.id || uuidv4(),
     client_id: receivable.clientId,
     amount: receivable.amount,
+    amount_usd: amountUsd,
+    exchange_rate: exchangeRate,
     due_date: receivable.dueDate
       ? new Date(receivable.dueDate).toISOString()
       : new Date().toISOString(),
@@ -174,4 +190,19 @@ export const getReceivablesByClientId = async (
     .eq("client_id", clientId);
   if (error) throw error;
   return data || [];
+};
+
+/**
+ * Liquida una cuenta por cobrar (la marca como pagada con saldo restante en 0)
+ * Útil para cerrar cuentas por cobrar con saldos pequeños por redondeo
+ */
+export const liquidateReceivable = async (receivableId: string): Promise<void> => {
+  const { error } = await supabase.rpc('liquidate_receivable', {
+    p_receivable_id: receivableId
+  });
+
+  if (error) {
+    console.error(`Error liquidating receivable with id ${receivableId}:`, error);
+    throw error;
+  }
 };

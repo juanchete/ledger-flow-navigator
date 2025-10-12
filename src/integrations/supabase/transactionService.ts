@@ -34,7 +34,7 @@ const TRANSACTIONS_TABLE = "transactions";
 export const getTransactions = async (): Promise<Transaction[]> => {
   const { data, error } = await supabase
     .from(TRANSACTIONS_TABLE)
-    .select("*")
+    .select("*, exchange_rates(rate)")
     .order("date", { ascending: false });
 
   if (error) {

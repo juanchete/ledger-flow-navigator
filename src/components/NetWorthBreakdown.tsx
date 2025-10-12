@@ -4,8 +4,12 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ChevronDown, ChevronUp, DollarSign, Landmark, CreditCard, ArrowUp, ArrowDown, HelpCircle } from "lucide-react";
 import { useExchangeRates } from "@/hooks/useExchangeRates";
+import { useDailyComparison } from "@/hooks/useDailyComparison";
+import { DailyChangeIndicator, DailyChangeTooltip } from "./DailyChangeIndicator";
+import { VESLayersBreakdown } from "./VESLayersBreakdown";
 
 interface BankAccountUI {
   id: string;
@@ -13,6 +17,7 @@ interface BankAccountUI {
   accountNumber: string;
   amount: number;
   currency: "USD" | "VES";
+  historicalCostUsd?: number;
 }
 
 interface NetWorthBreakdownProps {
@@ -45,21 +50,34 @@ const formatCurrencyUSD = (amount: number) => {
   }).format(amount);
 };
 
-export const NetWorthBreakdown = ({ 
-  bankAccounts, 
-  totalUSD, 
-  totalVES, 
-  netWorth, 
+export const NetWorthBreakdown = ({
+  bankAccounts,
+  totalUSD,
+  totalVES,
+  netWorth,
   pendingReceivables = 0,
   pendingDebts = 0,
-  isFullWidth = false 
+  isFullWidth = false
 }: NetWorthBreakdownProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [selectedVESAccount, setSelectedVESAccount] = useState<BankAccountUI | null>(null);
   const { rates: exchangeRates, convertVESToUSD } = useExchangeRates();
+  const { comparisons, getComparisonForAccount } = useDailyComparison({
+    autoSaveSnapshot: true,
+    autoRefresh: false
+  });
 
   const usdAccounts = bankAccounts.filter(acc => acc.currency === 'USD');
   const vesAccounts = bankAccounts.filter(acc => acc.currency === 'VES');
-  const totalVESInUSD = convertVESToUSD ? convertVESToUSD(totalVES, 'parallel') || 0 : 0;
+
+  // Calcular costo histórico de VES usando FIFO
+  const totalVESHistoricalCost = vesAccounts.reduce(
+    (sum, acc) => sum + (acc.historicalCostUsd || 0),
+    0
+  );
+
+  // Para referencia: valor a tasa actual
+  const totalVESAtCurrentRate = convertVESToUSD ? convertVESToUSD(totalVES, 'parallel') || 0 : 0;
 
   const getBankIcon = (bankName: string) => {
     const name = bankName.toLowerCase();
@@ -191,19 +209,42 @@ export const NetWorthBreakdown = ({
                       {formatCurrencyUSD(totalUSD)}
                     </Badge>
                   </div>
-                  {usdAccounts.map((account) => (
-                    <div key={account.id} className="flex items-center justify-between py-3 px-4 bg-green-50 rounded-lg">
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        {getBankIcon(account.bank)}
-                        <span className="text-sm font-medium truncate">
-                          {getAccountLabel(account)}
-                        </span>
+                  {usdAccounts.map((account) => {
+                    const comparison = getComparisonForAccount(account.id);
+                    return (
+                      <div key={account.id} className="flex items-center justify-between py-3 px-4 bg-green-50 rounded-lg">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          {getBankIcon(account.bank)}
+                          <span className="text-sm font-medium truncate">
+                            {getAccountLabel(account)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-sm font-bold text-green-700">
+                            {formatCurrency(account.amount, 'USD')}
+                          </span>
+                          {comparison && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div>
+                                  <DailyChangeIndicator
+                                    comparison={comparison}
+                                    showPercentage={true}
+                                    showAbsolute={false}
+                                    size="sm"
+                                    useHistoricalCost={false}
+                                  />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <DailyChangeTooltip comparison={comparison} useHistoricalCost={false} />
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
                       </div>
-                      <span className="text-sm font-bold text-green-700 flex-shrink-0">
-                        {formatCurrency(account.amount, 'USD')}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
@@ -218,7 +259,7 @@ export const NetWorthBreakdown = ({
                     </Badge>
                     <div className="flex items-center gap-1">
                       <Badge variant="secondary" className="text-xs">
-                        ≈ {formatCurrencyUSD(totalVESInUSD)}
+                        ≈ {formatCurrencyUSD(totalVESHistoricalCost)}
                       </Badge>
                       <Tooltip>
                         <TooltipTrigger>
@@ -227,50 +268,103 @@ export const NetWorthBreakdown = ({
                           </span>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <div className="text-sm">
-                            <p className="font-medium">Conversión VES → USD</p>
-                            <p>Tasa paralela: Bs. {exchangeRates?.usd_to_ves_parallel.toFixed(2)}/USD</p>
+                          <div className="text-sm space-y-1">
+                            <p className="font-medium">Costo Histórico USD (FIFO)</p>
+                            <p className="text-xs text-muted-foreground">Suma del costo histórico de todas las capas VES</p>
+                            <div className="pt-1 border-t text-xs">
+                              <p>Valor a tasa actual: {formatCurrencyUSD(totalVESAtCurrentRate)}</p>
+                              <p>Tasa paralela: Bs. {exchangeRates?.usd_to_ves_parallel.toFixed(2)}/USD</p>
+                            </div>
                           </div>
                         </TooltipContent>
                       </Tooltip>
                     </div>
                   </div>
-                  {vesAccounts.map((account) => (
-                    <div key={account.id} className="flex items-center justify-between py-3 px-4 bg-blue-50 rounded-lg">
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        {getBankIcon(account.bank)}
-                        <span className="text-sm font-medium truncate">
-                          {getAccountLabel(account)}
-                        </span>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <div className="text-sm font-bold text-blue-700">
-                          {formatCurrency(account.amount, 'VES')}
+                  {vesAccounts.map((account) => {
+                    const comparison = getComparisonForAccount(account.id);
+                    return (
+                      <div
+                        key={account.id}
+                        className="flex items-center justify-between py-3 px-4 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors"
+                        onClick={() => setSelectedVESAccount(account)}
+                      >
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          {getBankIcon(account.bank)}
+                          <span className="text-sm font-medium truncate">
+                            {getAccountLabel(account)}
+                          </span>
                         </div>
-                        <div className="text-xs text-muted-foreground flex items-center gap-1">
-                          <span>≈ {formatCurrencyUSD(convertVESToUSD ? convertVESToUSD(account.amount, 'parallel') || 0 : 0)}</span>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="cursor-help">
-                                <HelpCircle className="h-2 w-2" />
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <div className="text-sm">
-                                <p className="font-medium">Conversión VES → USD</p>
-                                <p>Tasa paralela: Bs. {exchangeRates?.usd_to_ves_parallel.toFixed(2)}/USD</p>
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="text-right">
+                            <div className="text-sm font-bold text-blue-700">
+                              {formatCurrency(account.amount, 'VES')}
+                            </div>
+                            <div className="text-xs text-muted-foreground flex items-center gap-1">
+                              <span>Costo: {formatCurrencyUSD(account.historicalCostUsd || 0)}</span>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="cursor-help" onClick={(e) => e.stopPropagation()}>
+                                    <HelpCircle className="h-2 w-2" />
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <div className="text-sm space-y-1">
+                                    <p className="font-medium">Costo Histórico FIFO</p>
+                                    <p className="text-xs">Suma del costo USD de las capas VES en esta cuenta</p>
+                                    <div className="pt-1 border-t text-xs">
+                                      <p>Valor a tasa actual: ≈ {formatCurrencyUSD(convertVESToUSD ? convertVESToUSD(account.amount, 'parallel') || 0 : 0)}</p>
+                                      <p>Tasa: Bs. {exchangeRates?.usd_to_ves_parallel.toFixed(2)}/USD</p>
+                                      <p className="text-primary font-medium mt-1">Clic para ver desglose de capas</p>
+                                    </div>
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </div>
+                          {comparison && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div onClick={(e) => e.stopPropagation()}>
+                                  <DailyChangeIndicator
+                                    comparison={comparison}
+                                    showPercentage={true}
+                                    showAbsolute={false}
+                                    size="sm"
+                                    useHistoricalCost={true}
+                                  />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <DailyChangeTooltip comparison={comparison} useHistoricalCost={true} />
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
           </CollapsibleContent>
         </Collapsible>
+
+        {/* Modal para desglose de capas VES - Full Width Layout */}
+        <Dialog open={!!selectedVESAccount} onOpenChange={(open) => !open && setSelectedVESAccount(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                Desglose de Capas VES FIFO - {selectedVESAccount?.bank} ****{selectedVESAccount?.accountNumber.slice(-4)}
+              </DialogTitle>
+            </DialogHeader>
+            {selectedVESAccount && (
+              <VESLayersBreakdown
+                bankAccountId={selectedVESAccount.id}
+                accountName={`${selectedVESAccount.bank} ****${selectedVESAccount.accountNumber.slice(-4)}`}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       </Card>
     );
   }
@@ -323,19 +417,42 @@ export const NetWorthBreakdown = ({
                     {formatCurrencyUSD(totalUSD)}
                   </Badge>
                 </div>
-                {usdAccounts.map((account) => (
-                  <div key={account.id} className="flex items-center justify-between py-2 px-3 bg-green-50 rounded-md">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      {getBankIcon(account.bank)}
-                      <span className="text-sm font-medium truncate">
-                        {getAccountLabel(account)}
-                      </span>
+                {usdAccounts.map((account) => {
+                  const comparison = getComparisonForAccount(account.id);
+                  return (
+                    <div key={account.id} className="flex items-center justify-between py-2 px-3 bg-green-50 rounded-md">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        {getBankIcon(account.bank)}
+                        <span className="text-sm font-medium truncate">
+                          {getAccountLabel(account)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-sm font-bold text-green-700">
+                          {formatCurrency(account.amount, 'USD')}
+                        </span>
+                        {comparison && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div>
+                                <DailyChangeIndicator
+                                  comparison={comparison}
+                                  showPercentage={true}
+                                  showAbsolute={false}
+                                  size="sm"
+                                  useHistoricalCost={false}
+                                />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <DailyChangeTooltip comparison={comparison} useHistoricalCost={false} />
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-sm font-bold text-green-700 flex-shrink-0">
-                      {formatCurrency(account.amount, 'USD')}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -350,7 +467,7 @@ export const NetWorthBreakdown = ({
                   </Badge>
                   <div className="flex items-center gap-1">
                     <Badge variant="secondary" className="text-xs">
-                      ≈ {formatCurrencyUSD(totalVESInUSD)}
+                      ≈ {formatCurrencyUSD(totalVESHistoricalCost)}
                     </Badge>
                     <Tooltip>
                       <TooltipTrigger>
@@ -359,45 +476,81 @@ export const NetWorthBreakdown = ({
                         </span>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <div className="text-sm">
-                          <p className="font-medium">Conversión VES → USD</p>
-                          <p>Tasa paralela: Bs. {exchangeRates?.usd_to_ves_parallel.toFixed(2)}/USD</p>
+                        <div className="text-sm space-y-1">
+                          <p className="font-medium">Costo Histórico USD (FIFO)</p>
+                          <p className="text-xs text-muted-foreground">Suma del costo histórico de todas las capas VES</p>
+                          <div className="pt-1 border-t text-xs">
+                            <p>Valor a tasa actual: {formatCurrencyUSD(totalVESAtCurrentRate)}</p>
+                            <p>Tasa paralela: Bs. {exchangeRates?.usd_to_ves_parallel.toFixed(2)}/USD</p>
+                          </div>
                         </div>
                       </TooltipContent>
                     </Tooltip>
                   </div>
                 </div>
-                {vesAccounts.map((account) => (
-                  <div key={account.id} className="flex items-center justify-between py-2 px-3 bg-blue-50 rounded-md">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      {getBankIcon(account.bank)}
-                      <span className="text-sm font-medium truncate">
-                        {getAccountLabel(account)}
-                      </span>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <div className="text-sm font-bold text-blue-700">
-                        {formatCurrency(account.amount, 'VES')}
+                {vesAccounts.map((account) => {
+                  const comparison = getComparisonForAccount(account.id);
+                  return (
+                    <div
+                      key={account.id}
+                      className="flex items-center justify-between py-2 px-3 bg-blue-50 rounded-md cursor-pointer hover:bg-blue-100 transition-colors"
+                      onClick={() => setSelectedVESAccount(account)}
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        {getBankIcon(account.bank)}
+                        <span className="text-sm font-medium truncate">
+                          {getAccountLabel(account)}
+                        </span>
                       </div>
-                      <div className="text-xs text-muted-foreground flex items-center gap-1">
-                        <span>≈ {formatCurrencyUSD(convertVESToUSD ? convertVESToUSD(account.amount, 'parallel') || 0 : 0)}</span>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="cursor-help">
-                              <HelpCircle className="h-2 w-2" />
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <div className="text-sm">
-                              <p className="font-medium">Conversión VES → USD</p>
-                              <p>Tasa paralela: Bs. {exchangeRates?.usd_to_ves_parallel.toFixed(2)}/USD</p>
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="text-right">
+                          <div className="text-sm font-bold text-blue-700">
+                            {formatCurrency(account.amount, 'VES')}
+                          </div>
+                          <div className="text-xs text-muted-foreground flex items-center gap-1">
+                            <span>Costo: {formatCurrencyUSD(account.historicalCostUsd || 0)}</span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="cursor-help" onClick={(e) => e.stopPropagation()}>
+                                  <HelpCircle className="h-2 w-2" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <div className="text-sm space-y-1">
+                                  <p className="font-medium">Costo Histórico FIFO</p>
+                                  <p className="text-xs">Suma del costo USD de las capas VES en esta cuenta</p>
+                                  <div className="pt-1 border-t text-xs">
+                                    <p>Valor a tasa actual: ≈ {formatCurrencyUSD(convertVESToUSD ? convertVESToUSD(account.amount, 'parallel') || 0 : 0)}</p>
+                                    <p>Tasa: Bs. {exchangeRates?.usd_to_ves_parallel.toFixed(2)}/USD</p>
+                                    <p className="text-primary font-medium mt-1">Clic para ver desglose de capas</p>
+                                  </div>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </div>
+                        {comparison && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div onClick={(e) => e.stopPropagation()}>
+                                <DailyChangeIndicator
+                                  comparison={comparison}
+                                  showPercentage={true}
+                                  showAbsolute={false}
+                                  size="sm"
+                                  useHistoricalCost={true}
+                                />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <DailyChangeTooltip comparison={comparison} useHistoricalCost={true} />
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -434,6 +587,23 @@ export const NetWorthBreakdown = ({
           </div>
         </CollapsibleContent>
       </Collapsible>
+
+      {/* Modal para desglose de capas VES */}
+      <Dialog open={!!selectedVESAccount} onOpenChange={(open) => !open && setSelectedVESAccount(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Desglose de Capas VES FIFO - {selectedVESAccount?.bank} ****{selectedVESAccount?.accountNumber.slice(-4)}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedVESAccount && (
+            <VESLayersBreakdown
+              bankAccountId={selectedVESAccount.id}
+              accountName={`${selectedVESAccount.bank} ****${selectedVESAccount.accountNumber.slice(-4)}`}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }; 

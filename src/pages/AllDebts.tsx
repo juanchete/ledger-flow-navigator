@@ -83,32 +83,23 @@ const AllDebts: React.FC = () => {
       const paymentsForDebt = allTransactionsFromContext.filter(
         t => t.type === 'payment' && t.debt_id === debt.id && t.status === 'completed'
       );
-      
-      // Calcular total pagado usando tasas históricas
-      let totalPaidUSD = 0;
-      const totalPaid = paymentsForDebt.reduce((sum, t) => {
-        const paymentAmount = t.amount;
-        sum += paymentAmount;
-        
-        // Convertir a USD usando tasa histórica si el pago fue en VES
-        if (t.currency === 'VES') {
-          const fallbackRate = convertVESToUSD ? convertVESToUSD(1, 'parallel') : undefined;
-          totalPaidUSD += convertVESToUSDWithHistoricalRate(paymentAmount, t.id, fallbackRate);
-        } else {
-          // Asumir que es USD si no se especifica moneda o si es USD
-          totalPaidUSD += paymentAmount;
-        }
-        
-        return sum;
-      }, 0);
-      
-      // El monto de la deuda ya está guardado en USD en la base de datos
-      const debtAmountUSD = debt.amount;
-      
-      const calculatedStatus = totalPaidUSD >= debtAmountUSD ? 'paid' : debt.status;
 
-      const primaryClient = debt.client_id ? 
-        clients.find(client => client.id === debt.client_id) : 
+      // OPTIMIZADO: Usar valores pre-calculados de la base de datos
+      // Los triggers automáticamente calculan total_paid_usd y remaining_amount_usd
+      const totalPaidUSD = (debt as any).total_paid_usd || 0;
+      const remainingAmountUSD = (debt as any).remaining_amount_usd || 0;
+
+      // El monto original en USD (calculado por la BD al crear/actualizar)
+      const debtAmountUSD = totalPaidUSD + remainingAmountUSD;
+
+      // Total pagado en moneda original (para display)
+      const totalPaid = paymentsForDebt.reduce((sum, t) => sum + t.amount, 0);
+
+      // Estado calculado basado en el saldo restante
+      const calculatedStatus = remainingAmountUSD <= 0 ? 'paid' : debt.status;
+
+      const primaryClient = debt.client_id ?
+        clients.find(client => client.id === debt.client_id) :
         undefined;
 
       return {
@@ -124,7 +115,7 @@ const AllDebts: React.FC = () => {
         payingClients: [],
       };
     });
-  }, [allDebtsFromContext, allTransactionsFromContext, clients, convertVESToUSD, convertVESToUSDWithHistoricalRate]);
+  }, [allDebtsFromContext, allTransactionsFromContext, clients]);
 
   const filteredDebts = useMemo(() => {
     return enrichedDebts.filter((debt) => {

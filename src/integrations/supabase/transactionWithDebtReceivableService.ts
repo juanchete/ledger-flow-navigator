@@ -1,6 +1,7 @@
 import { supabase } from "./client";
 import { v4 as uuidv4 } from "uuid";
 import type { TablesInsert } from "./types";
+import { ExchangeRateDB } from "./exchangeRateService";
 
 interface TransactionWithDebtReceivableData {
   transaction: TablesInsert<"transactions">;
@@ -9,6 +10,74 @@ interface TransactionWithDebtReceivableData {
     dueDate: string;
     interestRate: number;
     notes: string;
+  };
+}
+
+interface IAmountUsdCalculation {
+  amountUsd: number;
+  exchangeRate: number | null;
+  exchangeRateId: number | null;
+}
+
+async function calculateAmountUsd(
+  amount: number,
+  currency: string | null,
+  customExchangeRate: number | null,
+  exchangeRateId: number | null
+): Promise<IAmountUsdCalculation> {
+  if (currency === 'USD' || currency === null) {
+    return {
+      amountUsd: amount,
+      exchangeRate: null,
+      exchangeRateId: null,
+    };
+  }
+
+  if (currency === 'VES') {
+    let exchangeRate: number | null = null;
+
+    if (customExchangeRate) {
+      exchangeRate = customExchangeRate;
+      return {
+        amountUsd: amount / exchangeRate,
+        exchangeRate,
+        exchangeRateId: null,
+      };
+    }
+
+    if (exchangeRateId) {
+      const { data: rateData, error } = await supabase
+        .from('exchange_rates')
+        .select('rate')
+        .eq('id', exchangeRateId)
+        .single();
+
+      if (error || !rateData) {
+        console.error('Error fetching exchange rate:', error);
+        exchangeRate = 1;
+      } else {
+        exchangeRate = rateData.rate;
+      }
+
+      return {
+        amountUsd: amount / exchangeRate,
+        exchangeRate,
+        exchangeRateId,
+      };
+    }
+
+    console.warn('VES transaction without exchange rate, defaulting to 1:1');
+    return {
+      amountUsd: amount,
+      exchangeRate: null,
+      exchangeRateId: null,
+    };
+  }
+
+  return {
+    amountUsd: amount,
+    exchangeRate: null,
+    exchangeRateId: null,
   };
 }
 
@@ -49,7 +118,13 @@ export async function createTransactionWithDebtReceivable(data: TransactionWithD
 
   try {
     if (shouldCreateDebt) {
-      // Create debt
+      const usdCalculation = await calculateAmountUsd(
+        transaction.amount,
+        transaction.currency,
+        transaction.custom_exchange_rate,
+        transaction.exchange_rate_id
+      );
+
       const debtData: TablesInsert<"debts"> = {
         id: uuidv4(),
         creditor: transaction.description || "N/A",
@@ -65,6 +140,10 @@ export async function createTransactionWithDebtReceivable(data: TransactionWithD
         installments: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        amount_usd: usdCalculation.amountUsd,
+        exchange_rate: usdCalculation.exchangeRate,
+        exchange_rate_id: usdCalculation.exchangeRateId,
+        remaining_amount_usd: usdCalculation.amountUsd,
       };
 
       const { error: debtError } = await supabase
@@ -84,7 +163,13 @@ export async function createTransactionWithDebtReceivable(data: TransactionWithD
           .eq("id", transactionResult.id);
       }
     } else if (shouldCreateReceivable) {
-      // Create receivable
+      const usdCalculation = await calculateAmountUsd(
+        transaction.amount,
+        transaction.currency,
+        transaction.custom_exchange_rate,
+        transaction.exchange_rate_id
+      );
+
       const receivableData: TablesInsert<"receivables"> = {
         id: uuidv4(),
         client_id: transaction.client_id || "",
@@ -99,6 +184,10 @@ export async function createTransactionWithDebtReceivable(data: TransactionWithD
         installments: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        amount_usd: usdCalculation.amountUsd,
+        exchange_rate: usdCalculation.exchangeRate,
+        exchange_rate_id: usdCalculation.exchangeRateId,
+        remaining_amount_usd: usdCalculation.amountUsd,
       };
 
       const { error: receivableError } = await supabase

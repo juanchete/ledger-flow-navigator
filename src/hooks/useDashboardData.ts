@@ -27,6 +27,7 @@ interface TransactionUI {
   debtId?: string;
   receivableId?: string;
   currency?: string;
+  exchange_rate?: number;
 }
 
 interface ClientUI {
@@ -79,6 +80,7 @@ interface BankAccountUI {
   accountNumber: string;
   amount: number;
   currency: "USD" | "VES";
+  historicalCostUsd?: number;
 }
 
 interface CalendarEventUI {
@@ -195,6 +197,7 @@ export const useDashboardData = (options: DashboardOptions = {}) => {
           debtId: t.debt_id || undefined,
           receivableId: t.receivable_id || undefined,
           currency: t.currency || undefined,
+          exchange_rate: (t as any).exchange_rates?.rate || undefined,
         })),
         clients: cls.map((c) => ({
           id: c.id,
@@ -243,6 +246,7 @@ export const useDashboardData = (options: DashboardOptions = {}) => {
           accountNumber: acc.account_number,
           amount: acc.amount,
           currency: acc.currency === "USD" ? "USD" : "VES",
+          historicalCostUsd: acc.historical_cost_usd || 0,
         })),
         events: evs.map((e) => ({
           id: e.id,
@@ -309,6 +313,7 @@ export const useDashboardData = (options: DashboardOptions = {}) => {
                 debtId: t.debt_id || undefined,
                 receivableId: t.receivable_id || undefined,
                 currency: t.currency || undefined,
+                exchange_rate: (t as any).exchange_rates?.rate || undefined,
               })),
             }));
             break;
@@ -323,6 +328,7 @@ export const useDashboardData = (options: DashboardOptions = {}) => {
                 accountNumber: acc.account_number,
                 amount: acc.amount,
                 currency: acc.currency === "USD" ? "USD" : "VES",
+                historicalCostUsd: acc.historical_cost_usd || 0,
               })),
             }));
             break;

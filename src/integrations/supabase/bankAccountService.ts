@@ -1,13 +1,21 @@
 import { supabase } from "./client";
 import type { Database, Tables, TablesInsert, TablesUpdate } from "./types";
+import { getAccountHistoricalCostUSD } from "./vesLayerService";
 
-// Extended types to include user_id (to be updated after RLS migration)
-export type BankAccount = Tables<"bank_accounts"> & { user_id?: string };
+// Extended types to include user_id and historical_cost_usd
+export type BankAccount = Tables<"bank_accounts"> & {
+  user_id?: string;
+  historical_cost_usd?: number;
+};
+
 export type BankAccountInsert = TablesInsert<"bank_accounts"> & {
   user_id?: string;
+  historical_cost_usd?: number;
 };
+
 export type BankAccountUpdate = TablesUpdate<"bank_accounts"> & {
   user_id?: string;
+  historical_cost_usd?: number;
 };
 
 export type BankAccountApp = {
@@ -17,6 +25,7 @@ export type BankAccountApp = {
   amount: number;
   currency: string;
   user_id?: string;
+  historical_cost_usd?: number; // Historical USD cost for VES accounts
 };
 
 export const getBankAccounts = async (): Promise<BankAccountApp[]> => {
@@ -34,6 +43,7 @@ export const getBankAccounts = async (): Promise<BankAccountApp[]> => {
       amount: accountWithUserId.amount,
       currency: accountWithUserId.currency,
       user_id: accountWithUserId.user_id,
+      historical_cost_usd: accountWithUserId.historical_cost_usd || 0,
     };
   });
 };
@@ -159,6 +169,84 @@ export const recalculateAllAccountBalances = async (): Promise<
     return results;
   } catch (error) {
     console.error("Error al recalcular saldos de todas las cuentas:", error);
+    throw error;
+  }
+};
+
+/**
+ * Calculates and updates the historical_cost_usd for a VES account based on its layers
+ * This is the USD cost basis of all VES currently in the account.
+ *
+ * @param accountId - ID of the VES account
+ * @returns The updated historical cost in USD
+ *
+ * @example
+ * // Account has layers totaling 11000 VES:
+ * // Layer 1: 5000 VES @ rate 50 = $100 USD cost
+ * // Layer 2: 6000 VES @ rate 60 = $100 USD cost
+ * const cost = await calculateAndUpdateHistoricalCost("account123");
+ * // Returns: 200 USD
+ */
+export const calculateAndUpdateHistoricalCost = async (
+  accountId: string
+): Promise<number> => {
+  try {
+    // Get the account to verify it's VES
+    const account = await getBankAccountById(accountId);
+    if (!account) {
+      throw new Error(`Account ${accountId} not found`);
+    }
+
+    if (account.currency !== "VES") {
+      // For non-VES accounts, historical cost is 0
+      return 0;
+    }
+
+    // Calculate historical cost from layers
+    const historicalCost = await getAccountHistoricalCostUSD(accountId);
+
+    // Update the account
+    await updateBankAccount(accountId, {
+      historical_cost_usd: historicalCost,
+    });
+
+    console.log(
+      `Updated historical cost for account ${accountId}: $${historicalCost.toFixed(2)} USD`
+    );
+
+    return historicalCost;
+  } catch (error) {
+    console.error(
+      `Error calculating historical cost for account ${accountId}:`,
+      error
+    );
+    throw error;
+  }
+};
+
+/**
+ * Recalculates historical costs for all VES accounts
+ * @returns Array with accountId and new historical cost for each VES account
+ */
+export const recalculateAllHistoricalCosts = async (): Promise<
+  { accountId: string; historicalCost: number }[]
+> => {
+  try {
+    const accounts = await getBankAccounts();
+    const vesAccounts = accounts.filter((acc) => acc.currency === "VES");
+    const results = [];
+
+    for (const account of vesAccounts) {
+      const historicalCost = await calculateAndUpdateHistoricalCost(account.id);
+      results.push({ accountId: account.id, historicalCost });
+    }
+
+    console.log(
+      `Recalculated historical costs for ${vesAccounts.length} VES accounts`
+    );
+    return results;
+  } catch (error) {
+    console.error("Error recalculating all historical costs:", error);
     throw error;
   }
 };

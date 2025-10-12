@@ -6,9 +6,9 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Calendar, BadgeDollarSign, Info, User, AlertTriangle, FileText, Users, Edit3, Check, X } from "lucide-react";
+import { ArrowLeft, Calendar, BadgeDollarSign, Info, User, AlertTriangle, FileText, Users, Edit3, Check, X, XCircle } from "lucide-react";
 import { format } from "date-fns";
-import { getDebtById, updateDebtExchangeRate } from "@/integrations/supabase/debtService";
+import { getDebtById, updateDebtExchangeRate, liquidateDebt } from "@/integrations/supabase/debtService";
 import { getPaymentsByDebtId } from "@/integrations/supabase/transactionService";
 import { getClientById } from "@/integrations/supabase/clientService";
 import { formatCurrency } from '@/lib/utils';
@@ -16,6 +16,7 @@ import { StatusBadge } from "@/components/operations/common/StatusBadge";
 import { PaymentsList } from "@/components/operations/payments/PaymentsList";
 import { PaymentFormModalOptimized } from "@/components/operations/modals/PaymentFormModalOptimized";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { useHistoricalExchangeRates } from '@/hooks/useHistoricalExchangeRates';
 import type { Debt } from "@/integrations/supabase/debtService";
@@ -40,6 +41,7 @@ const DebtDetail = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [editingRate, setEditingRate] = useState(false);
   const [newRate, setNewRate] = useState('');
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
   
   const { convertVESToUSD, convertUSDToVES } = useExchangeRates();
 
@@ -91,7 +93,7 @@ const DebtDetail = () => {
     fetchData();
   }, [debtId]);
 
-  // Calcular totales usando tasas históricas (antes de early returns)
+  // OPTIMIZADO: Usar valores pre-calculados de la base de datos
   const { totalAmountUSD, totalAmountVES, totalPaidUSD, totalPaidVES, remainingAmountUSD, remainingAmountVES, calculatedStatus } = useMemo(() => {
     if (!debt) return {
       totalAmountUSD: 0,
@@ -103,67 +105,42 @@ const DebtDetail = () => {
       calculatedStatus: 'pending'
     };
 
-    // Determinar el monto original según la moneda
-    let totalAmountUSD = 0;
+    // Usar valores pre-calculados por los triggers de la BD (O(1) en lugar de O(n))
+    const totalPaidUSD = (debt as any).total_paid_usd || 0;
+    const remainingAmountUSD = (debt as any).remaining_amount_usd || 0;
+    const totalAmountUSD = totalPaidUSD + remainingAmountUSD;
+
+    // Para display: calcular VES basado en el monto original
     let totalAmountVES = 0;
+    let totalPaidVES = 0;
+    let remainingAmountVES = 0;
 
     if (debt.currency === 'VES') {
-      // La deuda está en VES
+      // Deuda original en VES
       totalAmountVES = debt.amount;
 
-      // Usar el monto USD histórico si existe, sino usar la tasa histórica guardada
-      if (debt.amount_usd) {
-        totalAmountUSD = debt.amount_usd;
-      } else if (debt.exchange_rate) {
-        totalAmountUSD = debt.amount / debt.exchange_rate;
-      } else {
-        // Fallback: usar la tasa actual o una aproximación
-        const usdAmount = convertVESToUSD ? convertVESToUSD(debt.amount, 'parallel') : null;
-        totalAmountUSD = usdAmount || debt.amount / 40;
-      }
-    } else {
-      // La deuda está en USD
-      totalAmountUSD = debt.amount_usd || debt.amount;
+      // Calcular pagado y restante en VES sumando los pagos
+      totalPaidVES = payments.reduce((sum, p) => {
+        if (p.currency === 'VES') {
+          return sum + p.amount;
+        } else {
+          // Convertir USD a VES para display
+          const rate = (p as any).exchange_rate || 200;
+          return sum + (p.amount * rate);
+        }
+      }, 0);
 
-      // Para mostrar equivalencia en VES
-      if (debt.exchange_rate) {
-        // Si tenemos la tasa histórica, usarla
-        totalAmountVES = totalAmountUSD * debt.exchange_rate;
-      } else {
-        // Sino, usar la tasa actual
-        const vesAmount = convertUSDToVES ? convertUSDToVES(totalAmountUSD, 'parallel') : null;
-        totalAmountVES = vesAmount || totalAmountUSD * 40;
-      }
+      remainingAmountVES = Math.max(0, totalAmountVES - totalPaidVES);
+    } else {
+      // Deuda original en USD - convertir a VES para display
+      const currentRate = convertUSDToVES ? convertUSDToVES(1, 'parallel') : 200;
+      totalAmountVES = totalAmountUSD * currentRate;
+      totalPaidVES = totalPaidUSD * currentRate;
+      remainingAmountVES = remainingAmountUSD * currentRate;
     }
 
-    let totalPaidUSD = 0;
-    let totalPaidVES = 0;
-
-    payments.forEach(payment => {
-      if (payment.currency === 'VES') {
-        totalPaidVES += payment.amount;
-        const fallbackRate = convertVESToUSD ? convertVESToUSD(1, 'parallel') : undefined;
-        totalPaidUSD += convertVESToUSDWithHistoricalRate(payment.amount, payment.id, fallbackRate);
-      } else {
-        // Asumir que es USD si no se especifica moneda o si es USD
-        totalPaidUSD += payment.amount;
-        // Convertir a VES para mostrar el total en ambas monedas
-        const vesEquivalent = convertUSDToVES ? convertUSDToVES(payment.amount, 'parallel') : null;
-        totalPaidVES += vesEquivalent || payment.amount * 40; // Usar tasa aproximada si no hay función
-      }
-    });
-
-    // Calcular restante en ambas monedas
-    const remainingAmountUSD = Math.max(0, totalAmountUSD - totalPaidUSD);
-    const remainingAmountVES = Math.max(0, totalAmountVES - totalPaidVES);
-
-    // Determinar el estado basado en la moneda original
-    let calculatedStatus = debt.status;
-    if (debt.currency === 'VES') {
-      calculatedStatus = totalPaidVES >= totalAmountVES ? 'paid' : debt.status;
-    } else {
-      calculatedStatus = totalPaidUSD >= totalAmountUSD ? 'paid' : debt.status;
-    }
+    // Estado calculado basado en el saldo restante
+    const calculatedStatus = remainingAmountUSD <= 0 ? 'paid' : debt.status;
 
     return {
       totalAmountUSD,
@@ -174,7 +151,7 @@ const DebtDetail = () => {
       remainingAmountVES,
       calculatedStatus
     };
-  }, [debt, payments, convertVESToUSD, convertUSDToVES, convertVESToUSDWithHistoricalRate]);
+  }, [debt, payments, convertUSDToVES]);
   
   if (loading) {
     return (
@@ -245,10 +222,26 @@ const DebtDetail = () => {
     setEditingRate(false);
     setNewRate('');
   };
+
+  const handleCancelDebt = async () => {
+    if (!debtId) return;
+
+    try {
+      await liquidateDebt(debtId);
+      toast.success('Deuda cancelada correctamente');
+      setShowCancelDialog(false);
+
+      const updatedDebt = await getDebtById(debtId);
+      setDebt(updatedDebt || null);
+    } catch (error) {
+      console.error('Error al cancelar deuda:', error);
+      toast.error('Error al cancelar la deuda');
+    }
+  };
   
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 flex-wrap">
         <Button variant="ghost" size="sm" asChild className="gap-1">
           <Link to="/all-debts">
             <ArrowLeft size={16} />
@@ -257,6 +250,17 @@ const DebtDetail = () => {
         </Button>
         <h1 className="text-3xl font-bold tracking-tight">Detalle de Deuda</h1>
         <StatusBadge status={calculatedStatus} />
+        {calculatedStatus === 'pending' && remainingAmountUSD > 0 && (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setShowCancelDialog(true)}
+            className="gap-1 ml-auto"
+          >
+            <XCircle size={16} />
+            Cancelar Deuda
+          </Button>
+        )}
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -566,6 +570,37 @@ const DebtDetail = () => {
         defaultClientId={primaryClient?.id}
         maxAmount={remainingAmountUSD > 0 ? remainingAmountUSD : undefined}
       />
+
+      {/* Dialog de confirmación para cancelar deuda */}
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Cancelar esta deuda?</DialogTitle>
+            <DialogDescription>
+              Esta acción marcará la deuda como pagada y establecerá el saldo restante en $0.00.
+              <br /><br />
+              Usa esta opción cuando llegues a un acuerdo externo con el acreedor y no se requiera
+              el pago completo de la deuda.
+              <br /><br />
+              <strong>Esta acción no se puede deshacer.</strong>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowCancelDialog(false)}
+            >
+              No, mantener deuda
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelDebt}
+            >
+              Sí, cancelar deuda
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

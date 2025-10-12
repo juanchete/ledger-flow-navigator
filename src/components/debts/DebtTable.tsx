@@ -84,7 +84,7 @@ export const DebtTable: React.FC<DebtTableProps> = ({
                   <div>
                     <span className="text-muted-foreground">Pagado:</span>
                     <p className="font-medium text-green-600">
-                      {formatCurrency(debt.totalPaid || 0)}
+                      {formatCurrency(debt.totalPaidUSD || 0)}
                     </p>
                   </div>
                 </div>
@@ -105,13 +105,13 @@ export const DebtTable: React.FC<DebtTableProps> = ({
                   <div className="space-y-1">
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>Progreso de pago</span>
-                      <span>{((debt.totalPaid || 0) / debt.amount * 100).toFixed(1)}%</span>
+                      <span>{((debt.totalPaidUSD || 0) / debt.amount * 100).toFixed(1)}%</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
+                      <div
                         className="bg-green-500 h-2 rounded-full transition-all duration-300"
                         style={{
-                          width: `${Math.min(100, (debt.totalPaid || 0) / debt.amount * 100)}%`
+                          width: `${Math.min(100, (debt.totalPaidUSD || 0) / debt.amount * 100)}%`
                         }}
                       ></div>
                     </div>
@@ -176,27 +176,27 @@ export const DebtTable: React.FC<DebtTableProps> = ({
                     <TableCell>
                       <div className="flex flex-col">
                         {(() => {
-                          const paymentPercentage = debt.amount > 0 ? ((debt.totalPaid || 0) / debt.amount) * 100 : 0;
+                          const paymentPercentage = debt.amount > 0 ? ((debt.totalPaidUSD || 0) / debt.amount) * 100 : 0;
                           let colorClass = "text-red-600"; // Rojo por defecto (0-24%)
-                          
+
                           if (paymentPercentage >= 100) {
                             colorClass = "text-green-600"; // Verde (100%)
                           } else if (paymentPercentage >= 25) {
                             colorClass = "text-yellow-600"; // Amarillo (25-99%)
                           }
-                          
+
                           return (
                             <span className={`font-medium ${colorClass}`}>
-                              {formatCurrency(debt.totalPaid || 0)}
+                              {formatCurrency(debt.totalPaidUSD || 0)}
                               <span className="text-xs ml-1">
                                 ({paymentPercentage.toFixed(1)}%)
                               </span>
                             </span>
                           );
                         })()}
-                        {(debt.totalPaid || 0) > 0 && (debt.totalPaid || 0) < debt.amount && (
+                        {(debt.totalPaidUSD || 0) > 0 && (debt.totalPaidUSD || 0) < debt.amount && (
                           <span className="text-xs text-muted-foreground">
-                            Restante: {formatCurrency(Math.max(0, debt.amount - (debt.totalPaid || 0)))}
+                            Restante: {formatCurrency(Math.max(0, debt.amount - (debt.totalPaidUSD || 0)))}
                           </span>
                         )}
                       </div>
