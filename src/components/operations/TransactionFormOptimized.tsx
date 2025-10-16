@@ -147,6 +147,13 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
     loadData();
   }, []);
 
+  // Establecer VES como moneda por defecto cuando el método es transfer y no estamos editando
+  useEffect(() => {
+    if (!isEditing && method === 'transfer' && !transaction) {
+      setCurrency('VES');
+    }
+  }, []);
+
   // Actualizar monto cuando se usan denominaciones
   useEffect(() => {
     if ((currency === 'USD' || currency === 'EUR') && method === 'cash') {
@@ -1024,13 +1031,17 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
             setMethod(value);
             // Si se selecciona efectivo, auto-seleccionar cuenta de efectivo
             if (value === 'cash') {
-              const cashAccount = bankAccounts.find(acc => 
-                acc.bank.toUpperCase().includes('CASH') || 
+              const cashAccount = bankAccounts.find(acc =>
+                acc.bank.toUpperCase().includes('CASH') ||
                 acc.account_number.toUpperCase().includes('CASH')
               );
               if (cashAccount) {
                 setSelectedBankAccount(cashAccount.id.toString());
               }
+            }
+            // Si se selecciona transferencia, establecer VES como moneda por defecto
+            if (value === 'transfer') {
+              setCurrency('VES');
             }
           }} disabled={loading}>
             <SelectTrigger id="method" className="h-10 sm:h-11 w-full">
