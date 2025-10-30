@@ -1029,11 +1029,10 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
           <Label htmlFor="method">Método de Pago</Label>
           <Select value={method} onValueChange={(value) => {
             setMethod(value);
-            // Si se selecciona efectivo, auto-seleccionar cuenta de efectivo
+            // Si se selecciona efectivo, auto-seleccionar la primera cuenta que no sea números puros
             if (value === 'cash') {
               const cashAccount = bankAccounts.find(acc =>
-                acc.bank.toUpperCase().includes('CASH') ||
-                acc.account_number.toUpperCase().includes('CASH')
+                !/^\d+$/.test(acc.account_number)
               );
               if (cashAccount) {
                 setSelectedBankAccount(cashAccount.id.toString());
@@ -1314,10 +1313,11 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
           <SelectContent>
             {bankAccounts
               .filter(account => {
-                // Si el método es efectivo, solo mostrar cuentas que contengan "CASH"
+                // Si el método es efectivo, solo mostrar cuentas que NO sean números puros
                 if (method === 'cash') {
-                  return account.bank.toUpperCase().includes('CASH') || 
-                         account.account_number.toUpperCase().includes('CASH');
+                  // Verificar si el número de cuenta contiene caracteres no numéricos
+                  const hasNonNumericChars = !/^\d+$/.test(account.account_number);
+                  return hasNonNumericChars;
                 }
                 // Para otros métodos, mostrar todas las cuentas
                 return true;
