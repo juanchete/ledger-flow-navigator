@@ -487,7 +487,9 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
         invoiceCompanyId,
         invoiceDueInDays,
         exchangeRate: exchangeRateHook.useCustomRate ? exchangeRateHook.customRate : exchangeRateHook.exchangeRate,
-        exchangeRateId: exchangeRateHook.exchangeRateId
+        exchangeRateId: exchangeRateHook.exchangeRateId,
+        useCustomRate: exchangeRateHook.useCustomRate,
+        customRate: exchangeRateHook.customRate
       };
       
       setPendingTransactionData(transactionData);
@@ -763,9 +765,6 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
     try {
       const now = new Date().toISOString();
 
-      // Usar el exchange_rate_id que el usuario seleccionó en el formulario
-      const exchangeRateId = pendingTransactionData.exchangeRateId || null;
-
       const newTransaction = {
         id: uuidv4(),
         type: pendingTransactionData.transactionType,
@@ -779,7 +778,10 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
         client_id: pendingTransactionData.selectedClient || null,
         bank_account_id: pendingTransactionData.selectedBankAccount || null,
         currency: pendingTransactionData.currency,
-        exchange_rate_id: exchangeRateId,
+        // Si usa tasa personalizada: guardar el valor en custom_exchange_rate y null en exchange_rate_id
+        // Si usa tasa automática: guardar el ID en exchange_rate_id y null en custom_exchange_rate
+        exchange_rate_id: pendingTransactionData.useCustomRate ? null : (pendingTransactionData.exchangeRateId || null),
+        custom_exchange_rate: pendingTransactionData.useCustomRate ? parseFloat(pendingTransactionData.customRate) : null,
         created_at: now,
         updated_at: now,
         receipt: null,
