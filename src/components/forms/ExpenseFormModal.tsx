@@ -98,11 +98,7 @@ export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
             <AmountCurrencySection
               amount={form.formData.amount}
               currency={form.formData.currency}
-              exchangeRate={
-                form.exchangeRate.useCustomRate && parseFloat(form.exchangeRate.customRate) > 0
-                  ? parseFloat(form.exchangeRate.customRate)
-                  : form.exchangeRate.exchangeRate
-              }
+              exchangeRate={form.exchangeRate.exchangeRate}
               onAmountChange={(amount) => form.updateField('amount', amount)}
               onCurrencyChange={(currency) => form.updateField('currency', currency)}
               currencies={[
@@ -115,12 +111,10 @@ export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
             <ExchangeRateSection
               exchangeRate={form.exchangeRate.exchangeRate}
               customRate={form.exchangeRate.customRate}
-              useCustomRate={form.exchangeRate.useCustomRate}
               isLoadingRate={form.exchangeRate.isLoadingRate}
               isRefreshing={form.exchangeRate.isRefreshing}
               lastUpdated={form.exchangeRate.lastUpdated}
               onCustomRateChange={form.exchangeRate.handleCustomRateChange}
-              onUseCustomRateChange={form.exchangeRate.handleUseCustomRateChange}
               onRefreshRate={form.exchangeRate.refreshExchangeRate}
             />
 

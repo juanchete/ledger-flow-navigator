@@ -84,7 +84,11 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
 
   // Estados para auto crear deuda/cuenta por cobrar
   const [autoCreateDebtReceivable, setAutoCreateDebtReceivable] = useState(false);
-  const [debtReceivableDueDate, setDebtReceivableDueDate] = useState('');
+  const [debtReceivableDueDate, setDebtReceivableDueDate] = useState(() => {
+    const oneMonthFromNow = new Date();
+    oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
+    return oneMonthFromNow.toISOString().split('T')[0];
+  });
   const [debtReceivableInterestRate, setDebtReceivableInterestRate] = useState('0');
   const [debtReceivableNotes, setDebtReceivableNotes] = useState('');
 
@@ -153,6 +157,15 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
       setCurrency('VES');
     }
   }, []);
+
+  // Activar automáticamente la creación de deuda para ventas
+  useEffect(() => {
+    if (transactionType === 'sale' && !isEditing) {
+      setAutoCreateDebtReceivable(true);
+    } else if (transactionType !== 'sale' && transactionType !== 'purchase') {
+      setAutoCreateDebtReceivable(false);
+    }
+  }, [transactionType, isEditing]);
 
   // Actualizar monto cuando se usan denominaciones
   useEffect(() => {
@@ -486,9 +499,7 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
         debtReceivableNotes,
         invoiceCompanyId,
         invoiceDueInDays,
-        exchangeRate: exchangeRateHook.useCustomRate ? exchangeRateHook.customRate : exchangeRateHook.exchangeRate,
-        exchangeRateId: exchangeRateHook.exchangeRateId,
-        useCustomRate: exchangeRateHook.useCustomRate,
+        exchangeRate: exchangeRateHook.exchangeRate,
         customRate: exchangeRateHook.customRate
       };
       
@@ -576,10 +587,9 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
           client_id: selectedClient || null,
           bank_account_id: selectedBankAccount || null,
           currency: currency,
-          // Si usa tasa personalizada: guardar el valor en custom_exchange_rate y null en exchange_rate_id
-          // Si usa tasa automática: guardar el ID en exchange_rate_id y null en custom_exchange_rate
-          exchange_rate_id: exchangeRateHook.useCustomRate ? null : (exchangeRateHook.exchangeRateId || null),
-          custom_exchange_rate: exchangeRateHook.useCustomRate ? parseFloat(exchangeRateHook.customRate) : null,
+          // Siempre guardar la tasa como custom_exchange_rate
+          exchange_rate_id: null,
+          custom_exchange_rate: parseFloat(exchangeRateHook.customRate) || null,
           receipt: receiptUrl || null,
           denominations: denominationsToSave || null,
           updated_at: now,
@@ -611,13 +621,7 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
         }
       } else {
         // Modo creación
-        console.log('💾 Guardando transacción con exchange_rate_id:', exchangeRateHook.exchangeRateId);
-        console.log('💾 Hook completo:', {
-          exchangeRateId: exchangeRateHook.exchangeRateId,
-          exchangeRate: exchangeRateHook.exchangeRate,
-          useCustomRate: exchangeRateHook.useCustomRate,
-          customRate: exchangeRateHook.customRate
-        });
+        console.log('💾 Guardando transacción con tasa:', exchangeRateHook.customRate);
 
         const newTransaction = {
           id: uuidv4(),
@@ -632,10 +636,9 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
           client_id: selectedClient || null,
           bank_account_id: selectedBankAccount || null,
           currency: currency,
-          // Si usa tasa personalizada: guardar el valor en custom_exchange_rate y null en exchange_rate_id
-          // Si usa tasa automática: guardar el ID en exchange_rate_id y null en custom_exchange_rate
-          exchange_rate_id: exchangeRateHook.useCustomRate ? null : (exchangeRateHook.exchangeRateId || null),
-          custom_exchange_rate: exchangeRateHook.useCustomRate ? parseFloat(exchangeRateHook.customRate) : null,
+          // Siempre guardar la tasa como custom_exchange_rate
+          exchange_rate_id: null,
+          custom_exchange_rate: parseFloat(exchangeRateHook.customRate) || null,
           receipt: receiptUrl || null,
           denominations: denominationsToSave || null,
           created_at: now,
@@ -693,7 +696,7 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
                   : null;
 
                 // Convertir el monto a bolívares para la factura
-                const currentExchangeRate = exchangeRateHook.useCustomRate ? exchangeRateHook.customRate : exchangeRateHook.exchangeRate;
+                const currentExchangeRate = exchangeRateHook.exchangeRate;
                 const invoiceAmountInVES = currency === 'VES' 
                   ? finalAmount 
                   : finalAmount * currentExchangeRate; // Convertir USD/EUR a VES
@@ -778,10 +781,9 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
         client_id: pendingTransactionData.selectedClient || null,
         bank_account_id: pendingTransactionData.selectedBankAccount || null,
         currency: pendingTransactionData.currency,
-        // Si usa tasa personalizada: guardar el valor en custom_exchange_rate y null en exchange_rate_id
-        // Si usa tasa automática: guardar el ID en exchange_rate_id y null en custom_exchange_rate
-        exchange_rate_id: pendingTransactionData.useCustomRate ? null : (pendingTransactionData.exchangeRateId || null),
-        custom_exchange_rate: pendingTransactionData.useCustomRate ? parseFloat(pendingTransactionData.customRate) : null,
+        // Siempre guardar la tasa como custom_exchange_rate
+        exchange_rate_id: null,
+        custom_exchange_rate: parseFloat(pendingTransactionData.customRate) || null,
         created_at: now,
         updated_at: now,
         receipt: null,
@@ -1091,11 +1093,7 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
       <AmountCurrencySection
         amount={amount}
         currency={currency}
-        exchangeRate={
-          exchangeRateHook.useCustomRate && parseFloat(exchangeRateHook.customRate) > 0
-            ? parseFloat(exchangeRateHook.customRate)
-            : exchangeRateHook.exchangeRate
-        }
+        exchangeRate={exchangeRateHook.exchangeRate}
         onAmountChange={setAmount}
         onCurrencyChange={setCurrency}
         currencies={[
@@ -1110,12 +1108,10 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
         <ExchangeRateSection
           exchangeRate={exchangeRateHook.exchangeRate}
           customRate={exchangeRateHook.customRate}
-          useCustomRate={exchangeRateHook.useCustomRate}
           isLoadingRate={exchangeRateHook.isLoadingRate}
           isRefreshing={exchangeRateHook.isRefreshing}
           lastUpdated={exchangeRateHook.lastUpdated}
           onCustomRateChange={exchangeRateHook.handleCustomRateChange}
-          onUseCustomRateChange={exchangeRateHook.handleUseCustomRateChange}
           onRefreshRate={exchangeRateHook.refreshExchangeRate}
         />
       )}

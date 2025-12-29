@@ -239,12 +239,10 @@ export const DebtFormModalOptimized: React.FC<DebtFormModalOptimizedProps> = ({
             <ExchangeRateSection
               exchangeRate={exchangeRateHook.exchangeRate}
               customRate={exchangeRateHook.customRate}
-              useCustomRate={exchangeRateHook.useCustomRate}
               isLoadingRate={exchangeRateHook.isLoadingRate}
               isRefreshing={exchangeRateHook.isRefreshing}
               lastUpdated={exchangeRateHook.lastUpdated}
               onCustomRateChange={exchangeRateHook.handleCustomRateChange}
-              onUseCustomRateChange={exchangeRateHook.handleUseCustomRateChange}
               onRefreshRate={exchangeRateHook.refreshExchangeRate}
             />
           )}

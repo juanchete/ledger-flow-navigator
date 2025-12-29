@@ -133,14 +133,12 @@ export const PaymentFormModalOptimized: React.FC<PaymentFormModalProps> = ({
       
       // Guardar tasa de cambio si es VES
       if (currency === 'VES') {
-        const finalRate = exchangeRateHook.useCustomRate 
-          ? parseFloat(exchangeRateHook.customRate) 
-          : exchangeRateHook.exchangeRate;
-        const savedRate = await saveExchangeRate({ 
-          from_currency: 'USD', 
-          to_currency: 'VES_PAY', 
-          rate: finalRate, 
-          date: date 
+        const finalRate = exchangeRateHook.exchangeRate;
+        const savedRate = await saveExchangeRate({
+          from_currency: 'USD',
+          to_currency: 'VES_PAY',
+          rate: finalRate,
+          date: date
         });
         exchangeRateId = savedRate.id;
       }
@@ -321,12 +319,10 @@ export const PaymentFormModalOptimized: React.FC<PaymentFormModalProps> = ({
             <ExchangeRateSection
               exchangeRate={exchangeRateHook.exchangeRate}
               customRate={exchangeRateHook.customRate}
-              useCustomRate={exchangeRateHook.useCustomRate}
               isLoadingRate={exchangeRateHook.isLoadingRate}
               isRefreshing={exchangeRateHook.isRefreshing}
               lastUpdated={exchangeRateHook.lastUpdated}
               onCustomRateChange={exchangeRateHook.handleCustomRateChange}
-              onUseCustomRateChange={exchangeRateHook.handleUseCustomRateChange}
               onRefreshRate={exchangeRateHook.refreshExchangeRate}
             />
           )}
