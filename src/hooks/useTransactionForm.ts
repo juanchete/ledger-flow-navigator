@@ -9,6 +9,7 @@ interface BankAccount {
   bank: string;
   accountNumber: string;
   currency: string;
+  amount: number;
 }
 
 interface Client {
@@ -81,9 +82,10 @@ export const useTransactionForm = ({
         setBankAccounts(
           bankAccountsData.map((acc) => ({
             id: acc.id.toString(),
-            bank: acc.bankName || "Banco",
-            accountNumber: acc.accountNumber,
+            bank: acc.bank || "Banco",
+            accountNumber: acc.account_number,
             currency: acc.currency,
+            amount: acc.amount,
           }))
         );
 
@@ -135,6 +137,51 @@ export const useTransactionForm = ({
         variant: "destructive",
       });
       return false;
+    }
+
+    // Validación de saldo para transacciones que restan dinero (expense)
+    const transactionsRequiringBalance = ["expense", "purchase", "payment"];
+    if (
+      transactionsRequiringBalance.includes(formData.transactionType) &&
+      formData.selectedAccount &&
+      formData.selectedAccount !== "none"
+    ) {
+      const selectedAccount = bankAccounts.find(
+        (acc) => acc.id === formData.selectedAccount
+      );
+      if (selectedAccount) {
+        // Convertir monto a la moneda de la cuenta bancaria
+        let amountInAccountCurrency = parsedAmount;
+        const currentExchangeRate =
+          parseFloat(exchangeRateHook.customRate) ||
+          exchangeRateHook.exchangeRate;
+
+        if (
+          formData.currency !== selectedAccount.currency &&
+          currentExchangeRate > 0
+        ) {
+          if (
+            formData.currency === "USD" &&
+            selectedAccount.currency === "VES"
+          ) {
+            amountInAccountCurrency = parsedAmount * currentExchangeRate;
+          } else if (
+            formData.currency === "VES" &&
+            selectedAccount.currency === "USD"
+          ) {
+            amountInAccountCurrency = parsedAmount / currentExchangeRate;
+          }
+        }
+
+        if (amountInAccountCurrency > selectedAccount.amount) {
+          toast({
+            title: "Saldo insuficiente",
+            description: `No hay suficiente saldo en la cuenta seleccionada. Saldo disponible: ${selectedAccount.currency} ${selectedAccount.amount.toLocaleString()}. Monto requerido: ${selectedAccount.currency} ${amountInAccountCurrency.toLocaleString()}`,
+            variant: "destructive",
+          });
+          return false;
+        }
+      }
     }
 
     return true;

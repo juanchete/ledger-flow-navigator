@@ -414,7 +414,7 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
     }
 
     // Validación de saldo para transacciones que requieren dinero (excluimos 'sale' e 'ingreso' porque suman dinero)
-    const shouldValidateBalance = ['purchase', 'expense', 'payment', 'balance-change'].includes(transactionType) || 
+    const shouldValidateBalance = ['purchase', 'expense', 'payment', 'balance-change'].includes(transactionType) ||
       (transactionType === 'cash' && operationData?.cashFlow === 'out');
     if (shouldValidateBalance && selectedBankAccount) {
       const selectedAccount = bankAccounts.find(acc => acc.id.toString() === selectedBankAccount);
@@ -424,7 +424,7 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
         if (transactionType === 'balance-change') {
           const transferMultiplier = parseInt(transferCount) || 1;
           finalAmountForValidation = Math.abs(baseAmount) * transferMultiplier;
-          
+
           if (bankCommission) {
             const commissionPercentage = parseFloat(bankCommission) || 0;
             const commissionAmount = (finalAmountForValidation * commissionPercentage) / 100;
@@ -432,10 +432,24 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
           }
         }
 
-        if (finalAmountForValidation > selectedAccount.amount) {
+        // Convertir monto a la moneda de la cuenta bancaria para validación correcta
+        let amountInAccountCurrency = finalAmountForValidation;
+        const currentExchangeRate = parseFloat(exchangeRateHook.customRate) || exchangeRateHook.exchangeRate;
+
+        if (currency !== selectedAccount.currency && currentExchangeRate > 0) {
+          if (currency === 'USD' && selectedAccount.currency === 'VES') {
+            // Transacción en USD, cuenta en VES: multiplicar por tasa
+            amountInAccountCurrency = finalAmountForValidation * currentExchangeRate;
+          } else if (currency === 'VES' && selectedAccount.currency === 'USD') {
+            // Transacción en VES, cuenta en USD: dividir por tasa
+            amountInAccountCurrency = finalAmountForValidation / currentExchangeRate;
+          }
+        }
+
+        if (amountInAccountCurrency > selectedAccount.amount) {
           toast({
             title: "Saldo insuficiente",
-            description: `No hay suficiente saldo en la cuenta seleccionada. Saldo disponible: ${selectedAccount.currency} ${selectedAccount.amount.toLocaleString()}`,
+            description: `No hay suficiente saldo en la cuenta seleccionada. Saldo disponible: ${selectedAccount.currency} ${selectedAccount.amount.toLocaleString()}. Monto requerido: ${selectedAccount.currency} ${amountInAccountCurrency.toLocaleString()}`,
             variant: "destructive",
           });
           return;
