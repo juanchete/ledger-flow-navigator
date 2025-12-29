@@ -22,7 +22,7 @@ export const useExchangeRate = (): UseExchangeRateReturn => {
   const [exchangeRate, setExchangeRate] = useState<number>(36.5);
   const [exchangeRateId, setExchangeRateId] = useState<number | null>(null);
   const [customRate, setCustomRate] = useState<string>("36.5");
-  const [useCustomRate, setUseCustomRate] = useState(false);
+  const [useCustomRate, setUseCustomRate] = useState(true);
   const [isLoadingRate, setIsLoadingRate] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>("Sin datos recientes");

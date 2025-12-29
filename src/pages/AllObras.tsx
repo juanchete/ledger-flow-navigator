@@ -39,7 +39,7 @@ const AllExpenses: React.FC = () => {
   const [exchangeRate, setExchangeRate] = useState<number>(0);
   const [isLoadingRate, setIsLoadingRate] = useState(true);
   const [customRate, setCustomRate] = useState<string>("");
-  const [useCustomRate, setUseCustomRate] = useState(false);
+  const [useCustomRate, setUseCustomRate] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string>("");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [newExpense, setNewExpense] = useState({
