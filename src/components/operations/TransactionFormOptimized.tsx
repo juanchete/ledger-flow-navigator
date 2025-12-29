@@ -167,9 +167,9 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
     }
   }, []);
 
-  // Activar automáticamente la creación de deuda para ventas
+  // Activar automáticamente la creación de deuda/cuenta por cobrar para ventas y compras
   useEffect(() => {
-    if (transactionType === 'sale' && !isEditing) {
+    if ((transactionType === 'sale' || transactionType === 'purchase') && !isEditing) {
       setAutoCreateDebtReceivable(true);
     } else if (transactionType !== 'sale' && transactionType !== 'purchase') {
       setAutoCreateDebtReceivable(false);
