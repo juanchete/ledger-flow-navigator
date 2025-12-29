@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useTransactionWizard } from '@/contexts/TransactionWizardContext';
-import { TRANSACTION_TYPE_CONFIGS } from '@/types/wizard';
+import { TRANSACTION_TYPE_CONFIGS, IWizardTransferEntry } from '@/types/wizard';
 import { getBankAccounts, BankAccountApp } from '@/integrations/supabase/bankAccountService';
+import { TransferDistributionForm, ITransferEntry } from '@/components/operations/TransferDistributionForm';
 
 // UI Components
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 
 const paymentMethods = [
   { 
@@ -82,6 +84,27 @@ export const PaymentMethodStep: React.FC = () => {
 
   const handleDestinationBankAccountChange = (accountId: string) => {
     updateData({ destinationBankAccountId: accountId });
+  };
+
+  const handleMultipleTransfersToggle = (checked: boolean) => {
+    updateData({
+      useMultipleTransfers: checked,
+      transfers: checked ? [] : undefined,
+      // Limpiar cuenta bancaria única si se activa múltiples
+      bankAccountId: checked ? undefined : data.bankAccountId
+    });
+  };
+
+  const handleTransfersChange = (transfers: ITransferEntry[]) => {
+    // Convertir ITransferEntry a IWizardTransferEntry
+    const wizardTransfers: IWizardTransferEntry[] = transfers.map(t => ({
+      id: t.id,
+      bank_account_id: t.bank_account_id,
+      amount: t.amount,
+      receipt: t.receipt,
+      notes: t.notes
+    }));
+    updateData({ transfers: wizardTransfers });
   };
 
   const getMethodInfo = (method: string) => {
@@ -211,30 +234,69 @@ export const PaymentMethodStep: React.FC = () => {
                   Selecciona la cuenta {data.paymentMethod === 'transfer' ? 'desde la que se hizo la transferencia' : 'asociada a la tarjeta'}
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <Label className="text-sm">Cuenta Bancaria *</Label>
-                  <Select 
-                    value={data.bankAccountId || ''} 
-                    onValueChange={handleBankAccountChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar cuenta" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {bankAccounts.map((account) => (
-                        <SelectItem key={account.id} value={account.id.toString()}>
-                          <div className="flex items-center justify-between w-full">
-                            <span>{account.bank}</span>
-                            <span className="text-xs text-gray-500 ml-2">
-                              {account.currency} {account.amount?.toFixed(2)}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <CardContent className="space-y-4">
+                {/* Toggle para múltiples destinos */}
+                {data.paymentMethod === 'transfer' && (
+                  <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm font-medium">Múltiples Destinos</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Distribuir el pago a varias cuentas bancarias
+                      </p>
+                    </div>
+                    <Switch
+                      checked={data.useMultipleTransfers || false}
+                      onCheckedChange={handleMultipleTransfersToggle}
+                    />
+                  </div>
+                )}
+
+                {/* Formulario de distribución de transferencias */}
+                {data.useMultipleTransfers && data.currency ? (
+                  <TransferDistributionForm
+                    totalAmount={parseFloat(data.amount || '0')}
+                    currency={data.currency}
+                    bankAccounts={bankAccounts.map(acc => ({
+                      id: acc.id.toString(),
+                      bank: acc.bank,
+                      account_number: acc.account_number || '',
+                      currency: acc.currency,
+                      amount: acc.amount || 0
+                    }))}
+                    onChange={handleTransfersChange}
+                    initialTransfers={data.transfers?.map(t => ({
+                      id: t.id,
+                      bank_account_id: t.bank_account_id,
+                      amount: t.amount,
+                      receipt: t.receipt,
+                      notes: t.notes
+                    }))}
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    <Label className="text-sm">Cuenta Bancaria *</Label>
+                    <Select
+                      value={data.bankAccountId || ''}
+                      onValueChange={handleBankAccountChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar cuenta" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {bankAccounts.map((account) => (
+                          <SelectItem key={account.id} value={account.id.toString()}>
+                            <div className="flex items-center justify-between w-full">
+                              <span>{account.bank}</span>
+                              <span className="text-xs text-gray-500 ml-2">
+                                {account.currency} {account.amount?.toFixed(2)}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -250,17 +312,36 @@ export const PaymentMethodStep: React.FC = () => {
             </div>
             <div>
               <p className="font-medium text-green-900">
-                {isBalanceChange 
+                {isBalanceChange
                   ? 'Transferencia entre cuentas'
                   : `Método de pago: ${selectedMethodInfo?.label}`
                 }
               </p>
-              {data.bankAccountId && (
-                <p className="text-sm text-green-700">
-                  Cuenta {isBalanceChange ? 'origen' : 'seleccionada'}: {
-                    bankAccounts.find(acc => acc.id.toString() === data.bankAccountId)?.bank
-                  }
-                </p>
+              {/* Mostrar información de múltiples transferencias */}
+              {data.useMultipleTransfers && data.transfers && data.transfers.length > 0 ? (
+                <div className="space-y-1">
+                  <p className="text-sm text-green-700">
+                    Distribución a {data.transfers.length} cuenta{data.transfers.length > 1 ? 's' : ''}:
+                  </p>
+                  {data.transfers.map((transfer, idx) => {
+                    const account = bankAccounts.find(acc => acc.id.toString() === transfer.bank_account_id);
+                    return (
+                      <p key={transfer.id} className="text-xs text-green-600 pl-2">
+                        • {account?.bank || 'Sin cuenta'}: {data.currency} {transfer.amount.toFixed(2)}
+                      </p>
+                    );
+                  })}
+                </div>
+              ) : (
+                <>
+                  {data.bankAccountId && (
+                    <p className="text-sm text-green-700">
+                      Cuenta {isBalanceChange ? 'origen' : 'seleccionada'}: {
+                        bankAccounts.find(acc => acc.id.toString() === data.bankAccountId)?.bank
+                      }
+                    </p>
+                  )}
+                </>
               )}
               {isBalanceChange && data.destinationBankAccountId && (
                 <p className="text-sm text-green-700">

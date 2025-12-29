@@ -88,6 +88,20 @@ export const TransactionWizardProvider: React.FC<TransactionWizardProviderProps>
         if (data.transactionType === 'balance-change') {
           return !!data.bankAccountId && !!data.destinationBankAccountId;
         }
+        // Validación para múltiples transferencias
+        if (data.useMultipleTransfers) {
+          if (!data.transfers || data.transfers.length === 0) {
+            return false;
+          }
+          // Validar que todas las transferencias tienen cuenta bancaria
+          const allHaveBankAccount = data.transfers.every(t => !!t.bank_account_id);
+          if (!allHaveBankAccount) return false;
+          // Validar que la suma sea igual al monto total
+          const totalAmount = parseFloat(data.amount || '0');
+          const transfersSum = data.transfers.reduce((acc, t) => acc + (t.amount || 0), 0);
+          const isValidSum = Math.abs(totalAmount - transfersSum) < 0.01;
+          return isValidSum;
+        }
         return !!data.paymentMethod;
       
       case 'additional-info':

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { ArrowLeft, BadgeDollarSign, Clock, Info, User, AlertTriangle, Edit, HelpCircle, Calculator, Landmark, CreditCard, Receipt, Percent, FileText, Download } from "lucide-react";
+import { ArrowLeft, BadgeDollarSign, Clock, Info, User, AlertTriangle, Edit, HelpCircle, Calculator, Landmark, CreditCard, Receipt, Percent, FileText, Download, Split } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,11 +13,12 @@ import { useExchangeRate } from "@/hooks/useExchangeRate";
 import { Transaction, Client } from "@/types";
 import { TransactionFormOptimized } from "@/components/operations/TransactionFormOptimized";
 import { TransactionIndicators, getAmountColorClass } from "@/components/operations/TransactionIndicators";
-import { getBankAccounts } from "@/integrations/supabase/bankAccountService";
+import { getBankAccounts, BankAccountApp } from "@/integrations/supabase/bankAccountService";
 import { getDebtById } from "@/integrations/supabase/debtService";
 import { getReceivableById } from "@/integrations/supabase/receivableService";
 import { getInvoices, getInvoice } from "@/integrations/supabase/invoiceService";
 import { getTransactionExchangeRate } from "@/integrations/supabase/exchangeRateService";
+import { getTransfersByTransactionId, TransactionTransfer } from "@/integrations/supabase/transactionTransferService";
 import { InvoiceGenerator } from "@/components/invoice/InvoiceGenerator";
 import { GeneratedInvoice } from "@/types/invoice";
 
@@ -36,6 +37,8 @@ const TransactionDetail = () => {
   const [invoice, setInvoice] = useState<GeneratedInvoice | null>(null);
   const [exchangeRateInfo, setExchangeRateInfo] = useState<any>(null);
   const [rawTransactionData, setRawTransactionData] = useState<any>(null); // Para campos adicionales
+  const [transfers, setTransfers] = useState<TransactionTransfer[]>([]);
+  const [allBankAccounts, setAllBankAccounts] = useState<BankAccountApp[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -96,15 +99,25 @@ const TransactionDetail = () => {
         const loadAdditionalData = async () => {
           try {
             // Cargar cuentas bancarias
-            if (data.bank_account_id || data.destination_bank_account_id) {
-              const accounts = await getBankAccounts();
-              if (data.bank_account_id) {
-                const account = accounts.find(acc => acc.id === data.bank_account_id);
-                setBankAccount(account);
-              }
-              if (data.destination_bank_account_id) {
-                const destAccount = accounts.find(acc => acc.id === data.destination_bank_account_id);
-                setDestinationBankAccount(destAccount);
+            const accounts = await getBankAccounts();
+            setAllBankAccounts(accounts);
+
+            if (data.bank_account_id) {
+              const account = accounts.find(acc => acc.id === data.bank_account_id);
+              setBankAccount(account);
+            }
+            if (data.destination_bank_account_id) {
+              const destAccount = accounts.find(acc => acc.id === data.destination_bank_account_id);
+              setDestinationBankAccount(destAccount);
+            }
+
+            // Cargar transferencias múltiples si existen
+            if (data.has_multiple_transfers) {
+              try {
+                const transfersData = await getTransfersByTransactionId(data.id);
+                setTransfers(transfersData);
+              } catch (err) {
+                console.error("Error loading transfers:", err);
               }
             }
             
@@ -322,9 +335,22 @@ const TransactionDetail = () => {
           <Badge className={getTypeColor(transaction.type)}>
             {getTransactionTypeDisplay(transaction.type).label}
           </Badge>
-          <Button 
-            variant="outline" 
-            size="sm" 
+          {rawTransactionData?.has_multiple_transfers && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="gap-1 bg-blue-50 border-blue-200 text-blue-700">
+                  <Split size={14} />
+                  Multi-Destino
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Distribuido a {transfers.length} cuentas bancarias</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setIsEditModalOpen(true)}
             className="gap-1"
           >
@@ -544,13 +570,13 @@ const TransactionDetail = () => {
             )}
 
             {/* Información de Cuentas Bancarias */}
-            {(bankAccount || destinationBankAccount) && (
+            {(bankAccount || destinationBankAccount) && !rawTransactionData?.has_multiple_transfers && (
               <div className="pt-4 border-t space-y-3">
                 <h4 className="font-medium flex items-center gap-2">
                   <Landmark className="h-4 w-4" />
                   Cuentas Bancarias
                 </h4>
-                
+
                 {bankAccount && (
                   <div className="bg-muted/30 p-3 rounded-md">
                     <div className="flex justify-between items-start">
@@ -565,7 +591,7 @@ const TransactionDetail = () => {
                     </div>
                   </div>
                 )}
-                
+
                 {destinationBankAccount && (
                   <div className="bg-muted/30 p-3 rounded-md">
                     <div className="flex justify-between items-start">
@@ -580,6 +606,89 @@ const TransactionDetail = () => {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Información de Múltiples Transferencias */}
+            {rawTransactionData?.has_multiple_transfers && transfers.length > 0 && (
+              <div className="pt-4 border-t space-y-3">
+                <h4 className="font-medium flex items-center gap-2">
+                  <Split className="h-4 w-4" />
+                  Distribución a Múltiples Cuentas
+                  <Badge variant="outline" className="text-xs bg-blue-50 border-blue-200 text-blue-700">
+                    {transfers.length} {transfers.length === 1 ? 'transferencia' : 'transferencias'}
+                  </Badge>
+                </h4>
+
+                <div className="space-y-2">
+                  {transfers.map((transfer, index) => {
+                    const account = allBankAccounts.find(acc => acc.id === transfer.bank_account_id);
+                    return (
+                      <div key={transfer.id} className="bg-blue-50/50 p-3 rounded-md border border-blue-100">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-medium text-blue-600">
+                                Transferencia {index + 1}
+                              </span>
+                              {transfer.receipt_url && (
+                                <Badge variant="outline" className="text-xs bg-green-50 border-green-200 text-green-700">
+                                  Con comprobante
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm font-medium">
+                              {account?.bank || 'Cuenta no encontrada'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {account?.account_number || 'Sin número'}
+                            </p>
+                            {transfer.notes && (
+                              <p className="text-xs text-muted-foreground mt-1 italic">
+                                {transfer.notes}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-blue-700">
+                              {transaction.currency || 'USD'} {transfer.amount.toLocaleString('es-VE', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                              })}
+                            </p>
+                            {account?.currency && (
+                              <Badge variant="outline" className="text-xs mt-1">
+                                {account.currency === 'VES' ? '🇻🇪 VES' : '💵 USD'}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        {transfer.receipt_url && (
+                          <div className="mt-2 pt-2 border-t border-blue-100">
+                            <Button variant="outline" size="sm" asChild className="text-xs">
+                              <a href={transfer.receipt_url} target="_blank" rel="noopener noreferrer">
+                                Ver Comprobante
+                              </a>
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Resumen de la distribución */}
+                <div className="bg-blue-100/50 p-3 rounded-md border border-blue-200">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-blue-800">Total Distribuido:</span>
+                    <span className="font-bold text-blue-900">
+                      {transaction.currency || 'USD'} {transfers.reduce((sum, t) => sum + t.amount, 0).toLocaleString('es-VE', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}
+                    </span>
+                  </div>
+                </div>
               </div>
             )}
 

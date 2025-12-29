@@ -23,6 +23,15 @@ export interface WizardStepConfig {
   isApplicable: (transactionType: TransactionType) => boolean;
 }
 
+// Interface para entradas de transferencias múltiples
+export interface IWizardTransferEntry {
+  id: string;
+  bank_account_id: string;
+  amount: number;
+  receipt?: File | null;
+  notes?: string;
+}
+
 export interface TransactionWizardData {
   // Paso 1: Tipo de transacción
   transactionType?: TransactionType;
@@ -47,6 +56,10 @@ export interface TransactionWizardData {
   paymentMethod?: "cash" | "transfer" | "credit_card" | "other";
   bankAccountId?: string;
   destinationBankAccountId?: string; // Para balance-change
+
+  // Múltiples transferencias
+  useMultipleTransfers?: boolean;
+  transfers?: IWizardTransferEntry[];
 
   // Paso 5: Información adicional
   date?: string;

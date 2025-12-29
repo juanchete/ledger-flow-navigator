@@ -85,6 +85,52 @@ const VES_LAYERS_TABLE = "bank_account_ves_layers";
 const BANK_ACCOUNTS_TABLE = "bank_accounts";
 
 // ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Updates the historical_cost_usd field on a bank account based on its active VES layers
+ * This should be called after creating or consuming VES layers
+ */
+const updateBankAccountHistoricalCost = async (bank_account_id: string): Promise<void> => {
+  try {
+    // Calculate total historical cost from active layers
+    const { data: layers, error: fetchError } = await supabase
+      .from(VES_LAYERS_TABLE)
+      .select("remaining_ves, exchange_rate")
+      .eq("bank_account_id", bank_account_id)
+      .gt("remaining_ves", 0);
+
+    if (fetchError) {
+      console.error("Error fetching layers for historical cost update:", fetchError);
+      return;
+    }
+
+    // Sum up: (remaining_ves / exchange_rate) for each layer
+    const total_usd = (layers || []).reduce((sum, layer) => {
+      return sum + (layer.remaining_ves / layer.exchange_rate);
+    }, 0);
+
+    // Update the bank account
+    const { error: updateError } = await supabase
+      .from(BANK_ACCOUNTS_TABLE)
+      .update({
+        historical_cost_usd: total_usd,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", bank_account_id);
+
+    if (updateError) {
+      console.error("Error updating bank account historical cost:", updateError);
+    } else {
+      console.log(`Updated historical_cost_usd for account ${bank_account_id}: $${total_usd.toFixed(2)}`);
+    }
+  } catch (error) {
+    console.error("Error in updateBankAccountHistoricalCost:", error);
+  }
+};
+
+// ============================================================================
 // CORE LAYER OPERATIONS
 // ============================================================================
 
@@ -139,6 +185,9 @@ export const createVESLayer = async (
     }
 
     console.log(`Created VES layer: ${data.id} - ${data.amount_ves} VES @ rate ${data.exchange_rate} = $${data.equivalent_usd.toFixed(2)} USD`);
+
+    // Update the bank account's historical cost
+    await updateBankAccountHistoricalCost(layer.bank_account_id);
 
     return data;
   } catch (error) {
@@ -260,6 +309,9 @@ export const consumeVESLayers = async (
     console.log(
       `Total VES consumed: ${amount_ves}, Total USD cost: $${total_usd_cost.toFixed(2)}`
     );
+
+    // Update the bank account's historical cost
+    await updateBankAccountHistoricalCost(bank_account_id);
 
     return result;
   } catch (error) {
@@ -531,12 +583,195 @@ export const getVESLayerSummary = async (
 };
 
 // ============================================================================
+// BALANCE-CHANGE (TRANSFER BETWEEN ACCOUNTS)
+// ============================================================================
+
+/**
+ * Result of transferring VES layers between accounts
+ */
+export interface IVESTransferResult {
+  total_ves_transferred: number;
+  total_usd_cost: number;
+  layers_consumed: IConsumedLayer[];
+  layers_created: string[];  // IDs of new layers created in destination
+}
+
+/**
+ * Transfers VES layers from one account to another (for balance-change)
+ *
+ * This function:
+ * 1. Consumes VES layers from the source account in FIFO order
+ * 2. Creates new VES layers in the destination account with the SAME cost basis
+ * 3. Updates historical_cost_usd for both accounts
+ *
+ * This preserves the original USD cost when moving VES between accounts.
+ *
+ * @param source_bank_account_id - Account to transfer FROM
+ * @param destination_bank_account_id - Account to transfer TO
+ * @param amount_ves - Amount of VES to transfer
+ * @param transaction_id - The balance-change transaction ID
+ * @returns Transfer result with details
+ *
+ * @example
+ * // Transfer 1,000,000 VES from Bicentenario to BNC
+ * const result = await transferVESLayers(
+ *   "bicentenario_id",
+ *   "bnc_id",
+ *   1000000,
+ *   "tx123"
+ * );
+ */
+export const transferVESLayers = async (
+  source_bank_account_id: string,
+  destination_bank_account_id: string,
+  amount_ves: number,
+  transaction_id: string
+): Promise<IVESTransferResult> => {
+  try {
+    // Get available layers from source in FIFO order (oldest first)
+    const { data: layers, error: fetchError } = await supabase
+      .from(VES_LAYERS_TABLE)
+      .select("*")
+      .eq("bank_account_id", source_bank_account_id)
+      .gt("remaining_ves", 0)
+      .order("created_at", { ascending: true });
+
+    if (fetchError) {
+      console.error("Error fetching VES layers for transfer:", fetchError);
+      throw fetchError;
+    }
+
+    if (!layers || layers.length === 0) {
+      // No layers available, create a single layer in destination with rate 0 (unknown cost)
+      console.warn(`No VES layers available in source account ${source_bank_account_id}. Creating layer with unknown cost.`);
+
+      const newLayerId = nanoid();
+      await supabase.from(VES_LAYERS_TABLE).insert({
+        id: newLayerId,
+        bank_account_id: destination_bank_account_id,
+        transaction_id,
+        amount_ves,
+        remaining_ves: amount_ves,
+        exchange_rate: 1, // Unknown rate
+        equivalent_usd: 0,
+      });
+
+      await updateBankAccountHistoricalCost(destination_bank_account_id);
+
+      return {
+        total_ves_transferred: amount_ves,
+        total_usd_cost: 0,
+        layers_consumed: [],
+        layers_created: [newLayerId],
+      };
+    }
+
+    // Check if we have enough VES
+    const total_available = layers.reduce((sum, layer) => sum + layer.remaining_ves, 0);
+
+    if (total_available < amount_ves) {
+      console.warn(
+        `Insufficient VES in layers. Requested: ${amount_ves}, Available: ${total_available}. Will transfer what's available.`
+      );
+    }
+
+    // Consume layers in FIFO order and track what we consumed
+    let remaining_to_transfer = Math.min(amount_ves, total_available);
+    const consumed_layers: IConsumedLayer[] = [];
+    const created_layer_ids: string[] = [];
+    let total_usd_cost = 0;
+
+    for (const layer of layers) {
+      if (remaining_to_transfer <= 0) break;
+
+      // How much can we transfer from this layer?
+      const transfer_from_this_layer = Math.min(layer.remaining_ves, remaining_to_transfer);
+
+      // Calculate USD cost for this portion (same rate as original)
+      const usd_cost_this_portion = transfer_from_this_layer / layer.exchange_rate;
+
+      // Update the source layer (reduce remaining_ves)
+      const new_remaining = layer.remaining_ves - transfer_from_this_layer;
+
+      const { error: updateError } = await supabase
+        .from(VES_LAYERS_TABLE)
+        .update({
+          remaining_ves: new_remaining,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", layer.id);
+
+      if (updateError) {
+        console.error(`Error updating source layer ${layer.id}:`, updateError);
+        throw updateError;
+      }
+
+      // Create new layer in destination with SAME exchange rate (preserving cost basis)
+      const newLayerId = nanoid();
+      const { error: insertError } = await supabase
+        .from(VES_LAYERS_TABLE)
+        .insert({
+          id: newLayerId,
+          bank_account_id: destination_bank_account_id,
+          transaction_id,
+          amount_ves: transfer_from_this_layer,
+          remaining_ves: transfer_from_this_layer,
+          exchange_rate: layer.exchange_rate,  // SAME rate as source
+          equivalent_usd: usd_cost_this_portion,
+        });
+
+      if (insertError) {
+        console.error(`Error creating destination layer:`, insertError);
+        throw insertError;
+      }
+
+      // Record what we did
+      consumed_layers.push({
+        layer_id: layer.id,
+        ves_consumed: transfer_from_this_layer,
+        usd_cost: usd_cost_this_portion,
+        exchange_rate: layer.exchange_rate,
+      });
+      created_layer_ids.push(newLayerId);
+
+      total_usd_cost += usd_cost_this_portion;
+      remaining_to_transfer -= transfer_from_this_layer;
+
+      console.log(
+        `Transferred ${transfer_from_this_layer} VES @ rate ${layer.exchange_rate} = $${usd_cost_this_portion.toFixed(2)} USD`
+      );
+    }
+
+    // Update historical costs for both accounts
+    await updateBankAccountHistoricalCost(source_bank_account_id);
+    await updateBankAccountHistoricalCost(destination_bank_account_id);
+
+    const result: IVESTransferResult = {
+      total_ves_transferred: amount_ves - remaining_to_transfer,
+      total_usd_cost,
+      layers_consumed: consumed_layers,
+      layers_created: created_layer_ids,
+    };
+
+    console.log(
+      `VES Transfer complete: ${result.total_ves_transferred} VES moved, $${total_usd_cost.toFixed(2)} USD cost preserved`
+    );
+
+    return result;
+  } catch (error) {
+    console.error("Error in transferVESLayers:", error);
+    throw error;
+  }
+};
+
+// ============================================================================
 // EXPORT ALL
 // ============================================================================
 
 export default {
   createVESLayer,
   consumeVESLayers,
+  transferVESLayers,
   getVESLayersByAccount,
   getVESLayerById,
   getAccountHistoricalCostUSD,

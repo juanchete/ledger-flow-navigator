@@ -1,12 +1,12 @@
--- Trigger para actualizar automáticamente los saldos de las cuentas bancarias
--- cuando se insertan, actualizan o eliminan transacciones
+-- Migration: Fix balance-change commission handling
+-- Description: Update trigger to correctly handle commission in balance-change transactions
+-- The commission should only be debited from the source account, not credited to destination
 --
--- IMPORTANTE: Para balance-change con comisión:
--- - El origen se debita: monto_base + comisión
--- - El destino se acredita: solo monto_base
--- - La comisión es un gasto que "desaparece" (va al banco)
+-- Example: Transfer 1000 VES with 2% commission
+-- - Source account: -1020 (1000 base + 20 commission)
+-- - Destination account: +1000 (only base amount)
 
--- Función que actualiza el saldo de la cuenta bancaria
+-- Drop and recreate the trigger function
 CREATE OR REPLACE FUNCTION update_bank_account_balance()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -174,21 +174,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Eliminar el trigger si ya existe
-DROP TRIGGER IF EXISTS trigger_update_bank_account_balance ON transactions;
-
--- Crear el trigger para actualización de saldos
-CREATE TRIGGER trigger_update_bank_account_balance
-    AFTER INSERT OR UPDATE OR DELETE ON transactions
-    FOR EACH ROW
-    EXECUTE FUNCTION update_bank_account_balance();
-
--- Comentario explicativo
+-- Update comments
 COMMENT ON FUNCTION update_bank_account_balance() IS
 'Función que actualiza automáticamente los saldos de las cuentas bancarias cuando se modifican transacciones.
 Tipos de transacción que SUMAN al saldo: sale, payment, cash, ingreso
 Tipos de transacción que RESTAN del saldo: purchase, expense, outcome
 Tipo especial: balance-change (transfiere entre cuentas propias, la comisión solo se resta del origen)';
-
-COMMENT ON TRIGGER trigger_update_bank_account_balance ON transactions IS
-'Trigger que ejecuta la actualización automática de saldos después de INSERT, UPDATE o DELETE en transacciones';

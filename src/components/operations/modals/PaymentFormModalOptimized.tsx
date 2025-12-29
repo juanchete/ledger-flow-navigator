@@ -90,13 +90,6 @@ export const PaymentFormModalOptimized: React.FC<PaymentFormModalProps> = ({
     fetchAccounts();
   }, [isOpen, defaultClientId]);
 
-  // Actualizar monto cuando se usan denominaciones
-  useEffect(() => {
-    if ((currency === 'USD' || currency === 'EUR') && method === 'cash') {
-      setAmount(denominationBasedAmount.toString());
-    }
-  }, [denominationBasedAmount, currency, method]);
-
   const handleSubmit = async () => {
     // Validaciones básicas
     if (!amount || parseFloat(amount) <= 0) {

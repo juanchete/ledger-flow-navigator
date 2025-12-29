@@ -34,6 +34,11 @@ import { createInvoice } from "@/integrations/supabase/invoiceService";
 import { InvoiceGenerationRequest, InvoiceLineItem } from "@/types/invoice";
 import { getClientById } from "@/integrations/supabase/clientService";
 import { validateCashDenominations, formatValidationErrors } from "@/utils/validations";
+import { TransferDistributionForm, ITransferEntry } from "./TransferDistributionForm";
+import { createTransactionWithTransfers } from "@/integrations/supabase/transactionService";
+import { uploadTransferReceipt } from "@/integrations/supabase/transactionTransferService";
+import { supabase } from "@/integrations/supabase/client";
+import { createVESLayer, consumeVESLayers, transferVESLayers } from "@/integrations/supabase/vesLayerService";
 
 interface Denomination {
   id: string;
@@ -81,6 +86,10 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
   const [bankCommission, setBankCommission] = useState('0'); // Ahora representa porcentaje
   const [transferCount, setTransferCount] = useState('1');
   const [destinationBankAccount, setDestinationBankAccount] = useState('');
+
+  // Estados para múltiples transferencias
+  const [useMultipleTransfers, setUseMultipleTransfers] = useState(false);
+  const [transferDistribution, setTransferDistribution] = useState<ITransferEntry[]>([]);
 
   // Estados para auto crear deuda/cuenta por cobrar
   const [autoCreateDebtReceivable, setAutoCreateDebtReceivable] = useState(false);
@@ -166,13 +175,6 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
       setAutoCreateDebtReceivable(false);
     }
   }, [transactionType, isEditing]);
-
-  // Actualizar monto cuando se usan denominaciones
-  useEffect(() => {
-    if ((currency === 'USD' || currency === 'EUR') && method === 'cash') {
-      setAmount(denominationBasedAmount.toString());
-    }
-  }, [denominationBasedAmount, currency, method]);
 
   // Cargar datos de la transacción cuando está en modo edición
   useEffect(() => {
@@ -335,6 +337,14 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
+    // DEBUG: Estado al hacer submit
+    console.log('[DEBUG] handleSubmit - Estado:', {
+      useMultipleTransfers,
+      transactionType,
+      transferDistributionLength: transferDistribution.length,
+      autoCreateDebtReceivable,
+    });
+
     // Validaciones básicas
     if (!transactionType || !amount || !reference) {
       toast({
@@ -356,8 +366,38 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
       return;
     }
 
-    // Validación de cuenta bancaria obligatoria
-    if (!selectedBankAccount) {
+    // Validación de cuenta bancaria o múltiples transferencias
+    if (useMultipleTransfers && transactionType !== 'balance-change') {
+      // Validar múltiples transferencias
+      if (transferDistribution.length === 0) {
+        toast({
+          title: "Transferencias requeridas",
+          description: "Por favor agregue al menos una cuenta destino.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const invalidTransfers = transferDistribution.filter(t => !t.bank_account_id);
+      if (invalidTransfers.length > 0) {
+        toast({
+          title: "Cuentas incompletas",
+          description: "Todas las transferencias deben tener una cuenta destino.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const transferSum = transferDistribution.reduce((acc, t) => acc + (t.amount || 0), 0);
+      if (Math.abs(parsedAmount - transferSum) >= 0.01) {
+        toast({
+          title: "Montos no coinciden",
+          description: `La suma de transferencias (${transferSum.toFixed(2)}) no coincide con el monto total (${parsedAmount.toFixed(2)}).`,
+          variant: "destructive",
+        });
+        return;
+      }
+    } else if (!selectedBankAccount) {
       toast({
         title: "Cuenta bancaria requerida",
         description: "Por favor seleccione una cuenta bancaria.",
@@ -522,19 +562,15 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
       return;
     }
 
-    // Calcular monto final incluyendo número de transferencias y comisión por porcentaje
+    // Calcular monto final incluyendo número de transferencias
+    // NOTA: La comisión NO se incluye aquí - el trigger la calcula automáticamente
+    // para debitar al origen (monto + comisión) pero acreditar al destino solo el monto base
     let finalAmount = baseAmount;
     if (transactionType === 'balance-change') {
       // Multiplicar por el número de transferencias
       const transferMultiplier = parseInt(transferCount) || 1;
       finalAmount = baseAmount * transferMultiplier;
-      
-      // Aplicar comisión sobre el monto total (después de multiplicar por transferencias)
-      if (bankCommission) {
-        const commissionPercentage = parseFloat(bankCommission) || 0;
-        const commissionAmount = (finalAmount * commissionPercentage) / 100;
-        finalAmount = finalAmount + commissionAmount;
-      }
+      // La comisión se almacena en bank_commission y el trigger la aplica solo al origen
     }
 
     setLoading(true);
@@ -670,8 +706,136 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
           receivable_id: operationData?.relatedType === 'receivable' ? operationData.relatedId : null,
         };
 
-        // Check if we should create debt/receivable automatically
-        if (autoCreateDebtReceivable && debtReceivableDueDate) {
+        // PRIORIDAD 1: Múltiples transferencias
+        if (useMultipleTransfers && transactionType !== 'balance-change') {
+          // Crear transacción con múltiples transferencias
+          console.log('[DEBUG] Creando transacción con múltiples transferencias:', {
+            useMultipleTransfers,
+            transactionType,
+            transferDistribution,
+            transferCount: transferDistribution.length,
+            autoCreateDebtReceivable
+          });
+          const result = await createTransactionWithTransfers({
+            transaction: {
+              ...newTransaction,
+              bank_account_id: null, // No usar cuenta principal
+            },
+            transfers: transferDistribution.map(t => ({
+              bank_account_id: t.bank_account_id,
+              amount: t.amount,
+              notes: t.notes || null,
+            })),
+          });
+
+          if (result) {
+            // Subir comprobantes de cada transferencia
+            for (const transfer of transferDistribution) {
+              if (transfer.receipt) {
+                try {
+                  await uploadTransferReceipt(transfer.receipt, transfer.id);
+                } catch (uploadError) {
+                  console.error('Error uploading transfer receipt:', uploadError);
+                }
+              }
+            }
+
+            // Crear capas VES si la moneda es VES
+            if (currency === 'VES') {
+              const exchangeRate = parseFloat(exchangeRateHook.customRate) || exchangeRateHook.exchangeRate;
+              const isIncome = ['sale', 'ingreso'].includes(transactionType);
+              const isExpense = ['purchase', 'expense', 'payment', 'outcome'].includes(transactionType);
+
+              if (isIncome && exchangeRate > 0) {
+                // Crear capa VES para cada transfer (ingreso)
+                for (const transfer of transferDistribution) {
+                  try {
+                    await createVESLayer({
+                      bank_account_id: transfer.bank_account_id,
+                      transaction_id: result.id,
+                      amount_ves: transfer.amount,
+                      exchange_rate: exchangeRate,
+                    });
+                    console.log(`✅ Capa VES creada: ${transfer.amount} VES @ ${exchangeRate} para cuenta ${transfer.bank_account_id}`);
+                  } catch (layerError) {
+                    console.error('Error creando capa VES:', layerError);
+                  }
+                }
+              } else if (isExpense) {
+                // Consumir capas VES para cada transfer (egreso)
+                for (const transfer of transferDistribution) {
+                  try {
+                    await consumeVESLayers(transfer.bank_account_id, transfer.amount);
+                    console.log(`✅ Capas VES consumidas: ${transfer.amount} VES de cuenta ${transfer.bank_account_id}`);
+                  } catch (layerError) {
+                    console.error('Error consumiendo capas VES:', layerError);
+                    // No lanzar error, la transacción ya está creada
+                  }
+                }
+              }
+            }
+
+            // También crear deuda/cuenta por cobrar si está activado
+            if (autoCreateDebtReceivable && debtReceivableDueDate) {
+              try {
+                const isDebt = ['purchase', 'expense'].includes(transactionType);
+
+                if (isDebt) {
+                  // Crear deuda
+                  await supabase.from('debts').insert({
+                    creditor: newTransaction.description || 'Sin descripción',
+                    amount: parsedAmount,
+                    currency: currency,
+                    due_date: debtReceivableDueDate,
+                    interest_rate: parseFloat(debtReceivableInterestRate) || 0,
+                    notes: debtReceivableNotes || null,
+                    status: 'pending',
+                    transaction_id: result.id,
+                  });
+                } else {
+                  // Crear cuenta por cobrar
+                  await supabase.from('receivables').insert({
+                    debtor: newTransaction.description || 'Sin descripción',
+                    amount: parsedAmount,
+                    currency: currency,
+                    due_date: debtReceivableDueDate,
+                    interest_rate: parseFloat(debtReceivableInterestRate) || 0,
+                    notes: debtReceivableNotes || null,
+                    status: 'pending',
+                    transaction_id: result.id,
+                  });
+                }
+
+                toast({
+                  title: "¡Éxito!",
+                  description: `Transacción con ${transferDistribution.length} destinos y ${isDebt ? 'deuda' : 'cuenta por cobrar'} creadas.`,
+                });
+              } catch (debtError) {
+                console.error('Error creating debt/receivable:', debtError);
+                toast({
+                  title: "¡Éxito parcial!",
+                  description: `Transacción creada, pero hubo un error creando la ${['purchase', 'expense'].includes(transactionType) ? 'deuda' : 'cuenta por cobrar'}.`,
+                  variant: "destructive",
+                });
+              }
+            } else {
+              toast({
+                title: "¡Éxito!",
+                description: `Transacción creada con ${transferDistribution.length} destinos.`,
+              });
+            }
+
+            resetForm();
+            if (onSuccess) {
+              onSuccess();
+            } else {
+              navigate(`/operations/transaction/${result.id}`);
+            }
+          } else {
+            throw new Error("No se pudo crear la transacción");
+          }
+        } else if (autoCreateDebtReceivable && debtReceivableDueDate) {
+          // PRIORIDAD 2: Auto crear deuda/cuenta por cobrar
           const result = await createTransactionWithDebtReceivable({
             transaction: newTransaction,
             createDebtReceivable: true,
@@ -683,6 +847,34 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
           });
 
           if (result) {
+            // Crear capas VES para transacciones con deuda/cuenta por cobrar
+            if (currency === 'VES' && selectedBankAccount) {
+              const exchangeRate = parseFloat(exchangeRateHook.customRate) || exchangeRateHook.exchangeRate;
+              const isIncome = ['sale', 'ingreso'].includes(transactionType);
+              const isExpense = ['purchase', 'expense', 'payment', 'outcome'].includes(transactionType);
+
+              if (isIncome && exchangeRate > 0) {
+                try {
+                  await createVESLayer({
+                    bank_account_id: selectedBankAccount,
+                    transaction_id: result.id,
+                    amount_ves: parsedAmount,
+                    exchange_rate: exchangeRate,
+                  });
+                  console.log(`✅ Capa VES creada: ${parsedAmount} VES @ ${exchangeRate}`);
+                } catch (layerError) {
+                  console.error('Error creando capa VES:', layerError);
+                }
+              } else if (isExpense) {
+                try {
+                  await consumeVESLayers(selectedBankAccount, parsedAmount);
+                  console.log(`✅ Capas VES consumidas: ${parsedAmount} VES`);
+                } catch (layerError) {
+                  console.error('Error consumiendo capas VES:', layerError);
+                }
+              }
+            }
+
             toast({
               title: "¡Éxito!",
               description: `La transacción y la ${['purchase', 'expense'].includes(transactionType) ? 'deuda' : 'cuenta por cobrar'} se han creado correctamente.`,
@@ -699,7 +891,7 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
         } else {
           // Normal transaction creation without debt/receivable
           const result = await addTransaction(newTransaction);
-          
+
           if (result) {
             // Generate invoice if requested and transaction type is sale
             if (generateInvoice && transactionType === 'sale' && invoiceCompanyId) {
@@ -749,6 +941,48 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
                   description: "La transacción fue creada pero no se pudo generar la factura",
                   variant: "destructive",
                 });
+              }
+            }
+
+            // Manejar capas VES para transacciones normales (sin múltiples destinos)
+            if (currency === 'VES' && selectedBankAccount) {
+              const exchangeRate = parseFloat(exchangeRateHook.customRate) || exchangeRateHook.exchangeRate;
+              const isIncome = ['sale', 'ingreso'].includes(transactionType);
+              const isExpense = ['purchase', 'expense', 'payment', 'outcome'].includes(transactionType);
+              const isBalanceChange = transactionType === 'balance-change';
+
+              if (isBalanceChange && destinationBankAccount) {
+                // Balance-change: transferir capas de origen a destino
+                try {
+                  const transferResult = await transferVESLayers(
+                    selectedBankAccount,
+                    destinationBankAccount,
+                    parsedAmount,
+                    result.id
+                  );
+                  console.log(`✅ Capas VES transferidas: ${transferResult.total_ves_transferred} VES, costo: $${transferResult.total_usd_cost.toFixed(2)}`);
+                } catch (layerError) {
+                  console.error('Error transfiriendo capas VES:', layerError);
+                }
+              } else if (isIncome && exchangeRate > 0) {
+                try {
+                  await createVESLayer({
+                    bank_account_id: selectedBankAccount,
+                    transaction_id: result.id,
+                    amount_ves: parsedAmount,
+                    exchange_rate: exchangeRate,
+                  });
+                  console.log(`✅ Capa VES creada: ${parsedAmount} VES @ ${exchangeRate} para cuenta ${selectedBankAccount}`);
+                } catch (layerError) {
+                  console.error('Error creando capa VES:', layerError);
+                }
+              } else if (isExpense) {
+                try {
+                  await consumeVESLayers(selectedBankAccount, parsedAmount);
+                  console.log(`✅ Capas VES consumidas: ${parsedAmount} VES de cuenta ${selectedBankAccount}`);
+                } catch (layerError) {
+                  console.error('Error consumiendo capas VES:', layerError);
+                }
               }
             }
 
@@ -1307,49 +1541,84 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
         </div>
       )}
 
-      {/* Selección de cuenta bancaria */}
-      <div className="grid gap-2 w-full">
-        <Label htmlFor="bank-account">
-          {transactionType === 'balance-change' ? 'Cuenta Origen *' : 'Cuenta Bancaria *'}
-        </Label>
-        <Select value={selectedBankAccount} onValueChange={(value) => {
-          setSelectedBankAccount(value);
-          // Auto-seleccionar método de pago como transferencia solo si no es efectivo
-          if (value && method !== 'transfer' && method !== 'cash') {
-            setMethod('transfer');
-          }
-        }} disabled={loading}>
-          <SelectTrigger id="bank-account" className="h-10 sm:h-11 w-full">
-            <SelectValue placeholder="Seleccionar cuenta..." />
-          </SelectTrigger>
-          <SelectContent>
-            {bankAccounts
-              .filter(account => {
-                // Si el método es efectivo, solo mostrar cuentas que NO sean números puros
-                if (method === 'cash') {
-                  // Verificar si el número de cuenta contiene caracteres no numéricos
-                  const hasNonNumericChars = !/^\d+$/.test(account.account_number);
-                  return hasNonNumericChars;
-                }
-                // Para otros métodos, mostrar todas las cuentas
-                return true;
-              })
-              .map(account => (
-                <SelectItem key={account.id} value={account.id.toString()}>
-                  <div className="flex flex-col">
-                    <span className="font-medium">{account.bank}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {account.account_number} - {account.currency}
-                    </span>
-                    <span className="text-xs font-medium text-blue-600">
-                      Saldo: {account.currency} {account.amount.toLocaleString()}
-                    </span>
-                  </div>
-                </SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Selección de cuenta bancaria (oculta si usa múltiples destinos) */}
+      {!useMultipleTransfers && (
+        <div className="grid gap-2 w-full">
+          <Label htmlFor="bank-account">
+            {transactionType === 'balance-change' ? 'Cuenta Origen *' : 'Cuenta Bancaria *'}
+          </Label>
+          <Select value={selectedBankAccount} onValueChange={(value) => {
+            setSelectedBankAccount(value);
+            // Auto-seleccionar método de pago como transferencia solo si no es efectivo
+            if (value && method !== 'transfer' && method !== 'cash') {
+              setMethod('transfer');
+            }
+          }} disabled={loading}>
+            <SelectTrigger id="bank-account" className="h-10 sm:h-11 w-full">
+              <SelectValue placeholder="Seleccionar cuenta..." />
+            </SelectTrigger>
+            <SelectContent>
+              {bankAccounts
+                .filter(account => {
+                  // Si el método es efectivo, solo mostrar cuentas que NO sean números puros
+                  if (method === 'cash') {
+                    // Verificar si el número de cuenta contiene caracteres no numéricos
+                    const hasNonNumericChars = !/^\d+$/.test(account.account_number);
+                    return hasNonNumericChars;
+                  }
+                  // Para otros métodos, mostrar todas las cuentas
+                  return true;
+                })
+                .map(account => (
+                  <SelectItem key={account.id} value={account.id.toString()}>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{account.bank}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {account.account_number} - {account.currency}
+                      </span>
+                      <span className="text-xs font-medium text-blue-600">
+                        Saldo: {account.currency} {account.amount.toLocaleString()}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {/* Toggle para múltiples transferencias (no disponible para balance-change) */}
+      {transactionType !== 'balance-change' && (
+        <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
+          <div className="space-y-0.5">
+            <Label className="text-base font-medium">Múltiples Destinos</Label>
+            <p className="text-sm text-muted-foreground">
+              Distribuir el pago a varias cuentas bancarias
+            </p>
+          </div>
+          <Switch
+            checked={useMultipleTransfers}
+            onCheckedChange={(checked) => {
+              setUseMultipleTransfers(checked);
+              if (!checked) {
+                setTransferDistribution([]);
+              }
+            }}
+            disabled={loading}
+          />
+        </div>
+      )}
+
+      {/* Formulario de distribución de transferencias */}
+      {useMultipleTransfers && transactionType !== 'balance-change' && (
+        <TransferDistributionForm
+          totalAmount={parseFloat(amount) || 0}
+          currency={currency}
+          bankAccounts={bankAccounts}
+          onChange={setTransferDistribution}
+          disabled={loading}
+        />
+      )}
 
       {/* Campo específico para balance-change: Banco Destinatario */}
       {transactionType === 'balance-change' ? (

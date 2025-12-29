@@ -28,15 +28,8 @@ export const AmountCurrencyStep: React.FC = () => {
     return denominations.reduce((total, den) => total + den.value * den.count, 0);
   }, [denominations]);
 
-  const showDenominations = ['cash', 'ingreso'].includes(data.transactionType || '') && 
+  const showDenominations = ['cash', 'ingreso'].includes(data.transactionType || '') &&
                            ['USD', 'EUR'].includes(data.currency || 'USD');
-
-  // Sincronizar el monto basado en denominaciones si aplica
-  React.useEffect(() => {
-    if (showDenominations && denominationBasedAmount > 0) {
-      updateData({ amount: denominationBasedAmount.toString() });
-    }
-  }, [denominationBasedAmount, showDenominations, updateData]);
 
   if (!data.transactionType) {
     return (

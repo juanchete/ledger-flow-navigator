@@ -688,6 +688,57 @@ export type Database = {
         }
         Relationships: []
       }
+      transaction_transfers: {
+        Row: {
+          id: string
+          transaction_id: string
+          bank_account_id: string
+          amount: number
+          receipt_url: string | null
+          notes: string | null
+          order_index: number | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          transaction_id: string
+          bank_account_id: string
+          amount: number
+          receipt_url?: string | null
+          notes?: string | null
+          order_index?: number | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          transaction_id?: string
+          bank_account_id?: string
+          amount?: number
+          receipt_url?: string | null
+          notes?: string | null
+          order_index?: number | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_transaction_transfers_bank_account"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_transaction_transfers_transaction"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           amount: number
@@ -695,8 +746,10 @@ export type Database = {
           bank_commission: number | null
           category: string | null
           client_id: string | null
+          commission: number | null
           created_at: string
           currency: string | null
+          custom_exchange_rate: number | null
           date: string
           debt_id: string | null
           delivery_note: string | null
@@ -704,6 +757,7 @@ export type Database = {
           description: string | null
           destination_bank_account_id: string | null
           exchange_rate_id: number | null
+          has_multiple_transfers: boolean | null
           id: string
           indirect_for_client_id: string | null
           invoice: string | null
@@ -723,8 +777,10 @@ export type Database = {
           bank_commission?: number | null
           category?: string | null
           client_id?: string | null
+          commission?: number | null
           created_at: string
           currency?: string | null
+          custom_exchange_rate?: number | null
           date: string
           debt_id?: string | null
           delivery_note?: string | null
@@ -732,6 +788,7 @@ export type Database = {
           description?: string | null
           destination_bank_account_id?: string | null
           exchange_rate_id?: number | null
+          has_multiple_transfers?: boolean | null
           id: string
           indirect_for_client_id?: string | null
           invoice?: string | null
@@ -751,8 +808,10 @@ export type Database = {
           bank_commission?: number | null
           category?: string | null
           client_id?: string | null
+          commission?: number | null
           created_at?: string
           currency?: string | null
+          custom_exchange_rate?: number | null
           date?: string
           debt_id?: string | null
           delivery_note?: string | null
@@ -760,6 +819,7 @@ export type Database = {
           description?: string | null
           destination_bank_account_id?: string | null
           exchange_rate_id?: number | null
+          has_multiple_transfers?: boolean | null
           id?: string
           indirect_for_client_id?: string | null
           invoice?: string | null

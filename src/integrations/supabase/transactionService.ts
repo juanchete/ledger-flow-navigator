@@ -1,12 +1,22 @@
 import { supabase } from "./client";
-// import type { Transaction } from "@/types"; // Remove old local type import
-import type { Database, Tables, TablesInsert, TablesUpdate } from "./types"; // Supabase types
+import type { Tables, TablesInsert, TablesUpdate } from "./types";
 import { v4 as uuidv4 } from "uuid";
+import {
+  createTransfers,
+  deleteTransfersByTransactionId,
+  type NewTransactionTransfer,
+} from "./transactionTransferService";
 
 // Export Supabase-based types
 export type Transaction = Tables<"transactions">;
 export type NewTransaction = TablesInsert<"transactions">;
 export type UpdatedTransaction = TablesUpdate<"transactions">;
+
+// Interface para crear transacción con múltiples transferencias
+export interface ICreateTransactionWithTransfers {
+  transaction: Omit<NewTransaction, 'has_multiple_transfers'>;
+  transfers: Omit<NewTransactionTransfer, 'transaction_id'>[];
+}
 
 // Define filter interface for transactions
 export interface TransactionFilter {
@@ -291,6 +301,193 @@ export const filterTransactions = async (
     throw error;
   }
   return data || [];
+};
+
+/**
+ * Crea una transacción con múltiples transferencias a diferentes cuentas.
+ * La transacción principal NO actualiza saldos (has_multiple_transfers=true).
+ * Los saldos se actualizan via los triggers de transaction_transfers.
+ */
+export const createTransactionWithTransfers = async (
+  data: ICreateTransactionWithTransfers
+): Promise<Transaction> => {
+  const { transaction, transfers } = data;
+
+  // Validar que la suma de transferencias sea igual al monto total
+  const sum = transfers.reduce((acc, t) => acc + t.amount, 0);
+  if (Math.abs(transaction.amount - sum) >= 0.01) {
+    throw new Error(
+      `La suma de transferencias (${sum}) no coincide con el monto total (${transaction.amount})`
+    );
+  }
+
+  // Validar que todas las transferencias tengan cuenta bancaria
+  const invalidTransfers = transfers.filter((t) => !t.bank_account_id);
+  if (invalidTransfers.length > 0) {
+    throw new Error("Todas las transferencias deben tener una cuenta bancaria");
+  }
+
+  // Crear la transacción principal con has_multiple_transfers=true
+  const { data: txData, error: txError } = await supabase
+    .from(TRANSACTIONS_TABLE)
+    .insert({
+      ...transaction,
+      has_multiple_transfers: true,
+      bank_account_id: null, // No usar cuenta principal para múltiples
+    })
+    .select()
+    .single();
+
+  if (txError) {
+    console.error("Error creating transaction with transfers:", txError);
+    throw txError;
+  }
+
+  // Crear las transferencias individuales
+  const transfersWithTxId = transfers.map((t, index) => ({
+    ...t,
+    transaction_id: txData.id,
+    order_index: index,
+  }));
+
+  try {
+    await createTransfers(transfersWithTxId);
+  } catch (transferError) {
+    // Rollback: eliminar la transacción principal si fallan las transferencias
+    console.error("Error creating transfers, rolling back transaction:", transferError);
+    await supabase.from(TRANSACTIONS_TABLE).delete().eq("id", txData.id);
+    throw transferError;
+  }
+
+  return txData;
+};
+
+/**
+ * Actualiza una transacción con múltiples transferencias.
+ * Elimina las transferencias anteriores y crea las nuevas.
+ */
+export const updateTransactionWithTransfers = async (
+  id: string,
+  transaction: UpdatedTransaction,
+  newTransfers: Omit<NewTransactionTransfer, 'transaction_id'>[]
+): Promise<Transaction> => {
+  // Validar suma de transferencias
+  if (transaction.amount !== undefined) {
+    const sum = newTransfers.reduce((acc, t) => acc + t.amount, 0);
+    if (Math.abs(transaction.amount - sum) >= 0.01) {
+      throw new Error(
+        `La suma de transferencias (${sum}) no coincide con el monto total (${transaction.amount})`
+      );
+    }
+  }
+
+  // Eliminar transferencias antiguas (el trigger revierte los saldos)
+  await deleteTransfersByTransactionId(id);
+
+  // Actualizar la transacción principal
+  const { data, error } = await supabase
+    .from(TRANSACTIONS_TABLE)
+    .update({
+      ...transaction,
+      has_multiple_transfers: true,
+      bank_account_id: null,
+    })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error updating transaction with transfers:", error);
+    throw error;
+  }
+
+  // Crear nuevas transferencias
+  if (newTransfers.length > 0) {
+    const transfersWithTxId = newTransfers.map((t, index) => ({
+      ...t,
+      transaction_id: id,
+      order_index: index,
+    }));
+    await createTransfers(transfersWithTxId);
+  }
+
+  return data;
+};
+
+/**
+ * Convierte una transacción simple a una con múltiples transferencias.
+ */
+export const convertToMultipleTransfers = async (
+  id: string,
+  transfers: Omit<NewTransactionTransfer, 'transaction_id'>[]
+): Promise<Transaction> => {
+  // Obtener la transacción actual
+  const existingTx = await getTransactionById(id);
+  if (!existingTx) {
+    throw new Error("Transacción no encontrada");
+  }
+
+  if (existingTx.has_multiple_transfers) {
+    throw new Error("La transacción ya tiene múltiples transferencias");
+  }
+
+  // Validar suma
+  const sum = transfers.reduce((acc, t) => acc + t.amount, 0);
+  if (Math.abs(existingTx.amount - sum) >= 0.01) {
+    throw new Error(
+      `La suma de transferencias (${sum}) no coincide con el monto total (${existingTx.amount})`
+    );
+  }
+
+  // Actualizar la transacción para usar múltiples transferencias
+  // El trigger revertirá el saldo de la cuenta original
+  const { data, error } = await supabase
+    .from(TRANSACTIONS_TABLE)
+    .update({
+      has_multiple_transfers: true,
+      bank_account_id: null,
+    })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error converting to multiple transfers:", error);
+    throw error;
+  }
+
+  // Crear las nuevas transferencias
+  const transfersWithTxId = transfers.map((t, index) => ({
+    ...t,
+    transaction_id: id,
+    order_index: index,
+  }));
+
+  await createTransfers(transfersWithTxId);
+
+  return data;
+};
+
+/**
+ * Obtiene una transacción con sus transferencias (si las tiene).
+ */
+export const getTransactionWithTransfers = async (
+  id: string
+): Promise<{ transaction: Transaction; transfers: any[] } | null> => {
+  const transaction = await getTransactionById(id);
+  if (!transaction) return null;
+
+  let transfers: any[] = [];
+  if (transaction.has_multiple_transfers) {
+    const { data } = await supabase
+      .from("transaction_transfers")
+      .select("*, bank_accounts(bank, account_number, currency)")
+      .eq("transaction_id", id)
+      .order("order_index", { ascending: true });
+    transfers = data || [];
+  }
+
+  return { transaction, transfers };
 };
 
 // All transaction service functions are now implemented as individual exports.

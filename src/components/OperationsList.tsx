@@ -2,10 +2,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowUp, ArrowDown, Clock, ExternalLink, RefreshCw } from "lucide-react";
+import { ArrowUp, ArrowDown, Clock, ExternalLink, RefreshCw, Split } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Link } from "react-router-dom";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface TransactionUI {
   id: string;
@@ -23,6 +24,7 @@ interface TransactionUI {
   notes?: string;
   currency?: string;
   exchange_rate?: number;
+  has_multiple_transfers?: boolean;
 }
 
 interface ClientUI {
@@ -175,13 +177,13 @@ export const OperationsList = ({ transactions, clients, onRefresh, lastUpdate }:
                         <span className="font-medium text-sm">
                           {getTransactionTypeLabel(transaction.type)}
                         </span>
-                        <Badge 
+                        <Badge
                           variant={
                             transaction.status === 'completed' ? 'default' :
                             transaction.status === 'pending' ? 'secondary' :
                             transaction.status === 'cancelled' ? 'destructive' :
                             'outline'
-                          } 
+                          }
                           className="text-xs"
                         >
                           {transaction.status === 'completed' ? 'Completado' :
@@ -189,6 +191,19 @@ export const OperationsList = ({ transactions, clients, onRefresh, lastUpdate }:
                            transaction.status === 'cancelled' ? 'Cancelado' :
                            transaction.status || 'Sin estado'}
                         </Badge>
+                        {transaction.has_multiple_transfers && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="text-xs gap-1 bg-blue-50 border-blue-200 text-blue-700">
+                                <Split className="h-3 w-3" />
+                                Multi
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Distribuido a múltiples cuentas</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
                       </div>
                       
                       <div className="text-xs text-muted-foreground space-y-0.5">
