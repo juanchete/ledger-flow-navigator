@@ -197,7 +197,7 @@ export const useDashboardData = (options: DashboardOptions = {}) => {
           debtId: t.debt_id || undefined,
           receivableId: t.receivable_id || undefined,
           currency: t.currency || undefined,
-          exchange_rate: (t as any).exchange_rates?.rate || undefined,
+          exchange_rate: (t as any).exchange_rates?.rate || t.custom_exchange_rate || undefined,
         })),
         clients: cls.map((c) => ({
           id: c.id,
@@ -313,7 +313,7 @@ export const useDashboardData = (options: DashboardOptions = {}) => {
                 debtId: t.debt_id || undefined,
                 receivableId: t.receivable_id || undefined,
                 currency: t.currency || undefined,
-                exchange_rate: (t as any).exchange_rates?.rate || undefined,
+                exchange_rate: (t as any).exchange_rates?.rate || t.custom_exchange_rate || undefined,
               })),
             }));
             break;

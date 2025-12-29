@@ -176,11 +176,6 @@ export const NetWorthBreakdown = ({
                      <span>•</span>
                      <span>VES: Bs. {new Intl.NumberFormat('es-VE').format(totalVES)}</span>
                    </div>
-                   {exchangeRates && (
-                     <div className="text-xs text-muted-foreground mt-2 sm:mt-0">
-                       Tasa: Bs. {exchangeRates.usd_to_ves_parallel.toFixed(2)}/USD
-                     </div>
-                   )}
                  </div>
                  
                  {/* Indicador de interactividad */}
@@ -297,10 +292,10 @@ export const NetWorthBreakdown = ({
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <div className="text-right">
                             <div className="text-sm font-bold text-blue-700">
-                              {formatCurrency(account.amount, 'VES')}
+                              {formatCurrencyUSD(account.historicalCostUsd || 0)}
                             </div>
                             <div className="text-xs text-muted-foreground flex items-center gap-1">
-                              <span>Costo: {formatCurrencyUSD(account.historicalCostUsd || 0)}</span>
+                              <span>{formatCurrency(account.amount, 'VES')}</span>
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <span className="cursor-help" onClick={(e) => e.stopPropagation()}>
@@ -394,11 +389,6 @@ export const NetWorthBreakdown = ({
                 <div className="text-left sm:text-right space-y-0.5">
                   <div className="text-xs text-muted-foreground">USD: {formatCurrencyUSD(totalUSD)}</div>
                   <div className="text-xs text-muted-foreground">VES: Bs. {new Intl.NumberFormat('es-VE').format(totalVES)}</div>
-                  {exchangeRates && (
-                    <div className="text-xs text-muted-foreground">
-                      Tasa: Bs. {exchangeRates.usd_to_ves_parallel.toFixed(2)}/USD
-                    </div>
-                  )}
                 </div>
               </div>
             </CardContent>
@@ -505,10 +495,10 @@ export const NetWorthBreakdown = ({
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <div className="text-right">
                           <div className="text-sm font-bold text-blue-700">
-                            {formatCurrency(account.amount, 'VES')}
+                            {formatCurrencyUSD(account.historicalCostUsd || 0)}
                           </div>
                           <div className="text-xs text-muted-foreground flex items-center gap-1">
-                            <span>Costo: {formatCurrencyUSD(account.historicalCostUsd || 0)}</span>
+                            <span>{formatCurrency(account.amount, 'VES')}</span>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <span className="cursor-help" onClick={(e) => e.stopPropagation()}>

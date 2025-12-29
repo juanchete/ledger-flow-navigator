@@ -22,6 +22,7 @@ interface TransactionUI {
   category?: string;
   notes?: string;
   currency?: string;
+  exchange_rate?: number;
 }
 
 interface ClientUI {
@@ -217,6 +218,11 @@ export const OperationsList = ({ transactions, clients, onRefresh, lastUpdate }:
                     <div className={`font-bold text-sm ${getAmountColor(transaction.type)}`}>
                       {formatCurrency(transaction.amount, transaction.currency)}
                     </div>
+                    {transaction.exchange_rate && (
+                      <div className="text-xs text-muted-foreground">
+                        Tasa: {transaction.exchange_rate.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                    )}
                     <div className="text-xs text-muted-foreground">
                       {formatRelativeDate(transaction.date)}
                     </div>
