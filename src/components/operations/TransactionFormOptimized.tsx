@@ -51,6 +51,11 @@ interface TransactionFormProps {
   showCancelButton?: boolean;
   transaction?: Transaction; // Para modo edición
   isEditing?: boolean;
+  // Props para pre-configurar el formulario (usado en AllDebts y AllReceivables)
+  presetTransactionType?: 'sale' | 'purchase';
+  hideTransactionTypeSelector?: boolean;
+  skipOperationFlow?: boolean;
+  defaultAutoCreateDebtReceivable?: boolean;
 }
 
 export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
@@ -58,12 +63,18 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
   showCancelButton = false,
   transaction,
   isEditing = false,
+  presetTransactionType,
+  hideTransactionTypeSelector = false,
+  skipOperationFlow = false,
+  defaultAutoCreateDebtReceivable,
 }) => {
   const navigate = useNavigate();
   const { addTransaction, modifyTransaction } = useTransactions();
 
   // Estados del formulario organizados como en PaymentFormModalOptimized
-  const [transactionType, setTransactionType] = useState<Transaction["type"]>(transaction?.type || "payment");
+  const [transactionType, setTransactionType] = useState<Transaction["type"]>(
+    presetTransactionType || transaction?.type || "payment"
+  );
   const [amount, setAmount] = useState(transaction?.amount?.toString() || '0');
   const [currency, setCurrency] = useState(transaction?.currency || 'USD');
   const [method, setMethod] = useState(transaction?.paymentMethod || 'transfer');
@@ -108,12 +119,14 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
 
   // Estados para los flujos interactivos
   // Inicializar showPaymentFlow en true si el tipo inicial es payment y no estamos editando
-  const [showCashFlow, setShowCashFlow] = useState(false);
-  const [showSaleFlow, setShowSaleFlow] = useState(false);
-  const [showPurchaseFlow, setShowPurchaseFlow] = useState(false);
-  const [showExpenseFlow, setShowExpenseFlow] = useState(false);
-  const [showPaymentFlow, setShowPaymentFlow] = useState(!isEditing && (transaction?.type || "payment") === "payment");
-  const [showIngresoFlow, setShowIngresoFlow] = useState(false);
+  // Si skipOperationFlow es true, no mostrar ningún flujo
+  const initialTransactionType = presetTransactionType || transaction?.type || "payment";
+  const [showCashFlow, setShowCashFlow] = useState(!skipOperationFlow && !isEditing && initialTransactionType === 'cash');
+  const [showSaleFlow, setShowSaleFlow] = useState(!skipOperationFlow && !isEditing && initialTransactionType === 'sale');
+  const [showPurchaseFlow, setShowPurchaseFlow] = useState(!skipOperationFlow && !isEditing && initialTransactionType === 'purchase');
+  const [showExpenseFlow, setShowExpenseFlow] = useState(!skipOperationFlow && !isEditing && initialTransactionType === 'expense');
+  const [showPaymentFlow, setShowPaymentFlow] = useState(!skipOperationFlow && !isEditing && initialTransactionType === "payment");
+  const [showIngresoFlow, setShowIngresoFlow] = useState(!skipOperationFlow && !isEditing && initialTransactionType === 'ingreso');
   
   // Estados para la vista previa de factura
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
@@ -169,12 +182,34 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
 
   // Activar automáticamente la creación de deuda/cuenta por cobrar para ventas y compras
   useEffect(() => {
-    if ((transactionType === 'sale' || transactionType === 'purchase') && !isEditing) {
+    // Si hay un valor predefinido, usarlo
+    if (defaultAutoCreateDebtReceivable !== undefined) {
+      setAutoCreateDebtReceivable(defaultAutoCreateDebtReceivable);
+    } else if ((transactionType === 'sale' || transactionType === 'purchase') && !isEditing) {
       setAutoCreateDebtReceivable(true);
     } else if (transactionType !== 'sale' && transactionType !== 'purchase') {
       setAutoCreateDebtReceivable(false);
     }
-  }, [transactionType, isEditing]);
+  }, [transactionType, isEditing, defaultAutoCreateDebtReceivable]);
+
+  // Pre-configurar operationData cuando se usa presetTransactionType con skipOperationFlow
+  useEffect(() => {
+    if (presetTransactionType && skipOperationFlow) {
+      if (presetTransactionType === 'sale') {
+        setOperationData({
+          type: 'sale',
+          description: 'Venta',
+        });
+        // No pre-configurar referencia para que el usuario la llene
+      } else if (presetTransactionType === 'purchase') {
+        setOperationData({
+          type: 'purchase',
+          description: 'Compra',
+        });
+        // No pre-configurar referencia para que el usuario la llene
+      }
+    }
+  }, [presetTransactionType, skipOperationFlow]);
 
   // Cargar datos de la transacción cuando está en modo edición
   useEffect(() => {
@@ -1121,10 +1156,12 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
   };
 
   const resetForm = () => {
-    setTransactionType("payment");
+    // Si hay un tipo preset, mantenerlo; de lo contrario usar "payment"
+    setTransactionType(presetTransactionType || "payment");
     setAmount('0');
     setCurrency('USD');
     setMethod('transfer');
+    // Limpiar referencia para que el usuario la llene
     setReference('');
     setReceipt(null);
     setCategory('');
@@ -1133,31 +1170,55 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
     setSelectedClient('');
     setSelectedBankAccount('');
     setDenominations([{ id: uuidv4(), value: 0, count: 0 }]);
-    
+
     // Reset campos específicos de balance-change
     setBankCommission('0');
     setTransferCount('1');
     setDestinationBankAccount('');
-    
+
     // Reset campos de auto deuda/cuenta por cobrar
-    setAutoCreateDebtReceivable(false);
-    setDebtReceivableDueDate('');
+    // Si hay defaultAutoCreateDebtReceivable, usarlo
+    if (defaultAutoCreateDebtReceivable !== undefined) {
+      setAutoCreateDebtReceivable(defaultAutoCreateDebtReceivable);
+    } else {
+      setAutoCreateDebtReceivable(false);
+    }
+    // Resetear fecha de vencimiento a un mes desde ahora
+    const oneMonthFromNow = new Date();
+    oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
+    setDebtReceivableDueDate(oneMonthFromNow.toISOString().split('T')[0]);
     setDebtReceivableInterestRate('0');
     setDebtReceivableNotes('');
-    
+
     // Reset campos de generación de factura
     setGenerateInvoice(false);
     setInvoiceCompanyId('');
     setInvoiceDueInDays('30');
-    
-    // Reset flujos interactivos - pago por defecto
-    setShowCashFlow(false);
-    setShowSaleFlow(false);
-    setShowPurchaseFlow(false);
-    setShowExpenseFlow(false);
-    setShowPaymentFlow(true);
-    setShowIngresoFlow(false);
-    setOperationData(null);
+
+    // Reset flujos interactivos - considerar skipOperationFlow
+    if (skipOperationFlow) {
+      setShowCashFlow(false);
+      setShowSaleFlow(false);
+      setShowPurchaseFlow(false);
+      setShowExpenseFlow(false);
+      setShowPaymentFlow(false);
+      setShowIngresoFlow(false);
+      // Re-establecer operationData para el tipo preset
+      if (presetTransactionType === 'sale') {
+        setOperationData({ type: 'sale', description: 'Venta' });
+      } else if (presetTransactionType === 'purchase') {
+        setOperationData({ type: 'purchase', description: 'Compra' });
+      }
+    } else {
+      // Reset flujos interactivos - pago por defecto
+      setShowCashFlow(false);
+      setShowSaleFlow(false);
+      setShowPurchaseFlow(false);
+      setShowExpenseFlow(false);
+      setShowPaymentFlow(true);
+      setShowIngresoFlow(false);
+      setOperationData(null);
+    }
   };
 
   // Funciones para manejo de denominaciones
@@ -1179,34 +1240,36 @@ export const TransactionFormOptimized: React.FC<TransactionFormProps> = ({
     <div className="grid gap-4 py-4 w-full max-w-full">
       
       {/* Primera fila: Fecha y Tipo de Transacción - responsive */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className={`grid gap-4 ${hideTransactionTypeSelector ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
         <div>
           <Label htmlFor="date">Fecha</Label>
-          <Input 
-            id="date" 
-            type="date" 
-            value={date} 
-            onChange={(e) => setDate(e.target.value)} 
+          <Input
+            id="date"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
             disabled={loading}
             className="h-10 sm:h-11 w-full"
           />
         </div>
-        <div>
-          <Label htmlFor="transaction-type">Tipo de Transacción</Label>
-          <Select value={transactionType} onValueChange={handleTransactionTypeChange} disabled={loading}>
-            <SelectTrigger id="transaction-type" className="h-10 sm:h-11 w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="payment">Pago</SelectItem>
-              <SelectItem value="expense">Gasto</SelectItem>
-              <SelectItem value="ingreso">Ingreso</SelectItem>
-              <SelectItem value="sale">Venta</SelectItem>
-              <SelectItem value="purchase">Compra</SelectItem>
-              <SelectItem value="balance-change">Cambio de Saldo</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {!hideTransactionTypeSelector && (
+          <div>
+            <Label htmlFor="transaction-type">Tipo de Transacción</Label>
+            <Select value={transactionType} onValueChange={handleTransactionTypeChange} disabled={loading}>
+              <SelectTrigger id="transaction-type" className="h-10 sm:h-11 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="payment">Pago</SelectItem>
+                <SelectItem value="expense">Gasto</SelectItem>
+                <SelectItem value="ingreso">Ingreso</SelectItem>
+                <SelectItem value="sale">Venta</SelectItem>
+                <SelectItem value="purchase">Compra</SelectItem>
+                <SelectItem value="balance-change">Cambio de Saldo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       {/* Flujos Interactivos Condicionales */}

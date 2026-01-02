@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Search, Calendar, Filter, Plus, Pencil, Loader2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
@@ -16,6 +17,7 @@ import { getReceivables, getReceivableById, type Receivable as SupabaseReceivabl
 import { getTransactions } from "@/integrations/supabase/transactionService";
 import { getClients } from '@/integrations/supabase/clientService';
 import { ReceivableFormModalOptimized } from '@/components/receivables/ReceivableFormModalOptimized';
+import { TransactionFormOptimized } from '@/components/operations/TransactionFormOptimized';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { useHistoricalExchangeRates } from '@/hooks/useHistoricalExchangeRates';
 
@@ -48,7 +50,8 @@ const AllReceivables: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState("pending");
   const [selectedReceivable, setSelectedReceivable] = useState<Receivable | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false); // Modal para crear (TransactionFormOptimized)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false); // Modal para editar (ReceivableFormModalOptimized)
   const [dateRange, setDateRange] = useState<Date | undefined>(undefined);
   const [receivables, setReceivables] = useState<Receivable[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -220,8 +223,7 @@ const AllReceivables: React.FC = () => {
   };
 
   const handleAddReceivable = () => {
-    setEditingReceivable(null);
-    setIsFormModalOpen(true);
+    setIsCreateModalOpen(true);
   };
 
   const handleEditReceivable = async (receivable: Receivable) => {
@@ -230,28 +232,29 @@ const AllReceivables: React.FC = () => {
       const fullReceivable = await getReceivableById(receivable.id);
       if (fullReceivable) {
         setEditingReceivable(fullReceivable);
-        setIsFormModalOpen(true);
+        setIsEditModalOpen(true);
       }
     } catch (error) {
       console.error('Error loading receivable for editing:', error);
     }
   };
 
-  const handleFormClose = () => {
-    setIsFormModalOpen(false);
+  const handleCreateModalClose = () => {
+    setIsCreateModalOpen(false);
+  };
+
+  const handleEditModalClose = () => {
+    setIsEditModalOpen(false);
     setEditingReceivable(null);
   };
 
-  const handleFormSuccess = () => {
-    // Close the modal first
-    handleFormClose();
-    // Reload receivables after a successful form submission
+  const reloadReceivables = () => {
     getReceivables().then((data) => {
       setReceivables(
         data.map((r) => ({
           id: r.id,
           clientId: r.client_id,
-          amount: r.amount_usd || r.amount, // Usar amount_usd (siempre en USD) en lugar de amount (moneda original)
+          amount: r.amount_usd || r.amount,
           dueDate: new Date(r.due_date),
           status: r.status || 'pending',
           description: r.description || '',
@@ -264,6 +267,16 @@ const AllReceivables: React.FC = () => {
     }).catch((err) => {
       console.error("Error al cargar datos de Supabase:", err);
     });
+  };
+
+  const handleCreateSuccess = () => {
+    handleCreateModalClose();
+    reloadReceivables();
+  };
+
+  const handleEditSuccess = () => {
+    handleEditModalClose();
+    reloadReceivables();
   };
 
   return (
@@ -606,12 +619,33 @@ const AllReceivables: React.FC = () => {
         />
       )}
 
+      {/* Modal para CREAR nueva cuenta por cobrar (via TransactionFormOptimized) */}
+      <Dialog open={isCreateModalOpen} onOpenChange={(open) => !open && handleCreateModalClose()}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Nueva Cuenta por Cobrar</DialogTitle>
+            <DialogDescription>
+              Registra una compra que genera automáticamente una cuenta por cobrar.
+            </DialogDescription>
+          </DialogHeader>
+          <TransactionFormOptimized
+            onSuccess={handleCreateSuccess}
+            showCancelButton={true}
+            presetTransactionType="purchase"
+            hideTransactionTypeSelector={true}
+            skipOperationFlow={true}
+            defaultAutoCreateDebtReceivable={true}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para EDITAR cuenta por cobrar existente */}
       <ReceivableFormModalOptimized
-        isOpen={isFormModalOpen}
-        onClose={handleFormClose}
+        isOpen={isEditModalOpen}
+        onClose={handleEditModalClose}
         receivable={editingReceivable}
         clients={clients}
-        onSuccess={handleFormSuccess}
+        onSuccess={handleEditSuccess}
       />
     </div>
   );

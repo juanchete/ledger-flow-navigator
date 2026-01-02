@@ -5,9 +5,11 @@ import { DebtSummaryMetrics } from '@/components/debts/DebtSummaryMetrics';
 import { DebtFilters } from '@/components/debts/DebtFilters';
 import { DebtTable } from '@/components/debts/DebtTable';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Terminal, Loader2, Plus, Pencil, ArrowLeft } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { DebtFormModalOptimized } from '@/components/debts/DebtFormModalOptimized';
+import { TransactionFormOptimized } from '@/components/operations/TransactionFormOptimized';
 import { Link } from 'react-router-dom';
 
 import { useDebts } from '../contexts/DebtContext';
@@ -42,7 +44,8 @@ const AllDebts: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("pending");
   const [dateRange, setDateRange] = useState<Date | undefined>(undefined);
-  const [isDebtModalOpen, setIsDebtModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false); // Modal para crear (TransactionFormOptimized)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false); // Modal para editar (DebtFormModalOptimized)
   const [selectedDebt, setSelectedDebt] = useState<SupabaseDebt | undefined>(undefined);
   const [clients, setClients] = useState<SupabaseClient[]>([]);
   const [loadingClients, setLoadingClients] = useState(false);
@@ -177,23 +180,31 @@ const AllDebts: React.FC = () => {
   };
 
   const handleAddDebt = () => {
-    setSelectedDebt(undefined);
-    setIsDebtModalOpen(true);
+    setIsCreateModalOpen(true);
   };
 
   const handleEditDebt = (debt: SupabaseDebt) => {
     setSelectedDebt(debt);
-    setIsDebtModalOpen(true);
+    setIsEditModalOpen(true);
   };
 
-  const handleDebtModalClose = () => {
-    setIsDebtModalOpen(false);
+  const handleCreateModalClose = () => {
+    setIsCreateModalOpen(false);
+  };
+
+  const handleEditModalClose = () => {
+    setIsEditModalOpen(false);
     setSelectedDebt(undefined);
   };
 
-  const handleDebtSuccess = () => {
+  const handleCreateSuccess = () => {
     fetchDebts();
-    handleDebtModalClose(); // Cerrar modal y limpiar estado
+    handleCreateModalClose();
+  };
+
+  const handleEditSuccess = () => {
+    fetchDebts();
+    handleEditModalClose();
   };
 
   if (isLoadingDebts || isLoadingTransactions) {
@@ -289,13 +300,34 @@ const AllDebts: React.FC = () => {
         </CardContent>
       </Card>
 
-      {isDebtModalOpen && (
-        <DebtFormModalOptimized 
-          isOpen={isDebtModalOpen}
-          onClose={handleDebtModalClose}
+      {/* Modal para CREAR nueva deuda (via TransactionFormOptimized) */}
+      <Dialog open={isCreateModalOpen} onOpenChange={(open) => !open && handleCreateModalClose()}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Nueva Deuda</DialogTitle>
+            <DialogDescription>
+              Registra una venta que genera automáticamente una deuda.
+            </DialogDescription>
+          </DialogHeader>
+          <TransactionFormOptimized
+            onSuccess={handleCreateSuccess}
+            showCancelButton={true}
+            presetTransactionType="sale"
+            hideTransactionTypeSelector={true}
+            skipOperationFlow={true}
+            defaultAutoCreateDebtReceivable={true}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para EDITAR deuda existente */}
+      {isEditModalOpen && (
+        <DebtFormModalOptimized
+          isOpen={isEditModalOpen}
+          onClose={handleEditModalClose}
           debt={selectedDebt}
           clients={clients.map(client => ({ id: client.id, name: client.name }))}
-          onSuccess={handleDebtSuccess}
+          onSuccess={handleEditSuccess}
         />
       )}
     </div>
