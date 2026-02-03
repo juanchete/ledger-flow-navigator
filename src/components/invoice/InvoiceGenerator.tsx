@@ -217,8 +217,8 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice, company, lineItems }) 
   };
 
   // Generate control and invoice numbers
-  const controlNumber = invoice.id ? invoice.id.slice(-8).toUpperCase() : '00-000000';
   const invoiceNumberFormatted = invoice.invoiceNumber || '00-000000';
+  const controlNumber = invoiceNumberFormatted;
   const invoiceDate = format(new Date(invoice.invoiceDate), 'dd/MM/yyyy', { locale: es });
 
   // Use the construction logo from public directory

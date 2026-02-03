@@ -8,7 +8,6 @@ import {
   InvoiceGenerationRequest,
   InvoiceItemGenerationParams,
   InvoiceCompanyType,
-  INVOICE_PREFIXES,
   INVOICE_ITEM_CATEGORIES,
 } from "@/types/invoice";
 import {
@@ -164,14 +163,9 @@ export const getInvoiceItemsCatalog = async (
 export const generateInvoiceNumber = async (
   companyId: string
 ): Promise<string> => {
-  const company = await getInvoiceCompany(companyId);
-  if (!company) throw new Error("Company not found");
-
-  const prefix = INVOICE_PREFIXES[company.type] || "INV";
-
   const { data, error } = await supabase.rpc("get_next_invoice_number", {
     p_company_id: companyId,
-    p_prefix: prefix,
+    p_prefix: "00",
   });
 
   if (error) throw error;
@@ -613,4 +607,114 @@ export const deleteInvoice = async (id: string): Promise<void> => {
     .eq("id", id);
 
   if (error) throw error;
+};
+
+// Manual Invoice Line Item Input Interface
+export interface IManualInvoiceLineItem {
+  description: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
+  total: number;
+  sortOrder: number;
+}
+
+// Manual Invoice Creation Request Interface
+export interface IManualInvoiceRequest {
+  companyId: string;
+  clientName: string;
+  clientTaxId?: string;
+  clientAddress?: string;
+  clientPhone?: string;
+  clientEmail?: string;
+  currency: 'USD' | 'VES';
+  dueInDays: number;
+  notes?: string;
+  lineItems: IManualInvoiceLineItem[];
+  subtotal: number;
+  taxAmount: number;
+  totalAmount: number;
+}
+
+// Manual Invoice Creation Result Interface
+export interface IManualInvoiceResult {
+  invoice: GeneratedInvoice;
+  lineItems: InvoiceLineItem[];
+}
+
+// Create manual invoice with line items
+export const createManualInvoice = async (
+  request: IManualInvoiceRequest
+): Promise<IManualInvoiceResult> => {
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) throw new Error("User not authenticated");
+
+  // Generate invoice number
+  const invoiceNumber = await generateInvoiceNumber(request.companyId);
+
+  // Calculate dates
+  const invoiceDate = new Date();
+  const dueDate = new Date();
+  dueDate.setDate(dueDate.getDate() + request.dueInDays);
+
+  // Create invoice
+  const { data: invoice, error: invoiceError } = await supabase
+    .from("generated_invoices")
+    .insert({
+      id: `inv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      user_id: userData.user.id,
+      transaction_id: null, // Manual invoice has no transaction
+      company_id: request.companyId,
+      invoice_number: invoiceNumber,
+      invoice_date: invoiceDate.toISOString(),
+      due_date: dueDate.toISOString(),
+      client_id: null,
+      client_name: request.clientName,
+      client_tax_id: request.clientTaxId || null,
+      client_address: request.clientAddress || null,
+      client_phone: request.clientPhone || null,
+      client_email: request.clientEmail || null,
+      subtotal: request.subtotal,
+      tax_amount: request.taxAmount,
+      total_amount: request.totalAmount,
+      currency: request.currency,
+      exchange_rate: null,
+      status: "draft",
+      notes: request.notes || null,
+    })
+    .select()
+    .single();
+
+  if (invoiceError) throw invoiceError;
+
+  // Create line items
+  const lineItemsToInsert = request.lineItems.map((item, index) => ({
+    id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${index}`,
+    invoice_id: invoice.id,
+    item_catalog_id: null,
+    description: item.description,
+    quantity: item.quantity,
+    unit: item.unit,
+    unit_price: item.unitPrice,
+    subtotal: item.subtotal,
+    tax_rate: item.taxRate,
+    tax_amount: item.taxAmount,
+    total: item.total,
+    sort_order: item.sortOrder,
+  }));
+
+  const { data: insertedLineItems, error: itemsError } = await supabase
+    .from("invoice_line_items")
+    .insert(lineItemsToInsert)
+    .select();
+
+  if (itemsError) throw itemsError;
+
+  return {
+    invoice: snakeToCamel(invoice),
+    lineItems: snakeToCamel(insertedLineItems || []),
+  };
 };
