@@ -426,7 +426,14 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
                 lineItems={mockLineItems}
                 fileName="factura-preview.pdf"
               />
-              
+              <InvoiceGenerator
+                invoice={mockInvoice}
+                company={company}
+                lineItems={mockLineItems}
+                fileName="factura-copia-preview.pdf"
+                isCopy
+              />
+
               <Button onClick={handleConfirm} disabled={loading}>
                 <Eye className="h-4 w-4 mr-2" />
                 Confirmar y Continuar

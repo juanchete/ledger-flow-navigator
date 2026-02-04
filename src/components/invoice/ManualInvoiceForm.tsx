@@ -226,6 +226,12 @@ export const ManualInvoiceForm: React.FC = () => {
               company={generatedInvoice.company}
               lineItems={generatedInvoice.lineItems}
             />
+            <InvoiceGenerator
+              invoice={generatedInvoice.invoice}
+              company={generatedInvoice.company}
+              lineItems={generatedInvoice.lineItems}
+              isCopy
+            />
 
             <div className="flex gap-3">
               <Button

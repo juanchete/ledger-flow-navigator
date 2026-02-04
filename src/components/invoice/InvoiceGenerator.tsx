@@ -207,9 +207,10 @@ interface InvoicePDFProps {
   invoice: GeneratedInvoice;
   company: InvoiceCompany;
   lineItems: InvoiceLineItem[];
+  isCopy?: boolean;
 }
 
-const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice, company, lineItems }) => {
+const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice, company, lineItems, isCopy }) => {
   const formatCurrency = (amount: number, currency?: string) => {
     const formattedNumber = amount.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const currencySymbol = currency === 'VES' ? 'Bs.' : currency || 'Bs.';
@@ -363,8 +364,10 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice, company, lineItems }) 
           </Text>
         </View>
 
-        {/* Original Text */}
-        <Text style={styles.originalText}>ORIGINAL</Text>
+        {/* Original/Copy Text */}
+        <Text style={[styles.originalText, isCopy && { color: '#000000' }]}>
+          {isCopy ? 'COPIA' : 'ORIGINAL'}
+        </Text>
       </Page>
     </Document>
   );
@@ -376,19 +379,23 @@ interface InvoiceGeneratorProps {
   company: InvoiceCompany;
   lineItems: InvoiceLineItem[];
   fileName?: string;
+  isCopy?: boolean;
 }
 
-export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ 
-  invoice, 
-  company, 
+export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
+  invoice,
+  company,
   lineItems,
-  fileName 
+  fileName,
+  isCopy
 }) => {
-  const defaultFileName = fileName || `factura-${invoice.invoiceNumber}.pdf`;
+  const defaultFileName = fileName || (isCopy
+    ? `factura-copia-${invoice.invoiceNumber}.pdf`
+    : `factura-${invoice.invoiceNumber}.pdf`);
 
   return (
     <PDFDownloadLink
-      document={<InvoicePDF invoice={invoice} company={company} lineItems={lineItems} />}
+      document={<InvoicePDF invoice={invoice} company={company} lineItems={lineItems} isCopy={isCopy} />}
       fileName={defaultFileName}
       style={{ textDecoration: 'none' }}
     >
@@ -412,7 +419,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
                 <polyline points="7 10 12 15 17 10"></polyline>
                 <line x1="12" y1="15" x2="12" y2="3"></line>
               </svg>
-              Descargar PDF
+              {isCopy ? 'Descargar Copia (PDF)' : 'Descargar PDF'}
             </>
           )}
         </button>
