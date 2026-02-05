@@ -365,7 +365,7 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice, company, lineItems, is
         </View>
 
         {/* Original/Copy Text */}
-        <Text style={[styles.originalText, isCopy && { color: '#000000' }]}>
+        <Text style={[styles.originalText]}>
           {isCopy ? 'COPIA' : 'ORIGINAL'}
         </Text>
       </Page>
