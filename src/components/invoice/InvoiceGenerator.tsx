@@ -222,10 +222,8 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice, company, lineItems, is
   const controlNumber = invoiceNumberFormatted;
   const invoiceDate = format(new Date(invoice.invoiceDate), 'dd/MM/yyyy', { locale: es });
 
-  // Use the construction logo from public directory
-  const logoUrl = company.type === 'construction' 
-    ? '/construction-logo.png'
-    : (company.logoUrl || '/construction-logo.png');
+  // Prefer the company's uploaded logo; fall back to the bundled default
+  const logoUrl = company.logoUrl || '/construction-logo.png';
 
   return (
     <Document>

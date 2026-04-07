@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
 import {
   InvoiceCompany,
@@ -111,6 +112,44 @@ export const updateInvoiceCompany = async (
 
   if (error) throw error;
   return snakeToCamel(data);
+};
+
+// Company Logo Storage
+export const uploadCompanyLogo = async (file: File): Promise<string> => {
+  const allowed = ["image/png", "image/jpeg", "image/webp"];
+  if (!allowed.includes(file.type)) {
+    throw new Error("Formato no permitido. Use PNG, JPG o WEBP.");
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    throw new Error("La imagen no puede exceder 2MB.");
+  }
+
+  const ext = file.name.split(".").pop();
+  const filePath = `${uuidv4()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("company-logos")
+    .upload(filePath, file, {
+      cacheControl: "31536000",
+      upsert: false,
+    });
+
+  if (uploadError) {
+    throw new Error("Error subiendo logo: " + uploadError.message);
+  }
+
+  const { data } = supabase.storage
+    .from("company-logos")
+    .getPublicUrl(filePath);
+  return data.publicUrl;
+};
+
+export const deleteCompanyLogo = async (publicUrl: string): Promise<void> => {
+  const marker = "/company-logos/";
+  const idx = publicUrl.indexOf(marker);
+  if (idx === -1) return;
+  const path = publicUrl.substring(idx + marker.length);
+  await supabase.storage.from("company-logos").remove([path]);
 };
 
 // Template Management
@@ -631,6 +670,7 @@ export interface IManualInvoiceRequest {
   clientPhone?: string;
   clientEmail?: string;
   currency: 'USD' | 'VES';
+  invoiceDate: Date;
   dueInDays: number;
   notes?: string;
   lineItems: IManualInvoiceLineItem[];
@@ -655,9 +695,10 @@ export const createManualInvoice = async (
   // Generate invoice number
   const invoiceNumber = await generateInvoiceNumber(request.companyId);
 
-  // Calculate dates
-  const invoiceDate = new Date();
-  const dueDate = new Date();
+  // Calculate dates — use provided invoiceDate (not always today) and derive dueDate
+  const invoiceDate = new Date(request.invoiceDate);
+  invoiceDate.setHours(12, 0, 0, 0); // avoid UTC off-by-one when serializing
+  const dueDate = new Date(invoiceDate);
   dueDate.setDate(dueDate.getDate() + request.dueInDays);
 
   // Create invoice

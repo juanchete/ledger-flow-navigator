@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,8 +12,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 import { toast } from '@/components/ui/use-toast';
-import { Building2, User, Package, Calculator, FileText, Loader2 } from 'lucide-react';
+import { Building2, User, Package, Calculator, FileText, Loader2, Calendar as CalendarIcon } from 'lucide-react';
 import { InvoiceCompanySelector } from './InvoiceCompanySelector';
 import { InvoiceLineItemsTable, IInvoiceLineItemInput } from './InvoiceLineItemsTable';
 import { createManualInvoice } from '@/integrations/supabase/invoiceService';
@@ -28,6 +33,7 @@ const formSchema = z.object({
   clientPhone: z.string().optional(),
   clientEmail: z.string().email('Email inválido').optional().or(z.literal('')),
   notes: z.string().optional(),
+  invoiceDate: z.date({ required_error: 'La fecha de factura es obligatoria' }),
   dueInDays: z.number().min(0).max(365),
 });
 
@@ -63,6 +69,7 @@ export const ManualInvoiceForm: React.FC = () => {
     handleSubmit,
     formState: { errors },
     watch,
+    control,
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -72,6 +79,7 @@ export const ManualInvoiceForm: React.FC = () => {
       clientPhone: '',
       clientEmail: '',
       notes: '',
+      invoiceDate: new Date(),
       dueInDays: 30,
     },
   });
@@ -151,6 +159,7 @@ export const ManualInvoiceForm: React.FC = () => {
         clientPhone: data.clientPhone,
         clientEmail: data.clientEmail || undefined,
         currency,
+        invoiceDate: data.invoiceDate,
         dueInDays: data.dueInDays,
         notes: data.notes,
         lineItems: lineItems.map((item, index) => ({
@@ -409,7 +418,47 @@ export const ManualInvoiceForm: React.FC = () => {
           <CardTitle className="text-lg">Opciones Adicionales</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label>Fecha de Factura *</Label>
+              <Controller
+                control={control}
+                name="invoiceDate"
+                render={({ field }) => (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className={cn(
+                          'w-full justify-start text-left font-normal',
+                          !field.value && 'text-muted-foreground'
+                        )}
+                        disabled={isSubmitting}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {field.value
+                          ? format(field.value, 'dd/MM/yyyy', { locale: es })
+                          : 'Seleccione una fecha'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={(date) => date && field.onChange(date)}
+                        initialFocus
+                        locale={es}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                )}
+              />
+              {errors.invoiceDate && (
+                <p className="text-sm text-destructive">{errors.invoiceDate.message}</p>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label>Moneda</Label>
               <Select
