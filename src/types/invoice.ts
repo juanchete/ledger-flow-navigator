@@ -18,6 +18,8 @@ export interface InvoiceCompany {
   email?: string;
   website?: string;
   logoUrl?: string;
+  invoiceRangeFrom?: string;
+  invoiceRangeTo?: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

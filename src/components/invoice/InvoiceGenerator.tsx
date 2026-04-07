@@ -23,15 +23,15 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 0,
   },
   logoSection: {
-    width: 150,
+    width: 220,
     marginRight: 20,
   },
   logo: {
-    width: 140,
-    height: 56,
+    width: 210,
+    height: 84,
   },
   companySection: {
     flex: 1,
@@ -55,26 +55,30 @@ const styles = StyleSheet.create({
   },
   controlInfo: {
     marginTop: 10,
-    fontSize: 9,
+    fontSize: 12,
   },
   controlRow: {
     flexDirection: 'row',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   controlLabel: {
-    width: 80,
+    width: 110,
+    fontSize: 12,
+    color: '#FF0000',
   },
   controlValue: {
+    fontSize: 12,
     fontWeight: 'bold',
     color: '#FF0000',
   },
   separator: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#000000',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#CCCCCC',
     marginVertical: 8,
   },
   billToSection: {
-    marginBottom: 8,
+    marginTop: 2,
+    marginBottom: 4,
   },
   sectionTitle: {
     fontSize: 9,
@@ -88,13 +92,9 @@ const styles = StyleSheet.create({
   },
   table: {
     marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#000000',
   },
   tableHeader: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#000000',
     padding: 5,
   },
   tableHeaderCell: {
@@ -153,10 +153,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: 260,
-    marginTop: 10,
-    paddingTop: 5,
-    borderTopWidth: 2,
-    borderTopColor: '#000000',
+    paddingTop: 2,
   },
   grandTotalLabel: {
     fontSize: 12,
@@ -169,8 +166,9 @@ const styles = StyleSheet.create({
     width: 140,
   },
   paymentConditions: {
-    marginTop: 8,
-    marginBottom: 10,
+    position: 'absolute',
+    bottom: 100,
+    left: 25,
   },
   paymentConditionsText: {
     fontSize: 9,
@@ -212,15 +210,20 @@ interface InvoicePDFProps {
 }
 
 const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice, company, lineItems, isCopy }) => {
-  const formatCurrency = (amount: number, currency?: string) => {
-    const formattedNumber = amount.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const currencySymbol = currency === 'VES' ? 'Bs.' : currency || 'Bs.';
-    return `${currencySymbol} ${formattedNumber}`;
+  const formatNumber = (amount: number): string => {
+    return amount.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const formatCurrency = (amount: number, currency?: string): string => {
+    const currencySymbol = currency === 'VES' ? 'Bs.S.' : currency || 'Bs.S.';
+    return `${currencySymbol} ${formatNumber(amount)}`;
   };
 
   // Generate control and invoice numbers
-  const invoiceNumberFormatted = invoice.invoiceNumber || '00-000000';
-  const controlNumber = invoiceNumberFormatted;
+  const fullInvoiceNumber = invoice.invoiceNumber || '00-000000';
+  const dashIdx = fullInvoiceNumber.indexOf('-');
+  const numberPrefix = dashIdx >= 0 ? fullInvoiceNumber.substring(0, dashIdx) : '00';
+  const numberValue = dashIdx >= 0 ? fullInvoiceNumber.substring(dashIdx + 1) : fullInvoiceNumber;
   const invoiceDate = format(parseLocalDate(invoice.invoiceDate), 'dd/MM/yyyy', { locale: es });
 
   // Prefer the company's uploaded logo; fall back to the bundled default
@@ -229,64 +232,48 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice, company, lineItems, is
   return (
     <Document>
       <Page size="LETTER" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerRow}>
-            {/* Left side with Logo and Company Info below */}
-            <View style={styles.logoWithText}>
-              <View style={styles.logoSection}>
-                <Image style={styles.logo} src={logoUrl} />
-              </View>
-              
-              {/* Company Info below logo */}
-              <View style={{marginTop: 5}}>
-                <Text style={styles.sectionTitle}>De</Text>
-                <Text style={styles.companyTitle}>{company.legalName}</Text>
-                <Text style={styles.companyDetails}>{company.address}</Text>
-                <Text style={styles.companyDetails}>{company.city} - {company.state}</Text>
-                <Text style={styles.companyDetails}>Código Postal {company.postalCode}</Text>
-                <Text style={styles.companyDetails}>Telf: {company.phone}</Text>
-                <Text style={styles.companyDetails}>e-mail: {company.email}</Text>
-              </View>
+        {/* Header: Logo + Client (left) | Company + Control (right) */}
+        <View style={styles.headerRow}>
+          {/* Left column: Logo then client info */}
+          <View style={{ flex: 1 }}>
+            <Image style={styles.logo} src={logoUrl} />
+            <View style={{ marginTop: 8 }}>
+              <Text style={styles.sectionTitle}>Facturar a</Text>
+              <Text style={styles.companyTitle}>{invoice.clientName}</Text>
+              <Text style={styles.clientInfo}>{invoice.clientTaxId || 'J-00000000-0'}</Text>
+              <Text style={styles.clientInfo}>{invoice.clientAddress || 'Caracas - Venezuela'}</Text>
+              {invoice.clientPhone && <Text style={styles.clientInfo}>Tlf: {invoice.clientPhone}</Text>}
             </View>
+          </View>
 
-            {/* Right Company Info */}
-            <View style={styles.companyRightSection}>
-              <Text style={styles.companyTitle}>{company.name}</Text>
-              <Text style={styles.companyDetails}>Rif: {company.taxId}</Text>
-              <Text style={styles.companyDetails}>{company.address}</Text>
-              <Text style={styles.companyDetails}>{company.city} {company.postalCode}</Text>
-              <Text style={styles.companyDetails}>{company.phone}</Text>
-              <Text style={styles.companyDetails}>email:{company.email}</Text>
-              
-              <View style={styles.controlInfo}>
-                <View style={styles.controlRow}>
-                  <Text style={styles.controlLabel}>N° de control</Text>
-                  <Text style={styles.controlValue}>{controlNumber}</Text>
-                </View>
-                <View style={styles.controlRow}>
-                  <Text style={styles.controlLabel}>N° de factura</Text>
-                  <Text style={styles.controlValue}>{invoiceNumberFormatted}</Text>
-                </View>
-                <View style={styles.controlRow}>
-                  <Text style={styles.controlLabel}>Fecha</Text>
-                  <Text style={styles.companyDetails}>{invoiceDate}</Text>
-                </View>
+          {/* Right column: Company info + control numbers */}
+          <View style={styles.companyRightSection}>
+            <Text style={styles.companyTitle}>{company.legalName || company.name}</Text>
+            <Text style={styles.companyDetails}>RIF: {company.taxId}</Text>
+            <Text style={styles.companyDetails}>{company.address}</Text>
+            <Text style={styles.companyDetails}>
+              Telfs.: {company.phone} / e-mail: {company.email}
+            </Text>
+            <Text style={[styles.companyDetails, { marginTop: 4, fontWeight: 'bold' }]}>FORMA LIBRE</Text>
+
+            <View style={styles.controlInfo}>
+              <View style={styles.controlRow}>
+                <Text style={styles.controlLabel}>N° CONTROL {numberPrefix} —</Text>
+                <Text style={styles.controlValue}>{numberValue}</Text>
+              </View>
+              <View style={styles.controlRow}>
+                <Text style={styles.controlLabel}>N° FACTURA {numberPrefix} —</Text>
+                <Text style={styles.controlValue}>{numberValue}</Text>
+              </View>
+              <View style={styles.controlRow}>
+                <Text style={[styles.controlLabel, { color: '#000000' }]}>Fecha</Text>
+                <Text style={styles.companyDetails}>{invoiceDate}</Text>
               </View>
             </View>
           </View>
         </View>
 
         <View style={styles.separator} />
-
-        {/* Bill To Section */}
-        <View style={styles.billToSection}>
-          <Text style={styles.sectionTitle}>Facturar a</Text>
-          <Text style={styles.companyTitle}>{invoice.clientName}</Text>
-          <Text style={styles.clientInfo}>J-{invoice.clientTaxId || '00000000-0'}</Text>
-          <Text style={styles.clientInfo}>{invoice.clientAddress || 'Caracas - Venezuela'}</Text>
-          {invoice.clientPhone && <Text style={styles.clientInfo}>Tel: {invoice.clientPhone}</Text>}
-        </View>
 
         {/* Items Table */}
         <View style={styles.table}>
@@ -300,26 +287,26 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice, company, lineItems, is
 
           {/* Table Content */}
           {lineItems.map((item, index) => (
-            <View key={index} style={[styles.tableRow, index > 0 && { borderTopWidth: 1, borderTopColor: '#E0E0E0' }]}>
+            <View key={index} style={styles.tableRow}>
               <View style={styles.quantityColumn}>
                 <Text style={styles.tableCell}>{item.quantity}</Text>
               </View>
               
               <View style={styles.descriptionColumn}>
                 <Text style={styles.tableCell}>
-                  {item.description.toUpperCase()}
+                  {item.description}
                 </Text>
               </View>
               
               <View style={styles.priceColumn}>
                 <Text style={styles.tableCell}>
-                  {formatCurrency(item.unitPrice, invoice.currency)}
+                  {formatNumber(item.unitPrice)}
                 </Text>
               </View>
-              
+
               <View style={styles.totalColumn}>
                 <Text style={styles.tableCell}>
-                  {formatCurrency(item.subtotal, invoice.currency)}
+                  {formatNumber(item.subtotal)}
                 </Text>
               </View>
             </View>
@@ -327,17 +314,20 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice, company, lineItems, is
         </View>
 
         {/* Totals Section */}
+        {/* Full-width line before Subtotal */}
+        <View style={styles.separator} />
+
         <View style={styles.totalsSection}>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Subtotal:</Text>
-            <Text style={styles.totalValue}>{formatCurrency(invoice.subtotal, invoice.currency)}</Text>
+            <Text style={styles.totalValue}>{formatNumber(invoice.subtotal)}</Text>
           </View>
-          
+
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>IVA 16.0%:</Text>
-            <Text style={styles.totalValue}>{formatCurrency(invoice.taxAmount, invoice.currency)}</Text>
+            <Text style={styles.totalValue}>{formatNumber(invoice.taxAmount)}</Text>
           </View>
-          
+
           <View style={styles.grandTotalRow}>
             <Text style={styles.grandTotalLabel}>Total</Text>
             <Text style={styles.grandTotalValue}>{formatCurrency(invoice.totalAmount, invoice.currency)}</Text>
@@ -350,16 +340,16 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice, company, lineItems, is
           <Text style={styles.paymentConditionsText}>100%</Text>
         </View>
 
-        {/* Legal Box */}
+        {/* Legal Box (printer / imprenta info) */}
         <View style={styles.legalBox}>
           <Text style={styles.legalText}>
-            SEGUN GACETA OFICIAL 39.795 DE FECHA 08/11/2011 , PROVIDENCIA ADMINISTRATIVA N°071 , DEBE CUMPLIR CON LA LEY.
+            RAZON SOCIAL "LITO EXPRESO C.A." RIF: J00130277-8 - Calle Colombia entre 2da y 3ra. Av. Catia - Caracas
           </Text>
           <Text style={styles.legalText}>
-            Telfs.: (0212) 870.48.83 / 870.48.91 - 6316 DOCUMENTO VÁ SIN TACHADURAS NI ENMENDADURAS./ Cantidad enmenda: 100
+            Telfs.: (0212) 870-46-83 / 870-25-89 - ESTE DOCUMENTO VA SIN TACHADURA NI ENMENDADURA / Cantidad emitidas: 100
           </Text>
           <Text style={styles.legalText}>
-            Fecha: 25-02-2022 - Control: 00-00152 desde el N°00-00300    Fecha Límite: Providencia  SENAIT: 01000001 / Régimen Capital Gaceta desde el Nº 22-02-2008
+            Fecha: 04-04-2022 - Control Desde el N° {company.invoiceRangeFrom || '00-000701'} Hasta el N° {company.invoiceRangeTo || '00000800'} - Forma Libre / Providencia: SENIAT/ 01/00604 / Region Capital Gaceta oficial del 01-02-2008
           </Text>
         </View>
 

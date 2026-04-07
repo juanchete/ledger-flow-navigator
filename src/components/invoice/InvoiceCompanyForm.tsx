@@ -51,6 +51,8 @@ const buildEmptyValue = (): Partial<InvoiceCompany> => ({
   email: '',
   website: '',
   logoUrl: undefined,
+  invoiceRangeFrom: '',
+  invoiceRangeTo: '',
   isActive: true,
 });
 
@@ -189,6 +191,8 @@ export const InvoiceCompanyForm: React.FC<IInvoiceCompanyFormProps> = ({
       email: form.email ?? '',
       website: form.website ?? '',
       logoUrl: finalLogoUrl,
+      invoiceRangeFrom: form.invoiceRangeFrom ?? '',
+      invoiceRangeTo: form.invoiceRangeTo ?? '',
       isActive: form.isActive ?? true,
     };
 
@@ -390,6 +394,33 @@ export const InvoiceCompanyForm: React.FC<IInvoiceCompanyFormProps> = ({
             disabled={isSubmitting}
           />
         </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="invoice-range-from">Rango Factura — Desde N°</Label>
+            <Input
+              id="invoice-range-from"
+              value={form.invoiceRangeFrom ?? ''}
+              onChange={(e) => setForm({ ...form, invoiceRangeFrom: e.target.value })}
+              placeholder="00-000701"
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="invoice-range-to">Rango Factura — Hasta N°</Label>
+            <Input
+              id="invoice-range-to"
+              value={form.invoiceRangeTo ?? ''}
+              onChange={(e) => setForm({ ...form, invoiceRangeTo: e.target.value })}
+              placeholder="00-000800"
+              disabled={isSubmitting}
+            />
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground -mt-2">
+          Rango autorizado por la imprenta. Aparece en el bloque legal del PDF.
+        </p>
       </div>
 
       <DialogFooter>

@@ -80,6 +80,8 @@ export const createInvoiceCompany = async (
       email: company.email,
       website: company.website,
       logo_url: company.logoUrl,
+      invoice_range_from: company.invoiceRangeFrom,
+      invoice_range_to: company.invoiceRangeTo,
       is_active: company.isActive,
     })
     .select()
@@ -150,6 +152,64 @@ export const deleteCompanyLogo = async (publicUrl: string): Promise<void> => {
   if (idx === -1) return;
   const path = publicUrl.substring(idx + marker.length);
   await supabase.storage.from("company-logos").remove([path]);
+};
+
+// Extract numeric portion from an invoice number like "00-000500" or "500"
+const extractInvoiceSequence = (value?: string | null): number | null => {
+  if (!value) return null;
+  const dashIdx = value.indexOf("-");
+  const numericPart = dashIdx >= 0 ? value.substring(dashIdx + 1) : value;
+  const parsed = parseInt(numericPart.replace(/\D/g, ""), 10);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+// Format a numeric sequence back into the invoice-number format using a
+// reference value to preserve the prefix and zero-padding (e.g. 4500 + "00-000500" → "00-004500")
+const formatInvoiceSequence = (
+  seq: number,
+  reference: string
+): string => {
+  const dashIdx = reference.indexOf("-");
+  const prefix = dashIdx >= 0 ? reference.substring(0, dashIdx + 1) : "";
+  const numericPart = dashIdx >= 0 ? reference.substring(dashIdx + 1) : reference;
+  const padded = seq.toString().padStart(numericPart.length, "0");
+  return `${prefix}${padded}`;
+};
+
+// If the new invoice number falls outside the company's authorized range,
+// automatically expand the range to include it.
+export const ensureInvoiceRangeCovers = async (
+  companyId: string,
+  invoiceNumber: string
+): Promise<void> => {
+  const newSeq = extractInvoiceSequence(invoiceNumber);
+  if (newSeq === null) return;
+
+  const company = await getInvoiceCompany(companyId);
+  if (!company) return;
+
+  const fromSeq = extractInvoiceSequence(company.invoiceRangeFrom);
+  const toSeq = extractInvoiceSequence(company.invoiceRangeTo);
+
+  const updates: Partial<InvoiceCompany> = {};
+
+  if (fromSeq !== null && newSeq < fromSeq) {
+    updates.invoiceRangeFrom = formatInvoiceSequence(
+      newSeq,
+      company.invoiceRangeFrom!
+    );
+  }
+
+  if (toSeq !== null && newSeq > toSeq) {
+    updates.invoiceRangeTo = formatInvoiceSequence(
+      newSeq,
+      company.invoiceRangeTo!
+    );
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await updateInvoiceCompany(companyId, updates);
+  }
 };
 
 // Template Management
@@ -664,6 +724,7 @@ export interface IManualInvoiceLineItem {
 // Manual Invoice Creation Request Interface
 export interface IManualInvoiceRequest {
   companyId: string;
+  invoiceNumber?: string;
   clientName: string;
   clientTaxId?: string;
   clientAddress?: string;
@@ -692,8 +753,9 @@ export const createManualInvoice = async (
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) throw new Error("User not authenticated");
 
-  // Generate invoice number
-  const invoiceNumber = await generateInvoiceNumber(request.companyId);
+  // Use provided invoice number or auto-generate
+  const invoiceNumber = request.invoiceNumber?.trim() ||
+    (await generateInvoiceNumber(request.companyId));
 
   // Calculate dates — use provided invoiceDate (not always today) and derive dueDate
   const invoiceDate = new Date(request.invoiceDate);
@@ -731,6 +793,9 @@ export const createManualInvoice = async (
 
   if (invoiceError) throw invoiceError;
 
+  // Auto-expand the company's authorized range if the new invoice number falls outside
+  await ensureInvoiceRangeCovers(request.companyId, invoiceNumber).catch(() => undefined);
+
   // Create line items
   const lineItemsToInsert = request.lineItems.map((item, index) => ({
     id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${index}`,
@@ -763,6 +828,7 @@ export const createManualInvoice = async (
 // Manual Invoice Update Request Interface
 export interface IUpdateManualInvoiceRequest {
   invoiceId: string;
+  invoiceNumber?: string;
   clientName: string;
   clientTaxId?: string;
   clientAddress?: string;
@@ -788,27 +854,40 @@ export const updateManualInvoice = async (
   const dueDate = new Date(invoiceDate);
   dueDate.setDate(dueDate.getDate() + request.dueInDays);
 
+  const updatePayload: Record<string, unknown> = {
+    invoice_date: invoiceDate.toISOString(),
+    due_date: dueDate.toISOString(),
+    client_name: request.clientName,
+    client_tax_id: request.clientTaxId || null,
+    client_address: request.clientAddress || null,
+    client_phone: request.clientPhone || null,
+    client_email: request.clientEmail || null,
+    subtotal: request.subtotal,
+    tax_amount: request.taxAmount,
+    total_amount: request.totalAmount,
+    currency: request.currency,
+    notes: request.notes || null,
+  };
+
+  if (request.invoiceNumber?.trim()) {
+    updatePayload.invoice_number = request.invoiceNumber.trim();
+  }
+
   const { data: invoice, error: invoiceError } = await supabase
     .from("generated_invoices")
-    .update({
-      invoice_date: invoiceDate.toISOString(),
-      due_date: dueDate.toISOString(),
-      client_name: request.clientName,
-      client_tax_id: request.clientTaxId || null,
-      client_address: request.clientAddress || null,
-      client_phone: request.clientPhone || null,
-      client_email: request.clientEmail || null,
-      subtotal: request.subtotal,
-      tax_amount: request.taxAmount,
-      total_amount: request.totalAmount,
-      currency: request.currency,
-      notes: request.notes || null,
-    })
+    .update(updatePayload)
     .eq("id", request.invoiceId)
     .select()
     .single();
 
   if (invoiceError) throw invoiceError;
+
+  // Auto-expand the company's authorized range if the (possibly new) invoice
+  // number falls outside the current bounds.
+  if (invoice?.company_id && invoice?.invoice_number) {
+    await ensureInvoiceRangeCovers(invoice.company_id, invoice.invoice_number)
+      .catch(() => undefined);
+  }
 
   // Wipe and re-insert line items
   const { error: deleteError } = await supabase

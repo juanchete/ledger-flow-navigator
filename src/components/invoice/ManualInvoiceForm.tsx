@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -23,6 +23,7 @@ import {
   createManualInvoice,
   getInvoiceCompany,
   updateManualInvoice,
+  generateInvoiceNumber,
 } from '@/integrations/supabase/invoiceService';
 import { InvoiceGenerator } from './InvoiceGenerator';
 import { GeneratedInvoice, InvoiceCompany, InvoiceLineItem } from '@/types/invoice';
@@ -38,6 +39,7 @@ export interface IManualInvoiceFormProps {
 const TAX_RATE = 16; // 16% IVA
 
 const formSchema = z.object({
+  invoiceNumber: z.string().optional(),
   clientName: z.string().min(1, 'El nombre del cliente es obligatorio'),
   clientTaxId: z.string().optional(),
   clientAddress: z.string().optional(),
@@ -120,10 +122,12 @@ export const ManualInvoiceForm: React.FC<IManualInvoiceFormProps> = ({
     formState: { errors },
     watch,
     control,
+    setValue,
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: isEdit
       ? {
+          invoiceNumber: initialInvoice!.invoiceNumber ?? '',
           clientName: initialInvoice!.clientName,
           clientTaxId: initialInvoice!.clientTaxId ?? '',
           clientAddress: initialInvoice!.clientAddress ?? '',
@@ -137,6 +141,7 @@ export const ManualInvoiceForm: React.FC<IManualInvoiceFormProps> = ({
           ),
         }
       : {
+          invoiceNumber: '',
           clientName: '',
           clientTaxId: '',
           clientAddress: '',
@@ -147,6 +152,18 @@ export const ManualInvoiceForm: React.FC<IManualInvoiceFormProps> = ({
           dueInDays: 30,
         },
   });
+
+  // Auto-populate next invoice number when company is selected (create mode only)
+  useEffect(() => {
+    if (isEdit || !companyId) return;
+    let cancelled = false;
+    generateInvoiceNumber(companyId)
+      .then(num => {
+        if (!cancelled) setValue('invoiceNumber', num);
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [companyId, isEdit, setValue]);
 
   // Calculate totals
   const totals = useMemo(() => {
@@ -229,6 +246,7 @@ export const ManualInvoiceForm: React.FC<IManualInvoiceFormProps> = ({
       }));
 
       const commonPayload = {
+        invoiceNumber: data.invoiceNumber || undefined,
         clientName: data.clientName,
         clientTaxId: data.clientTaxId,
         clientAddress: data.clientAddress,
@@ -380,6 +398,19 @@ export const ManualInvoiceForm: React.FC<IManualInvoiceFormProps> = ({
               La empresa emisora no puede cambiarse una vez creada la factura.
             </p>
           )}
+
+          <div className="mt-4 space-y-2">
+            <Label htmlFor="invoiceNumber">Número de Factura</Label>
+            <Input
+              id="invoiceNumber"
+              {...register('invoiceNumber')}
+              placeholder="Se generará automáticamente"
+              disabled={isSubmitting}
+            />
+            <p className="text-xs text-muted-foreground">
+              Se sugiere automáticamente al seleccionar empresa. Puedes modificarlo si lo necesitas.
+            </p>
+          </div>
         </CardContent>
       </Card>
 
