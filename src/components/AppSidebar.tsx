@@ -51,6 +51,11 @@ const sidebarItems = [
     label: "Facturas",
   },
   {
+    href: "/empresas",
+    icon: "building",
+    label: "Empresas",
+  },
+  {
     href: "/accounts",
     icon: "creditCard",
     label: "Cuentas Bancarias",

@@ -3,6 +3,7 @@ import { Document, Page, Text, View, StyleSheet, PDFDownloadLink, Image, Font } 
 import { GeneratedInvoice, InvoiceCompany, InvoiceLineItem } from '@/types/invoice';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { parseLocalDate } from '@/lib/utils';
 
 // Define styles for the PDF
 const styles = StyleSheet.create({
@@ -97,35 +98,35 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   tableHeaderCell: {
-    fontSize: 10,
+    fontSize: 8,
     fontWeight: 'bold',
-    paddingHorizontal: 5,
+    paddingHorizontal: 4,
   },
   tableRow: {
     flexDirection: 'row',
-    minHeight: 25,
-    padding: 6,
+    minHeight: 22,
+    padding: 5,
     alignItems: 'center',
   },
   tableCell: {
-    fontSize: 9,
-    paddingHorizontal: 5,
+    fontSize: 8,
+    paddingHorizontal: 4,
   },
   // Column widths
   quantityColumn: {
-    width: 60,
+    width: 45,
     textAlign: 'center',
   },
   descriptionColumn: {
     flex: 1,
-    paddingRight: 10,
+    paddingRight: 8,
   },
   priceColumn: {
-    width: 80,
+    width: 100,
     textAlign: 'right',
   },
   totalColumn: {
-    width: 80,
+    width: 100,
     textAlign: 'right',
   },
   totalsSection: {
@@ -135,37 +136,37 @@ const styles = StyleSheet.create({
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: 200,
+    width: 260,
     marginBottom: 3,
   },
   totalLabel: {
-    fontSize: 10,
+    fontSize: 9,
     textAlign: 'right',
     marginRight: 20,
   },
   totalValue: {
-    fontSize: 10,
+    fontSize: 9,
     textAlign: 'right',
-    width: 100,
+    width: 140,
   },
   grandTotalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: 200,
+    width: 260,
     marginTop: 10,
     paddingTop: 5,
     borderTopWidth: 2,
     borderTopColor: '#000000',
   },
   grandTotalLabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'bold',
   },
   grandTotalValue: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'bold',
     textAlign: 'right',
-    width: 100,
+    width: 140,
   },
   paymentConditions: {
     marginTop: 8,
@@ -220,7 +221,7 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice, company, lineItems, is
   // Generate control and invoice numbers
   const invoiceNumberFormatted = invoice.invoiceNumber || '00-000000';
   const controlNumber = invoiceNumberFormatted;
-  const invoiceDate = format(new Date(invoice.invoiceDate), 'dd/MM/yyyy', { locale: es });
+  const invoiceDate = format(parseLocalDate(invoice.invoiceDate), 'dd/MM/yyyy', { locale: es });
 
   // Prefer the company's uploaded logo; fall back to the bundled default
   const logoUrl = company.logoUrl || '/construction-logo.png';

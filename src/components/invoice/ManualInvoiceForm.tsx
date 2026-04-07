@@ -14,15 +14,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { cn } from '@/lib/utils';
+import { cn, parseLocalDate } from '@/lib/utils';
 import { toast } from '@/components/ui/use-toast';
 import { Building2, User, Package, Calculator, FileText, Loader2, Calendar as CalendarIcon } from 'lucide-react';
 import { InvoiceCompanySelector } from './InvoiceCompanySelector';
 import { InvoiceLineItemsTable, IInvoiceLineItemInput } from './InvoiceLineItemsTable';
-import { createManualInvoice } from '@/integrations/supabase/invoiceService';
-import { getInvoiceCompany } from '@/integrations/supabase/invoiceService';
+import {
+  createManualInvoice,
+  getInvoiceCompany,
+  updateManualInvoice,
+} from '@/integrations/supabase/invoiceService';
 import { InvoiceGenerator } from './InvoiceGenerator';
 import { GeneratedInvoice, InvoiceCompany, InvoiceLineItem } from '@/types/invoice';
+
+export interface IManualInvoiceFormProps {
+  mode?: 'create' | 'edit';
+  initialInvoice?: GeneratedInvoice & {
+    company?: InvoiceCompany;
+    lineItems?: InvoiceLineItem[];
+  };
+}
 
 const TAX_RATE = 16; // 16% IVA
 
@@ -43,20 +54,59 @@ const generateLineId = (): string => {
   return `line_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 };
 
-export const ManualInvoiceForm: React.FC = () => {
+const deriveDueInDays = (
+  invoiceDate: Date | string,
+  dueDate: Date | string
+): number => {
+  const start = new Date(invoiceDate).getTime();
+  const end = new Date(dueDate).getTime();
+  const diff = Math.round((end - start) / (1000 * 60 * 60 * 24));
+  return diff >= 0 ? diff : 0;
+};
+
+const mapInitialLineItems = (
+  items: InvoiceLineItem[] | undefined
+): IInvoiceLineItemInput[] => {
+  if (!items || items.length === 0) {
+    return [
+      {
+        id: generateLineId(),
+        description: '',
+        quantity: 1,
+        unit: 'unidad',
+        unitPrice: 0,
+        subtotal: 0,
+      },
+    ];
+  }
+  return [...items]
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map(item => ({
+      id: item.id,
+      description: item.description,
+      quantity: Number(item.quantity),
+      unit: item.unit,
+      unitPrice: Number(item.unitPrice),
+      subtotal: Number(item.subtotal),
+    }));
+};
+
+export const ManualInvoiceForm: React.FC<IManualInvoiceFormProps> = ({
+  mode = 'create',
+  initialInvoice,
+}) => {
   const navigate = useNavigate();
-  const [companyId, setCompanyId] = useState<string>('');
-  const [currency, setCurrency] = useState<'USD' | 'VES'>('VES');
-  const [lineItems, setLineItems] = useState<IInvoiceLineItemInput[]>([
-    {
-      id: generateLineId(),
-      description: '',
-      quantity: 1,
-      unit: 'unidad',
-      unitPrice: 0,
-      subtotal: 0,
-    },
-  ]);
+  const isEdit = mode === 'edit' && !!initialInvoice;
+
+  const [companyId, setCompanyId] = useState<string>(
+    isEdit ? initialInvoice!.companyId : ''
+  );
+  const [currency, setCurrency] = useState<'USD' | 'VES'>(
+    isEdit ? (initialInvoice!.currency as 'USD' | 'VES') : 'VES'
+  );
+  const [lineItems, setLineItems] = useState<IInvoiceLineItemInput[]>(() =>
+    mapInitialLineItems(isEdit ? initialInvoice!.lineItems : undefined)
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generatedInvoice, setGeneratedInvoice] = useState<{
     invoice: GeneratedInvoice;
@@ -72,16 +122,30 @@ export const ManualInvoiceForm: React.FC = () => {
     control,
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      clientName: '',
-      clientTaxId: '',
-      clientAddress: '',
-      clientPhone: '',
-      clientEmail: '',
-      notes: '',
-      invoiceDate: new Date(),
-      dueInDays: 30,
-    },
+    defaultValues: isEdit
+      ? {
+          clientName: initialInvoice!.clientName,
+          clientTaxId: initialInvoice!.clientTaxId ?? '',
+          clientAddress: initialInvoice!.clientAddress ?? '',
+          clientPhone: initialInvoice!.clientPhone ?? '',
+          clientEmail: initialInvoice!.clientEmail ?? '',
+          notes: initialInvoice!.notes ?? '',
+          invoiceDate: parseLocalDate(initialInvoice!.invoiceDate),
+          dueInDays: deriveDueInDays(
+            parseLocalDate(initialInvoice!.invoiceDate),
+            parseLocalDate(initialInvoice!.dueDate)
+          ),
+        }
+      : {
+          clientName: '',
+          clientTaxId: '',
+          clientAddress: '',
+          clientPhone: '',
+          clientEmail: '',
+          notes: '',
+          invoiceDate: new Date(),
+          dueInDays: 30,
+        },
   });
 
   // Calculate totals
@@ -145,14 +209,26 @@ export const ManualInvoiceForm: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      // Get company details for PDF generation
       const company = await getInvoiceCompany(companyId);
       if (!company) {
         throw new Error('Empresa no encontrada');
       }
 
-      const result = await createManualInvoice({
-        companyId,
+      const mappedLineItems = lineItems.map((item, index) => ({
+        description: item.description,
+        quantity: item.quantity,
+        unit: item.unit,
+        unitPrice: item.unitPrice,
+        subtotal: item.subtotal,
+        taxRate: TAX_RATE,
+        taxAmount: parseFloat(((item.subtotal * TAX_RATE) / 100).toFixed(2)),
+        total: parseFloat(
+          (item.subtotal + (item.subtotal * TAX_RATE) / 100).toFixed(2)
+        ),
+        sortOrder: index,
+      }));
+
+      const commonPayload = {
         clientName: data.clientName,
         clientTaxId: data.clientTaxId,
         clientAddress: data.clientAddress,
@@ -162,23 +238,22 @@ export const ManualInvoiceForm: React.FC = () => {
         invoiceDate: data.invoiceDate,
         dueInDays: data.dueInDays,
         notes: data.notes,
-        lineItems: lineItems.map((item, index) => ({
-          description: item.description,
-          quantity: item.quantity,
-          unit: item.unit,
-          unitPrice: item.unitPrice,
-          subtotal: item.subtotal,
-          taxRate: TAX_RATE,
-          taxAmount: parseFloat(((item.subtotal * TAX_RATE) / 100).toFixed(2)),
-          total: parseFloat((item.subtotal + (item.subtotal * TAX_RATE) / 100).toFixed(2)),
-          sortOrder: index,
-        })),
+        lineItems: mappedLineItems,
         subtotal: totals.subtotal,
         taxAmount: totals.taxAmount,
         totalAmount: totals.total,
-      });
+      };
 
-      // Set the generated invoice for PDF download
+      const result = isEdit
+        ? await updateManualInvoice({
+            invoiceId: initialInvoice!.id,
+            ...commonPayload,
+          })
+        : await createManualInvoice({
+            companyId,
+            ...commonPayload,
+          });
+
       setGeneratedInvoice({
         invoice: result.invoice,
         company,
@@ -186,14 +261,18 @@ export const ManualInvoiceForm: React.FC = () => {
       });
 
       toast({
-        title: 'Factura creada',
-        description: `Factura ${result.invoice.invoiceNumber} creada exitosamente`,
+        title: isEdit ? 'Factura actualizada' : 'Factura creada',
+        description: `Factura ${result.invoice.invoiceNumber} ${
+          isEdit ? 'actualizada' : 'creada'
+        } exitosamente`,
       });
     } catch (error) {
-      console.error('Error creating invoice:', error);
+      console.error('Error saving invoice:', error);
       toast({
         title: 'Error',
-        description: 'No se pudo crear la factura',
+        description: isEdit
+          ? 'No se pudo actualizar la factura'
+          : 'No se pudo crear la factura',
         variant: 'destructive',
       });
     } finally {
@@ -209,7 +288,9 @@ export const ManualInvoiceForm: React.FC = () => {
           <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
             <FileText className="h-8 w-8 text-green-600" />
           </div>
-          <CardTitle className="text-2xl">Factura Creada Exitosamente</CardTitle>
+          <CardTitle className="text-2xl">
+            {isEdit ? 'Factura Actualizada Exitosamente' : 'Factura Creada Exitosamente'}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="bg-muted/50 rounded-lg p-4 space-y-2">
@@ -250,25 +331,27 @@ export const ManualInvoiceForm: React.FC = () => {
               >
                 Ver Lista de Facturas
               </Button>
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => {
-                  setGeneratedInvoice(null);
-                  setLineItems([
-                    {
-                      id: generateLineId(),
-                      description: '',
-                      quantity: 1,
-                      unit: 'unidad',
-                      unitPrice: 0,
-                      subtotal: 0,
-                    },
-                  ]);
-                }}
-              >
-                Crear Otra Factura
-              </Button>
+              {!isEdit && (
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setGeneratedInvoice(null);
+                    setLineItems([
+                      {
+                        id: generateLineId(),
+                        description: '',
+                        quantity: 1,
+                        unit: 'unidad',
+                        unitPrice: 0,
+                        subtotal: 0,
+                      },
+                    ]);
+                  }}
+                >
+                  Crear Otra Factura
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -290,8 +373,13 @@ export const ManualInvoiceForm: React.FC = () => {
           <InvoiceCompanySelector
             value={companyId}
             onChange={setCompanyId}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isEdit}
           />
+          {isEdit && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              La empresa emisora no puede cambiarse una vez creada la factura.
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -521,7 +609,7 @@ export const ManualInvoiceForm: React.FC = () => {
           ) : (
             <>
               <FileText className="h-4 w-4 mr-2" />
-              Guardar y Generar PDF
+              {isEdit ? 'Guardar Cambios' : 'Guardar y Generar PDF'}
             </>
           )}
         </Button>

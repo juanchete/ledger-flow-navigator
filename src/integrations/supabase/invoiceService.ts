@@ -759,3 +759,89 @@ export const createManualInvoice = async (
     lineItems: snakeToCamel(insertedLineItems || []),
   };
 };
+
+// Manual Invoice Update Request Interface
+export interface IUpdateManualInvoiceRequest {
+  invoiceId: string;
+  clientName: string;
+  clientTaxId?: string;
+  clientAddress?: string;
+  clientPhone?: string;
+  clientEmail?: string;
+  currency: "USD" | "VES";
+  invoiceDate: Date;
+  dueInDays: number;
+  notes?: string;
+  lineItems: IManualInvoiceLineItem[];
+  subtotal: number;
+  taxAmount: number;
+  totalAmount: number;
+}
+
+// Update an existing manual invoice. invoice_number, company_id and
+// transaction_id are intentionally immutable.
+export const updateManualInvoice = async (
+  request: IUpdateManualInvoiceRequest
+): Promise<IManualInvoiceResult> => {
+  const invoiceDate = new Date(request.invoiceDate);
+  invoiceDate.setHours(12, 0, 0, 0);
+  const dueDate = new Date(invoiceDate);
+  dueDate.setDate(dueDate.getDate() + request.dueInDays);
+
+  const { data: invoice, error: invoiceError } = await supabase
+    .from("generated_invoices")
+    .update({
+      invoice_date: invoiceDate.toISOString(),
+      due_date: dueDate.toISOString(),
+      client_name: request.clientName,
+      client_tax_id: request.clientTaxId || null,
+      client_address: request.clientAddress || null,
+      client_phone: request.clientPhone || null,
+      client_email: request.clientEmail || null,
+      subtotal: request.subtotal,
+      tax_amount: request.taxAmount,
+      total_amount: request.totalAmount,
+      currency: request.currency,
+      notes: request.notes || null,
+    })
+    .eq("id", request.invoiceId)
+    .select()
+    .single();
+
+  if (invoiceError) throw invoiceError;
+
+  // Wipe and re-insert line items
+  const { error: deleteError } = await supabase
+    .from("invoice_line_items")
+    .delete()
+    .eq("invoice_id", request.invoiceId);
+
+  if (deleteError) throw deleteError;
+
+  const lineItemsToInsert = request.lineItems.map((item, index) => ({
+    id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${index}`,
+    invoice_id: request.invoiceId,
+    item_catalog_id: null,
+    description: item.description,
+    quantity: item.quantity,
+    unit: item.unit,
+    unit_price: item.unitPrice,
+    subtotal: item.subtotal,
+    tax_rate: item.taxRate,
+    tax_amount: item.taxAmount,
+    total: item.total,
+    sort_order: item.sortOrder,
+  }));
+
+  const { data: insertedLineItems, error: itemsError } = await supabase
+    .from("invoice_line_items")
+    .insert(lineItemsToInsert)
+    .select();
+
+  if (itemsError) throw itemsError;
+
+  return {
+    invoice: snakeToCamel(invoice),
+    lineItems: snakeToCamel(insertedLineItems || []),
+  };
+};

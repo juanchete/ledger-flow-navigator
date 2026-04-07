@@ -9,11 +9,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { 
-  FileText, 
-  Download, 
-  Eye, 
-  Search, 
+import {
+  FileText,
+  Download,
+  Eye,
+  Search,
   Filter,
   Building2,
   Calendar,
@@ -21,9 +21,11 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  FileX
+  FileX,
+  Pencil
 } from 'lucide-react';
 import { GeneratedInvoice, InvoiceCompany } from '@/types/invoice';
+import { parseLocalDate } from '@/lib/utils';
 import { getInvoices, getInvoiceCompanies, updateInvoiceStatus, getInvoice } from '@/integrations/supabase/invoiceService';
 import { InvoiceGenerator } from '@/components/invoice/InvoiceGenerator';
 import { InvoicePreview } from '@/components/invoice/InvoicePreview';
@@ -273,7 +275,7 @@ export default function Invoices() {
                           {invoice.invoiceNumber}
                         </TableCell>
                         <TableCell>
-                          {format(new Date(invoice.invoiceDate), 'dd/MM/yyyy', { locale: es })}
+                          {format(parseLocalDate(invoice.invoiceDate), 'dd/MM/yyyy', { locale: es })}
                         </TableCell>
                         <TableCell>{invoice.clientName}</TableCell>
                         <TableCell>
@@ -303,10 +305,20 @@ export default function Invoices() {
                               variant="ghost"
                               size="icon"
                               onClick={() => handleViewInvoice(invoice)}
+                              aria-label="Ver factura"
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            
+
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => navigate(`/invoices/${invoice.id}/edit`)}
+                              aria-label="Editar factura"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+
                             {invoice.company && invoice.lineItems && (
                               <InvoiceGenerator
                                 invoice={invoice}
