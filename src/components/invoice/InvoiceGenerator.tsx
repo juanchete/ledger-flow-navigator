@@ -169,9 +169,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 100,
     left: 25,
+    right: 25,
   },
   paymentConditionsText: {
     fontSize: 9,
+  },
+  additionalNotesTitle: {
+    marginTop: 6,
   },
   legalBox: {
     position: 'absolute',
@@ -338,6 +342,12 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice, company, lineItems, is
         <View style={styles.paymentConditions}>
           <Text style={styles.sectionTitle}>Condiciones y forma de pago</Text>
           <Text style={styles.paymentConditionsText}>100%</Text>
+          {invoice.notes && (
+            <>
+              <Text style={[styles.sectionTitle, styles.additionalNotesTitle]}>Notas Adicionales</Text>
+              <Text style={styles.paymentConditionsText}>{invoice.notes}</Text>
+            </>
+          )}
         </View>
 
         {/* Legal Box (printer / imprenta info) */}
